@@ -44,6 +44,7 @@ use egui::Button;
 use egui::CentralPanel;
 use egui::Context;
 use egui::Grid;
+use egui::Id;
 use egui::Key;
 use egui::Label;
 use egui::Layout;
@@ -52,6 +53,7 @@ use egui::ScrollArea;
 use egui::Sense;
 use egui::SidePanel;
 use egui::SizeHint;
+use egui::TextEdit;
 use egui::TopBottomPanel;
 use egui::Ui;
 use egui::Vec2;
@@ -74,7 +76,7 @@ pub struct TabPosts {
     view: Vec<PostId>,
     hovered: Option<PostId>,
     filter: Filter,
-    inline_editors: BTreeMap<PostId, InlineEditor>, // how many inline editors are active?
+    inline_editors: BTreeMap<(PostId, Field), InlineEditor>,
     group: Option<Group>,
     scroll_delta: f32,
     scroll_item: f32,
@@ -108,27 +110,21 @@ pub enum Overlay {
     Button(String),
 }
 
-#[derive(Default)]
 struct InlineEditor {
-    pub pl: Option<String>,
-    pub en: Option<String>,
-}
-
-impl InlineEditor {
-    fn is_empty(&self) -> bool {
-        self.pl.is_none() && self.en.is_none()
-    }
+    pub text: String,
+    pub id: Id,
 }
 
 pub type MessageQueue = VecDeque<Message>;
 
 #[derive(Clone)]
 pub enum Message {
+    FocusItem(Id),
     EditTags(PostId),
     EditSpecies(PostId),
     View(PostId),
     Publish(PostId),
-    InlineEdit {
+    InlineEditStart {
         id: PostId,
         field: Field,
     },
@@ -198,7 +194,7 @@ impl Message {
             Self::EditSpecies(_) => unreachable!(),
             Self::View(_) => unreachable!(),
             Self::Publish(_) => unreachable!(),
-            Self::InlineEdit { .. } => unreachable!(),
+            Self::InlineEditStart { .. } => unreachable!(),
             Self::InlineEditChange { .. } => unreachable!(),
             Self::InlineSaveChange { .. } => unreachable!(),
             Self::InlineDiscardChanges { .. } => unreachable!(),
@@ -239,6 +235,7 @@ impl Message {
             Self::ScrollEnd => "scroll to the end",
             Self::Undo => "undo changes",
             Self::FocusSearch => "focus search bar",
+            Self::FocusItem(_) => unreachable!(),
         }
     }
 }
@@ -255,7 +252,7 @@ impl From<EditDetails> for Message {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum Field {
     Polish,
     English,
@@ -368,68 +365,47 @@ impl TabPosts {
             Message::EditSpecies(id) => {
                 queue.push_back(Message::OpenModalSpecies(id));
             }
-            Message::InlineEdit { id, field } => {
+            Message::InlineEditStart { id, field } => {
                 let post = db.post_mut(&id);
-                let editor = self.inline_editors.entry(post.id).or_default();
+                let key = (post.id, field);
+                let id = Id::new(format!("inline-editor-{id:?}-{field:?}"));
 
-                match field {
-                    Field::Polish => {
-                        editor.pl = Some(post.pl.clone());
-                    }
-                    Field::English => {
-                        editor.en = Some(post.en.clone());
-                    }
-                }
+                let editor = InlineEditor {
+                    id,
+                    text: match field {
+                        Field::Polish => post.pl.clone(),
+                        Field::English => post.en.clone(),
+                    },
+                };
+
+                self.inline_editors.insert(key, editor);
+                queue.push_back(Message::FocusItem(id));
             }
             Message::InlineEditChange { id, field, value } => {
-                let editor = self.inline_editors.get_mut(&id).unwrap();
+                let editor = self.inline_editors.get_mut(&(id, field)).unwrap();
 
-                match field {
-                    Field::Polish => {
-                        editor.pl = Some(value);
-                    }
-                    Field::English => {
-                        editor.en = Some(value);
-                    }
-                }
+                editor.text = value;
             }
             Message::InlineSaveChange { id, field } => {
-                let editor = self.inline_editors.get_mut(&id).unwrap();
+                let editor = self.inline_editors.remove(&(id, field)).unwrap();
 
                 match field {
                     Field::Polish => {
-                        let val = editor.pl.take().unwrap();
+                        let val = editor.text;
 
                         let msg = EditDetails::SetPolish(id, val);
                         main_queue.push_back(msg.into());
                     }
                     Field::English => {
-                        let val = editor.en.take().unwrap();
+                        let val = editor.text;
 
                         let msg = EditDetails::SetEnglish(id, val);
                         main_queue.push_back(msg.into());
                     }
                 }
-
-                if editor.is_empty() {
-                    self.inline_editors.remove(&id);
-                }
             }
             Message::InlineDiscardChanges { id, field } => {
-                let editor = self.inline_editors.get_mut(&id).unwrap();
-
-                match field {
-                    Field::Polish => {
-                        editor.pl = None;
-                    }
-                    Field::English => {
-                        editor.en = None;
-                    }
-                }
-
-                if editor.is_empty() {
-                    self.inline_editors.remove(&id);
-                }
+                self.inline_editors.remove(&(id, field));
             }
             Message::View(id) => {
                 queue.push_back(Message::OpenModalView(id));
@@ -583,6 +559,9 @@ impl TabPosts {
             }
             Message::ScrollEnd => {
                 self.scroll_delta = -self.scroll_everything;
+            }
+            Message::FocusItem(id) => {
+                ctx.memory_mut(|mem| mem.request_focus(id));
             }
         }
     }
@@ -837,39 +816,26 @@ impl TabPosts {
                 Grid::new(("image-details", post.id))
                     .num_columns(2)
                     .show(ui, |ui| {
-                        let inline_editor = self.inline_editors.get(&post.id);
+                        let inline_editor = self.inline_editors.get(&(post.id, Field::Polish));
 
                         icon_pl(ui);
 
                         ui.horizontal(|ui| {
-                            let msg = inline_edit(
-                                ui,
-                                post.id,
-                                &post.pl,
-                                Field::Polish,
-                                match inline_editor {
-                                    Some(editor) => &editor.pl,
-                                    None => &None,
-                                },
-                            );
+                            let msg =
+                                inline_edit(ui, post.id, &post.pl, Field::Polish, inline_editor);
                             if let Some(msg) = msg {
                                 queue.push_back(msg);
                             }
                         });
                         ui.end_row();
 
+                        let inline_editor = self.inline_editors.get(&(post.id, Field::English));
+
                         icon_en(ui);
+
                         ui.horizontal(|ui| {
-                            let msg = inline_edit(
-                                ui,
-                                post.id,
-                                &post.en,
-                                Field::English,
-                                match inline_editor {
-                                    Some(editor) => &editor.en,
-                                    None => &None,
-                                },
-                            );
+                            let msg =
+                                inline_edit(ui, post.id, &post.en, Field::English, inline_editor);
                             if let Some(msg) = msg {
                                 queue.push_back(msg);
                             }
@@ -994,12 +960,13 @@ fn inline_edit(
     id: PostId,
     current: &str,
     field: Field,
-    inline: &Option<String>,
+    inline: Option<&InlineEditor>,
 ) -> Option<Message> {
     let mut result: Option<Message> = None;
-    if let Some(val) = inline {
-        let mut value = val.to_owned();
-        let resp = ui.text_edit_singleline(&mut value);
+    if let Some(inline) = inline {
+        let mut value = inline.text.clone();
+        let edit = TextEdit::singleline(&mut value).id(inline.id);
+        let resp = ui.add(edit);
         let changed = value != current;
         if resp.changed() {
             result = Some(Message::InlineEditChange { id, field, value });
@@ -1021,7 +988,7 @@ fn inline_edit(
         }
     } else {
         if ui.button(ICON_EDIT).clicked() {
-            result = Some(Message::InlineEdit { id, field });
+            result = Some(Message::InlineEditStart { id, field });
         }
         if button::copy(ui, !current.is_empty()) {
             result = Some(Message::Copy(current.to_owned()));
@@ -1029,7 +996,7 @@ fn inline_edit(
 
         let label = Label::new(current).selectable(false).sense(Sense::CLICK);
         if ui.add(label).clicked() {
-            result = Some(Message::InlineEdit { id, field });
+            result = Some(Message::InlineEditStart { id, field });
         }
     }
 

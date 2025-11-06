@@ -295,6 +295,23 @@ fn render_text(post: &Post, db: &Database) -> String {
         f.writeln(format!("{EN_EMOJI} {}", post.en));
     }
 
+    if post.species.is_some() && !f.is_empty() {
+        f.newline();
+
+        let latin = post.species.as_ref().unwrap();
+        let species = db.species_by_latin(latin).unwrap();
+        let latin = latin.as_str();
+
+        let pl = format_species(PL_EMOJI, &species.pl);
+        let en = format_species(EN_EMOJI, &species.en);
+        f.writeln(match (pl, en) {
+            (None, None) => latin.to_owned(),
+            (Some(pl), None) => format!("{latin} ({pl})"),
+            (None, Some(en)) => format!("{latin} ({en})"),
+            (Some(pl), Some(en)) => format!("{latin} ({pl} {en})"),
+        });
+    }
+
     if f.is_empty() && post.species.is_some() {
         let latin = post.species.as_ref().unwrap();
         let species = db.species_by_latin(latin).unwrap();
@@ -332,6 +349,14 @@ fn render_text(post: &Post, db: &Database) -> String {
     }
 
     f.buf
+}
+
+fn format_species(emoji: &str, name: &str) -> Option<String> {
+    if name.is_empty() {
+        return None;
+    }
+
+    Some(format!("{emoji} {name}"))
 }
 
 #[derive(Default)]

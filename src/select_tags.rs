@@ -7,6 +7,7 @@ use crate::style::Style;
 use const_format::formatcp as fmt;
 use egui::Align;
 use egui::Button;
+use egui::Key;
 use egui::Layout;
 use egui::RichText;
 use egui::Sense;
@@ -98,7 +99,13 @@ impl SelectTags {
             ui.columns_const::<2, ()>(|[col1, col2]| {
                 col1.horizontal(|ui| {
                     let mut tag = self.new_tag.clone();
-                    if ui.text_edit_singleline(&mut tag).changed() {
+
+                    let resp = ui.text_edit_singleline(&mut tag);
+                    if resp.lost_focus() {
+                        if ui.input(|input| input.key_pressed(Key::Enter)) {
+                            result = Some(SelectTagsAction::AddNew);
+                        }
+                    } else if resp.changed() {
                         result = Some(SelectTagsAction::UpdateNewTag(tag.clone()));
                     }
 
@@ -146,7 +153,7 @@ impl SelectTags {
         for group in groups {
             if !group.name.is_empty() {
                 ui.horizontal(|ui| {
-                    let enabled = group.is_empty();
+                    let enabled = !group.is_empty();
                     let mut text = RichText::new(&group.name).heading();
                     if !enabled {
                         let color = ui.style().visuals.weak_text_color();

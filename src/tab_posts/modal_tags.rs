@@ -236,6 +236,9 @@ impl ModalTags {
                 self.view_selected_tags(ui, style, queue);
 
                 self.draw_tag_groups(ui, db, queue);
+
+                ui.separator();
+
                 self.draw_frequent_tags(ui, style, queue);
             });
         });

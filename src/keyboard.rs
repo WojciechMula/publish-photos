@@ -18,7 +18,7 @@ impl KeyboardMapping {
     }
 
     pub fn ctrl(mut self, key: Key, msg: Message) -> Self {
-        self.add(key, Modifiers::COMMAND, msg);
+        self.add(key, Modifiers::COMMAND.plus(Modifiers::CTRL), msg);
         self
     }
 
@@ -42,7 +42,7 @@ impl KeyboardMapping {
         let list = self.map.get(&key)?;
 
         for (modifiers, value) in list {
-            if !modifiers.is_none() && input.consume_key(*modifiers, key) {
+            if !modifiers.is_none() && consume_key(input, *modifiers, key) {
                 discard_text_input(input);
                 return Some(value.clone());
             }
@@ -56,7 +56,7 @@ impl KeyboardMapping {
         let list = self.map.get(&key)?;
 
         for (modifiers, value) in list {
-            if input.consume_key(*modifiers, key) {
+            if consume_key(input, *modifiers, key) {
                 discard_text_input(input);
                 return Some(value.clone());
             }
@@ -64,6 +64,29 @@ impl KeyboardMapping {
 
         None
     }
+}
+
+fn consume_key(input: &mut InputState, modifiers: Modifiers, key: Key) -> bool {
+    let mut found = false;
+
+    input.events.retain(|event| match event {
+        Event::Key {
+            key: ev_key,
+            modifiers: ev_mod,
+            pressed: true,
+            ..
+        } => {
+            if *ev_key == key && ev_mod.matches_exact(modifiers) {
+                found = true;
+                false
+            } else {
+                true
+            }
+        }
+        _ => true,
+    });
+
+    found
 }
 
 fn discard_text_input(input: &mut InputState) {
