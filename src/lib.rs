@@ -20,6 +20,7 @@ mod tab_posts;
 mod tab_species;
 mod tab_tag_groups;
 mod tab_tag_translations;
+mod tag_hints;
 mod widgets;
 
 // --------------------------------------------------

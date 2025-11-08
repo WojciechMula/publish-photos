@@ -21,6 +21,8 @@ pub use tag_translations::TagTranslations;
 pub use tag_translations::TranslatedTag;
 pub use tag_translations::Translation;
 
+use crate::tag_hints::Builder;
+use crate::tag_hints::TagHints;
 use serde::Deserialize;
 use serde::Serialize;
 use std::cmp::Ordering;
@@ -47,6 +49,9 @@ pub struct Database {
 
     #[serde(skip)]
     tags_views: BTreeMap<Selector, TranslatedTagsView>,
+
+    #[serde(skip)]
+    pub tag_hints: TagHints,
 
     #[serde(skip)]
     pub version: u64,
@@ -296,6 +301,7 @@ impl Database {
     pub fn refresh_caches(&mut self) {
         self.refresh_picture_views();
         self.refresh_tags_views();
+        self.refresh_tag_hints();
     }
 
     fn refresh_tags_views(&mut self) {
@@ -342,6 +348,19 @@ impl Database {
         self.tags_views.insert(all, view_all);
     }
 
+    pub fn refresh_tag_hints(&mut self) {
+        if !self.tag_hints.is_empty() {
+            return;
+        }
+
+        let mut builder = Builder::default();
+        for post in self.posts.0.iter() {
+            builder.record_occurances(&post.tags);
+        }
+
+        self.tag_hints = builder.capture();
+    }
+
     pub fn refresh_all_records(&mut self) {
         for (id, entry) in self.posts.0.iter_mut().enumerate() {
             entry.id = PostId(id);
@@ -375,6 +394,7 @@ impl Database {
 
     pub fn invalidate_tags_cache(&mut self) {
         self.tags_views.clear();
+        self.tag_hints.clear();
     }
 
     pub fn bump_version(&mut self) {

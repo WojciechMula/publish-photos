@@ -5,6 +5,7 @@ use crate::db::Database;
 use crate::db::PostId;
 use crate::db::Selector;
 use crate::db::TagList;
+use crate::db::TranslatedTag;
 use crate::db::TranslatedTagsView;
 use crate::edit_details::EditDetails;
 use crate::edit_tags::Action;
@@ -13,6 +14,7 @@ use crate::gui::button;
 use crate::help;
 use crate::keyboard::KeyboardMapping;
 use crate::select_tags::tag_button;
+use crate::select_tags::tag_button_aux;
 use crate::select_tags::SelectTags;
 use crate::select_tags::SelectTagsAction;
 use crate::select_tags::TranslatedTagGroup;
@@ -31,6 +33,7 @@ use egui::TopBottomPanel;
 use egui::Ui;
 use std::cell::LazyCell;
 use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_ADD;
@@ -126,7 +129,7 @@ impl ModalTags {
         tab_queue: &mut TabMessageQueue,
     ) {
         while let Some(message) = self.queue.pop_front() {
-            self.handle_message(style, db, message, tab_queue);
+            self.handle_message(ctx, style, db, message, tab_queue);
         }
 
         //self.show_pl =
@@ -154,6 +157,7 @@ impl ModalTags {
 
     fn handle_message(
         &mut self,
+        ctx: &Context,
         style: &Style,
         db: &Database,
         message: Message,
@@ -167,24 +171,27 @@ impl ModalTags {
                 self.queue.push_back(SelectTagsAction::Undo.into());
             }
             Message::SoftClose => {
-                if self.is_modified() {
-                    let msg: TabMessage = Message::SaveAndExit.into();
-                    let save = ConfirmOption::new("Save and exit")
-                        .with_message(msg.into())
-                        .with_color(style.button.save);
+                if !ctx.is_popup_open() {
+                    if self.is_modified() {
+                        let msg: TabMessage = Message::SaveAndExit.into();
+                        let save = ConfirmOption::new("Save and exit")
+                            .with_message(msg.into())
+                            .with_color(style.button.save);
 
-                    let msg: TabMessage = Message::CancelAndExit.into();
-                    let abort = ConfirmOption::new(fmt!("{ICON_WARNING} Abandon changes"))
-                        .with_message(msg.into())
-                        .with_color(style.button.discard);
+                        let msg: TabMessage = Message::CancelAndExit.into();
+                        let abort = ConfirmOption::new(fmt!("{ICON_WARNING} Abandon changes"))
+                            .with_message(msg.into())
+                            .with_color(style.button.discard);
 
-                    let cont = ConfirmOption::new("Continue").with_key(Key::Escape);
+                        let cont = ConfirmOption::new("Continue").with_key(Key::Escape);
 
-                    let confirm = Confirm::new("The tags got changed.", vec![abort, save, cont]);
+                        let confirm =
+                            Confirm::new("The tags got changed.", vec![abort, save, cont]);
 
-                    tab_queue.push_back(TabMessage::Confirm(confirm));
-                } else {
-                    tab_queue.push_back(TabMessage::CloseModal);
+                        tab_queue.push_back(TabMessage::Confirm(confirm));
+                    } else {
+                        tab_queue.push_back(TabMessage::CloseModal);
+                    }
                 }
             }
             Message::CancelAndExit => {
@@ -233,7 +240,7 @@ impl ModalTags {
 
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered_justified(|ui| {
-                self.view_selected_tags(ui, style, queue);
+                self.view_selected_tags(ui, db, style, queue);
 
                 self.draw_tag_groups(ui, db, queue);
 
@@ -244,11 +251,31 @@ impl ModalTags {
         });
     }
 
-    fn view_selected_tags(&self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
+    fn view_selected_tags(
+        &self,
+        ui: &mut Ui,
+        db: &Database,
+        style: &Style,
+        queue: &mut MessageQueue,
+    ) {
         ui.horizontal_wrapped(|ui| {
             for tag in self.select_tags.tags.iter() {
                 let enabled = true;
-                if tag_button(ui, tag, enabled, style) {
+                let resp = tag_button_aux(ui, tag, enabled, style);
+
+                let hints = mk_hints(tag, db, &self.select_tags.tags);
+                if !hints.is_empty() {
+                    resp.context_menu(|ui| {
+                        for tag in hints {
+                            if tag_button(ui, tag.base(), enabled, style) {
+                                let action = Action::AddTag(tag);
+                                queue.push_back(action.into());
+                            }
+                        }
+                    });
+                }
+
+                if resp.clicked() {
                     let action = Action::RemoveTag(tag.clone());
                     queue.push_back(action.into());
                 }
@@ -288,4 +315,38 @@ impl ModalTags {
     fn is_modified(&self) -> bool {
         self.select_tags.tags != self.original
     }
+}
+
+fn mk_hints(tag: &String, db: &Database, existing: &TagList) -> Vec<TranslatedTag> {
+    let Some(hints) = db.tag_hints.lookup(tag) else {
+        return Vec::new();
+    };
+
+    let mut result = Vec::<TranslatedTag>::new();
+
+    let mut seen = HashSet::<String>::new();
+    for tag in existing.iter() {
+        seen.insert(tag.clone());
+    }
+
+    for tag in hints.iter() {
+        if seen.contains(tag) {
+            continue;
+        }
+
+        let trans = db.tag_translations.as_tag(tag);
+        match &trans {
+            TranslatedTag::Translation(trans) => {
+                seen.insert(trans.pl.clone());
+                seen.insert(trans.en.clone());
+            }
+            TranslatedTag::Untranslated(tag) => {
+                seen.insert(tag.clone());
+            }
+        }
+
+        result.push(trans);
+    }
+
+    result
 }

@@ -9,6 +9,7 @@ use egui::Align;
 use egui::Button;
 use egui::Key;
 use egui::Layout;
+use egui::Response;
 use egui::RichText;
 use egui::Sense;
 use egui::Ui;
@@ -251,7 +252,11 @@ impl TranslatedTagGroup {
     }
 }
 
-pub fn tag_button(ui: &mut Ui, tag: &str, enabled: bool, style: &Style) -> bool {
+pub fn tag_button(ui: &mut Ui, tag: &String, enabled: bool, style: &Style) -> bool {
+    tag_button_aux(ui, tag, enabled, style).clicked()
+}
+
+pub fn tag_button_aux(ui: &mut Ui, tag: &String, enabled: bool, style: &Style) -> Response {
     let (bg_color, fg_color) = if enabled {
         (style.tag_active_bg, style.tag_active_fg)
     } else {
@@ -265,10 +270,9 @@ pub fn tag_button(ui: &mut Ui, tag: &str, enabled: bool, style: &Style) -> bool 
     ui.visuals_mut().widgets.inactive.fg_stroke.color = fg_color;
 
     let button = Button::new(tag);
-
-    let result = ui.add_enabled(enabled, button).clicked();
+    let resp = ui.add_enabled(enabled, button);
 
     ui.visuals_mut().widgets = prev;
 
-    result
+    resp
 }
