@@ -223,7 +223,7 @@ impl Message {
             Self::StartGroupingCurrent => "start grouping photos in the highlighted post",
             Self::PublishCurrent => "publish the highlighted post",
             Self::EditTagsCurrent => "edit tags of the highlighted post",
-            Self::EditSpeciesCurrent => "edit view of the highlighted post",
+            Self::EditSpeciesCurrent => "edit species of the highlighted post",
             Self::ViewCurrent => "fullscreen view of photos from the highlighted post",
             Self::ScrollDown => "slightly scroll list down",
             Self::ScrollUp => "slightly scroll list up",

@@ -18,6 +18,11 @@ use egui::WidgetText;
 use egui::WidgetType;
 use std::sync::Arc;
 
+use egui_material_icons::icons::ICON_ARROW_BACK;
+use egui_material_icons::icons::ICON_ARROW_DOWNWARD;
+use egui_material_icons::icons::ICON_ARROW_FORWARD;
+use egui_material_icons::icons::ICON_ARROW_UPWARD;
+
 pub struct Shortcut {
     modifiers: Modifiers,
     key: Key,
@@ -66,7 +71,15 @@ impl Shortcut {
             result.push(WidgetText::Text("Shift".to_owned()));
         }
 
-        result.push(WidgetText::Text(self.key.name().to_owned()));
+        let key_name = match self.key {
+            Key::ArrowUp => ICON_ARROW_UPWARD,
+            Key::ArrowDown => ICON_ARROW_DOWNWARD,
+            Key::ArrowLeft => ICON_ARROW_BACK,
+            Key::ArrowRight => ICON_ARROW_FORWARD,
+            _ => self.key.name(),
+        };
+
+        result.push(WidgetText::Text(key_name.to_string()));
 
         result
     }
