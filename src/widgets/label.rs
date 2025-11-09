@@ -34,7 +34,6 @@ impl Label {
 }
 
 impl Label {
-    /// Do layout and position the galley in the ui, without painting it or adding widget info.
     pub fn layout_in_ui(&self, ui: &mut Ui) -> (Rect, Arc<Galley>, Response) {
         let layout_job = Arc::unwrap_or_clone(self.text.clone().into_layout_job(
             ui.style(),

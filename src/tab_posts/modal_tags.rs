@@ -13,14 +13,13 @@ use crate::gui::add_image;
 use crate::gui::button;
 use crate::help;
 use crate::keyboard::KeyboardMapping;
-use crate::select_tags::tag_button;
-use crate::select_tags::tag_button_aux;
 use crate::select_tags::SelectTags;
 use crate::select_tags::SelectTagsAction;
 use crate::select_tags::TranslatedTagGroup;
 use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
+use crate::widgets::tag_button;
 use const_format::formatcp as fmt;
 use egui::CentralPanel;
 use egui::CollapsingHeader;
@@ -280,14 +279,13 @@ impl ModalTags {
     ) {
         ui.horizontal_wrapped(|ui| {
             for tag in self.select_tags.tags.iter() {
-                let enabled = true;
-                let resp = tag_button_aux(ui, tag, enabled, style);
+                let resp = ui.add(tag_button(tag, "", style));
 
                 let hints = mk_hints(tag, db, &self.select_tags.tags);
                 if !hints.is_empty() {
                     resp.context_menu(|ui| {
                         for tag in hints {
-                            if tag_button(ui, tag.base(), enabled, style) {
+                            if ui.add(tag_button(tag.base(), "", style)).clicked() {
                                 let action = Action::AddTag(tag);
                                 queue.push_back(action.into());
                             }

@@ -4,6 +4,7 @@ use crate::db::TranslatedTag;
 use crate::db::TranslatedTagsView;
 use crate::edit_tags::Action;
 use crate::style::Style;
+use crate::widgets::tag_button;
 use const_format::formatcp as fmt;
 use egui::Align;
 use egui::Button;
@@ -12,7 +13,6 @@ use egui::Layout;
 use egui::Popup;
 use egui::PopupAnchor;
 use egui::PopupCloseBehavior;
-use egui::Response;
 use egui::RichText;
 use egui::Sense;
 use egui::SetOpenCommand;
@@ -115,9 +115,8 @@ impl SelectTags {
                         result = Some(SelectTagsAction::UpdateNewTag(tag.clone()));
                     }
 
-                    let show_popup = resp.has_focus()
-                        && !self.new_tag.is_empty()
-                        && !self.autocompletion.is_empty();
+                    let show_popup = !self.new_tag.is_empty() && !self.autocompletion.is_empty();
+
                     Popup::from_response(&resp)
                         .open_memory(Some(SetOpenCommand::Bool(show_popup)))
                         .anchor(PopupAnchor::from(&resp))
@@ -127,7 +126,13 @@ impl SelectTags {
 
                             for tag in self.autocompletion.iter().take(10) {
                                 let enabled = true;
-                                if tag_button(ui, tag.base(), enabled, style) {
+                                if ui
+                                    .add_enabled(
+                                        enabled,
+                                        tag_button(tag.base(), &self.new_tag, style),
+                                    )
+                                    .clicked()
+                                {
                                     let action = Action::AddTag(tag.clone());
                                     result = Some(action.into());
                                 }
@@ -209,7 +214,10 @@ impl SelectTags {
                     }
                     needs_space = self.show_pl;
 
-                    if tag_button(ui, tag.base(), enabled, style) {
+                    if ui
+                        .add_enabled(enabled, tag_button(tag.base(), &self.new_tag, style))
+                        .clicked()
+                    {
                         result = Some(Action::AddTag(tag.clone()).into());
                     }
 
@@ -279,29 +287,4 @@ impl TranslatedTagGroup {
     pub fn is_empty(&self) -> bool {
         self.tags.is_empty()
     }
-}
-
-pub fn tag_button(ui: &mut Ui, tag: &String, enabled: bool, style: &Style) -> bool {
-    tag_button_aux(ui, tag, enabled, style).clicked()
-}
-
-pub fn tag_button_aux(ui: &mut Ui, tag: &String, enabled: bool, style: &Style) -> Response {
-    let (bg_color, fg_color) = if enabled {
-        (style.tag_active_bg, style.tag_active_fg)
-    } else {
-        (style.tag_inactive_bg, style.tag_inactive_fg)
-    };
-
-    let prev = ui.visuals_mut().widgets.clone();
-    ui.visuals_mut().widgets.hovered.weak_bg_fill = bg_color;
-    ui.visuals_mut().widgets.hovered.fg_stroke.color = fg_color;
-    ui.visuals_mut().widgets.inactive.weak_bg_fill = bg_color;
-    ui.visuals_mut().widgets.inactive.fg_stroke.color = fg_color;
-
-    let button = Button::new(tag);
-    let resp = ui.add_enabled(enabled, button);
-
-    ui.visuals_mut().widgets = prev;
-
-    resp
 }

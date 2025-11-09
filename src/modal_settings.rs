@@ -129,22 +129,22 @@ impl ModalSettings {
                     .show(ui, |ui| {
                         ui.label("active: forground");
                         select_color(ui, "tag_active_fg", &mut self.new.tag_active_fg);
-
                         ui.end_row();
 
                         ui.label("active: background");
                         select_color(ui, "tag_active_bg", &mut self.new.tag_active_bg);
-
                         ui.end_row();
 
-                        ui.label("inactive: forground");
-                        select_color(ui, "tag_inactive_fg", &mut self.new.tag_inactive_fg);
-
+                        ui.label("hovered: forground");
+                        select_color(ui, "tag_hovered_fg", &mut self.new.tag_hovered_fg);
                         ui.end_row();
 
-                        ui.label("inactive: background");
-                        select_color(ui, "tag_inactive_bg", &mut self.new.tag_inactive_bg);
+                        ui.label("hovered: background");
+                        select_color(ui, "tag_hovered_bg", &mut self.new.tag_hovered_bg);
+                        ui.end_row();
 
+                        ui.label("highlighted: foreground");
+                        select_color(ui, "tag_highlight_fg", &mut self.new.tag_highlight_fg);
                         ui.end_row();
                     });
             });

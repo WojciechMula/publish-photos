@@ -8,13 +8,13 @@ use crate::edit_tags::Action;
 use crate::gui::button;
 use crate::help;
 use crate::keyboard::KeyboardMapping;
-use crate::select_tags::tag_button;
 use crate::select_tags::SelectTags;
 use crate::select_tags::SelectTagsAction;
 use crate::select_tags::TranslatedTagGroup;
 use crate::style::Style;
 use crate::tab_tag_groups::Message as TabMessage;
 use crate::tab_tag_groups::MessageQueue as TabMessageQueue;
+use crate::widgets::tag_button;
 use const_format::formatcp as fmt;
 use egui::Align;
 use egui::CentralPanel;
@@ -295,8 +295,7 @@ impl ModalEdit {
 
         ui.horizontal_wrapped(|ui| {
             for tag in self.select_tags.tags.iter() {
-                let enabled = true;
-                if tag_button(ui, tag, enabled, style) {
+                if ui.add(tag_button(tag, "", style)).clicked() {
                     queue.push_back(Action::RemoveTag(tag.clone()).into());
                 }
             }
