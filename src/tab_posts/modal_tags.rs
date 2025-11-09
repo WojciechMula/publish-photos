@@ -23,6 +23,7 @@ use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
 use const_format::formatcp as fmt;
 use egui::CentralPanel;
+use egui::CollapsingHeader;
 use egui::Context;
 use egui::Key;
 use egui::Label;
@@ -45,6 +46,9 @@ pub struct ModalTags {
     id: PostId,
     select_tags: SelectTags,
     original: TagList,
+    context_menu_opened: bool,
+    tag_groups_opened: bool,
+    frequent_tags_opened: bool,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: LazyCell<KeyboardMapping>,
@@ -59,6 +63,8 @@ pub enum Message {
     SoftClose,
     SaveAndExit,
     CancelAndExit,
+    ToggleTagGroups,
+    ToggleFrequentTags,
 }
 
 impl Message {
@@ -69,6 +75,8 @@ impl Message {
             Self::SoftClose => help::SOFT_CLOSE,
             Self::SaveAndExit => help::SAVE_AND_EXIT,
             Self::CancelAndExit => unreachable!(),
+            Self::ToggleTagGroups => "show/hide list of tag groups",
+            Self::ToggleFrequentTags => "show/hide list frequent tags",
         }
     }
 }
@@ -116,6 +124,9 @@ impl ModalTags {
             id,
             original,
             select_tags,
+            context_menu_opened: false,
+            tag_groups_opened: true,
+            frequent_tags_opened: true,
             queue: MessageQueue::new(),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
@@ -129,7 +140,7 @@ impl ModalTags {
         tab_queue: &mut TabMessageQueue,
     ) {
         while let Some(message) = self.queue.pop_front() {
-            self.handle_message(ctx, style, db, message, tab_queue);
+            self.handle_message(style, db, message, tab_queue);
         }
 
         //self.show_pl =
@@ -142,6 +153,8 @@ impl ModalTags {
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
         }
+
+        self.context_menu_opened = ctx.is_popup_open();
     }
 
     fn create_mapping() -> KeyboardMapping {
@@ -151,13 +164,14 @@ impl ModalTags {
 
         KeyboardMapping::default()
             .key(Key::Escape, msg(Message::SoftClose))
+            .ctrl(Key::G, msg(Message::ToggleTagGroups))
+            .ctrl(Key::F, msg(Message::ToggleFrequentTags))
             .ctrl(Key::Z, msg(Message::Undo))
             .ctrl(Key::S, msg(Message::SaveAndExit))
     }
 
     fn handle_message(
         &mut self,
-        ctx: &Context,
         style: &Style,
         db: &Database,
         message: Message,
@@ -171,7 +185,7 @@ impl ModalTags {
                 self.queue.push_back(SelectTagsAction::Undo.into());
             }
             Message::SoftClose => {
-                if !ctx.is_popup_open() {
+                if !self.context_menu_opened {
                     if self.is_modified() {
                         let msg: TabMessage = Message::SaveAndExit.into();
                         let save = ConfirmOption::new("Save and exit")
@@ -203,6 +217,12 @@ impl ModalTags {
                     let msg = EditDetails::SetTags(self.id, self.select_tags.tags.clone());
                     tab_queue.push_back(msg.into());
                 }
+            }
+            Message::ToggleTagGroups => {
+                self.tag_groups_opened = !self.tag_groups_opened;
+            }
+            Message::ToggleFrequentTags => {
+                self.frequent_tags_opened = !self.frequent_tags_opened;
             }
         }
     }
@@ -290,26 +310,42 @@ impl ModalTags {
     }
 
     fn draw_tag_groups(&self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
-        for group in db.tag_groups.iter() {
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.heading(&group.name);
-
-                if ui.button(fmt!("{ICON_ADD} Add all")).clicked() {
-                    let action = Action::FromTagGroup(group.id);
-                    queue.push_back(action.into());
-                }
-
-                let tags = Label::new(group.tags.as_str()).truncate().selectable(false);
-                ui.add(tags);
-            });
+        if db.tag_groups.is_empty() {
+            return;
         }
+
+        CollapsingHeader::new("Tag groups")
+            .id_salt(fmt!("{ID_PREFIX}-tag-groups"))
+            .default_open(true)
+            .open(Some(self.tag_groups_opened))
+            .show(ui, |ui| {
+                for group in db.tag_groups.iter() {
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.heading(&group.name);
+
+                        if ui.button(fmt!("{ICON_ADD} Add all")).clicked() {
+                            let action = Action::FromTagGroup(group.id);
+                            queue.push_back(action.into());
+                        }
+
+                        let tags = Label::new(group.tags.as_str()).truncate().selectable(false);
+                        ui.add(tags);
+                    });
+                }
+            });
     }
 
     fn draw_frequent_tags(&self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
-        if let Some(action) = self.select_tags.draw_tags(ui, style) {
-            queue.push_back(action.into());
-        }
+        CollapsingHeader::new("Frequent tags")
+            .id_salt(fmt!("{ID_PREFIX}-frequent-tags"))
+            .default_open(true)
+            .open(Some(self.frequent_tags_opened))
+            .show(ui, |ui| {
+                if let Some(action) = self.select_tags.draw_tags(ui, style) {
+                    queue.push_back(action.into());
+                }
+            });
     }
 
     fn is_modified(&self) -> bool {

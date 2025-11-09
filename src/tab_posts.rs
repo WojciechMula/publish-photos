@@ -252,7 +252,7 @@ impl From<EditDetails> for Message {
     }
 }
 
-#[derive(Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Debug, Hash)]
 pub enum Field {
     Polish,
     English,
@@ -368,7 +368,7 @@ impl TabPosts {
             Message::InlineEditStart { id, field } => {
                 let post = db.post_mut(&id);
                 let key = (post.id, field);
-                let id = Id::new(format!("inline-editor-{id:?}-{field:?}"));
+                let id = Id::new(("inline-editor", id, field));
 
                 let editor = InlineEditor {
                     id,
