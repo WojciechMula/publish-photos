@@ -273,7 +273,13 @@ impl Application {
             Message::SaveDatabase => {
                 let path = self.db.rootpath.to_path_buf();
                 match self.db.save(&path) {
-                    Err(err) => println!("Cannot save {}: {}", path.display(), err),
+                    Err(err) => {
+                        let confirm = Confirm::new(
+                            format!("Cannot save {}: {}", path.display(), err),
+                            vec![ConfirmOption::new("Close").with_key(Key::Escape)],
+                        );
+                        self.queue.push_back(Message::Confirm(confirm));
+                    }
                     Ok(()) => {
                         self.db.mark_saved();
                     }
