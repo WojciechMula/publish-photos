@@ -478,12 +478,7 @@ impl TranslatedTagsView {
         self.0.iter()
     }
 
-    pub fn from_iterator<'a>(iter: impl Iterator<Item = &'a TranslatedTag>) -> Self {
-        let mut result = Self::default();
-        for tag in iter {
-            result.0.insert(tag.clone());
-        }
-
-        result
+    pub fn add(&mut self, tag: TranslatedTag) {
+        self.0.insert(tag);
     }
 }

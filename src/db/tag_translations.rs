@@ -32,7 +32,7 @@ impl TagTranslations {
 
 // --------------------------------------------------
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TranslatedTag {
     Untranslated(String),
     Translation(Translation),
@@ -69,7 +69,7 @@ impl Eq for TranslatedTag {}
 
 // --------------------------------------------------
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug)]
 pub struct Translation {
     pub en: String,
     pub pl: String,

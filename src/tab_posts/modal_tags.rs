@@ -304,7 +304,7 @@ impl ModalTags {
 
         ui.separator();
 
-        if let Some(action) = self.select_tags.draw_controls(ui) {
+        if let Some(action) = self.select_tags.draw_controls(ui, style) {
             queue.push_back(action.into());
         }
     }

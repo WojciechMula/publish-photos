@@ -9,9 +9,13 @@ use egui::Align;
 use egui::Button;
 use egui::Key;
 use egui::Layout;
+use egui::Popup;
+use egui::PopupAnchor;
+use egui::PopupCloseBehavior;
 use egui::Response;
 use egui::RichText;
 use egui::Sense;
+use egui::SetOpenCommand;
 use egui::Ui;
 
 use egui_material_icons::icons::ICON_ADD;
@@ -24,6 +28,7 @@ pub struct SelectTags {
     pub tags: TagList,
     pub available: Vec<TranslatedTagGroup>,
     filtered: Vec<TranslatedTagGroup>,
+    autocompletion: Vec<TranslatedTag>,
     undo: Vec<Action>,
 }
 
@@ -94,7 +99,7 @@ impl SelectTags {
         }
     }
 
-    pub fn draw_controls(&self, ui: &mut Ui) -> Option<SelectTagsAction> {
+    pub fn draw_controls(&self, ui: &mut Ui, style: &Style) -> Option<SelectTagsAction> {
         let mut result: Option<SelectTagsAction> = None;
         ui.horizontal(|ui| {
             ui.columns_const::<2, ()>(|[col1, col2]| {
@@ -109,6 +114,25 @@ impl SelectTags {
                     } else if resp.changed() {
                         result = Some(SelectTagsAction::UpdateNewTag(tag.clone()));
                     }
+
+                    let show_popup = resp.has_focus()
+                        && !self.new_tag.is_empty()
+                        && !self.autocompletion.is_empty();
+                    Popup::from_response(&resp)
+                        .open_memory(Some(SetOpenCommand::Bool(show_popup)))
+                        .anchor(PopupAnchor::from(&resp))
+                        .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+                        .show(|ui| {
+                            ui.set_min_width(resp.rect.width());
+
+                            for tag in self.autocompletion.iter().take(10) {
+                                let enabled = true;
+                                if tag_button(ui, tag.base(), enabled, style) {
+                                    let action = Action::AddTag(tag.clone());
+                                    result = Some(action.into());
+                                }
+                            }
+                        });
 
                     let button = Button::new(ICON_BACKSPACE);
                     if ui.add_enabled(!self.new_tag.is_empty(), button).clicked() {
@@ -208,14 +232,19 @@ impl SelectTags {
         }
 
         self.filtered.clear();
+
+        let mut autocompletion = Vec::<TranslatedTag>::new();
         for group in &self.available {
             let mut filtered = TranslatedTagGroup::empty(&group.name);
-            filtered.tags = TranslatedTagsView::from_iterator(
-                group.tags.iter().filter(|tag| self.tag_matches_filter(tag)),
-            );
+            for tag in group.tags.iter().filter(|tag| self.tag_matches_filter(tag)) {
+                autocompletion.push(tag.clone());
+                filtered.tags.add(tag.clone());
+            }
 
             self.filtered.push(filtered);
         }
+
+        self.autocompletion = autocompletion;
     }
 
     fn tag_matches_filter(&self, tag: &TranslatedTag) -> bool {
