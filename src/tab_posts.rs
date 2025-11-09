@@ -746,7 +746,7 @@ impl TabPosts {
             if n > 1 {
                 let count = ImageCounter(n);
                 let label = count.to_string();
-                let widget = image_count(&label, style);
+                let widget = image_count(label.clone(), style);
                 let overlay_id = Overlay::Label(label);
 
                 if let Some(size) = self.overlay_size.get(&overlay_id) {
@@ -1003,7 +1003,7 @@ fn inline_edit(
     result
 }
 
-fn image_count(label: &String, style: &Style) -> impl Widget {
+fn image_count(label: String, style: &Style) -> impl Widget {
     use crate::widgets::Label;
 
     let mut widget = Label::new(label);

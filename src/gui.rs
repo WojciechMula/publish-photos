@@ -144,7 +144,7 @@ pub fn icon_en(ui: &mut Ui) {
 // --------------------------------------------------
 
 pub fn tag(tag: &str, style: &Style) -> impl Widget {
-    let mut widget = CustomLabel::new(tag);
+    let mut widget = CustomLabel::new(tag.to_owned());
     widget.padding = 3.0;
     widget.rounding = 6.0;
     widget.color = style.tag_active_fg;

@@ -6,7 +6,7 @@ use crate::gui::button;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
 use crate::style::Style;
-use crate::widgets::ColorBox;
+use crate::widgets::color_box;
 use const_format::formatcp as fmt;
 use egui::Align;
 use egui::CollapsingHeader;
@@ -224,7 +224,7 @@ fn select_color(ui: &mut Ui, id: &str, color: &mut Color32) {
 }
 
 fn readonly_color(ui: &mut Ui, color: Color32) {
-    ui.add(ColorBox::new(color, 2));
+    ui.add(color_box(color, 2));
 }
 
 fn choose_color(ui: &mut Ui, id: &str, current_color: Color32) -> Option<Color32> {

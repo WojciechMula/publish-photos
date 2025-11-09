@@ -1,6 +1,5 @@
-use egui::epaint;
 use egui::Color32;
-use egui::FontSelection;
+use egui::FontId;
 use egui::Galley;
 use egui::Key;
 use egui::Modifiers;
@@ -14,7 +13,6 @@ use egui::Ui;
 use egui::Vec2;
 use egui::Widget;
 use egui::WidgetInfo;
-use egui::WidgetText;
 use egui::WidgetType;
 use std::sync::Arc;
 
@@ -56,19 +54,19 @@ impl Shortcut {
         self
     }
 
-    fn parts(&self) -> Vec<WidgetText> {
-        let mut result = Vec::<WidgetText>::with_capacity(5);
+    fn parts(&self) -> Vec<String> {
+        let mut result = Vec::<String>::with_capacity(5);
 
         if self.modifiers.command | self.modifiers.ctrl {
-            result.push(WidgetText::Text("Ctrl".to_owned()));
+            result.push("Ctrl".into());
         }
 
         if self.modifiers.alt {
-            result.push(WidgetText::Text("Alt".to_owned()));
+            result.push("Alt".into());
         }
 
         if self.modifiers.shift {
-            result.push(WidgetText::Text("Shift".to_owned()));
+            result.push("Shift".into());
         }
 
         let key_name = match self.key {
@@ -79,7 +77,7 @@ impl Shortcut {
             _ => self.key.name(),
         };
 
-        result.push(WidgetText::Text(key_name.to_string()));
+        result.push(key_name.to_string());
 
         result
     }
@@ -112,27 +110,21 @@ impl Shortcut {
 
         result
     }
-
-    fn render_text(wt: WidgetText, ui: &Ui) -> Arc<Galley> {
-        let layout_job = Arc::unwrap_or_clone(wt.into_layout_job(
-            ui.style(),
-            FontSelection::Default,
-            ui.text_valign(),
-        ));
-
-        ui.fonts_mut(|fonts| fonts.layout_job(layout_job))
-    }
 }
 
 impl Widget for Shortcut {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut rendered = Vec::<Arc<Galley>>::new();
         for part in self.parts() {
-            let galley = Self::render_text(part, ui);
+            let galley = ui
+                .painter()
+                .layout_no_wrap(part, FontId::default(), self.color);
             rendered.push(galley);
         }
 
-        let separator = Self::render_text(WidgetText::Text("-".to_owned()), ui);
+        let separator = ui
+            .painter()
+            .layout_no_wrap("-".to_owned(), FontId::default(), self.color);
 
         let mut width = 0.0;
         let mut max_height = 0.0;
@@ -159,11 +151,11 @@ impl Widget for Shortcut {
             for galley in rendered {
                 if needs_separator {
                     x += self.padding;
-                    ui.painter().add(epaint::TextShape::new(
+                    ui.painter().galley(
                         Pos2::new(x, y + self.padding),
                         separator.clone(),
                         self.color,
-                    ));
+                    );
 
                     x += separator.size().x + self.padding;
                 }
@@ -175,7 +167,7 @@ impl Widget for Shortcut {
                     Vec2::new(size.x + 2.0 * self.padding, size.y + 2.0 * self.padding),
                 );
 
-                ui.painter().add(epaint::RectShape::stroke(
+                ui.painter().rect_stroke(
                     rect,
                     self.rounding,
                     Stroke {
@@ -183,13 +175,13 @@ impl Widget for Shortcut {
                         color: self.color,
                     },
                     StrokeKind::Inside,
-                ));
+                );
 
-                ui.painter().add(epaint::TextShape::new(
+                ui.painter().galley(
                     Pos2::new(x + self.padding, y + self.padding),
                     galley,
                     self.color,
-                ));
+                );
 
                 x += rect.width();
             }
