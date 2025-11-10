@@ -133,8 +133,7 @@ impl Database {
     }
 
     pub fn add_species(&mut self, data: &Species) {
-        let max_id = self.species.iter().map(|entry| entry.id.0).max();
-        let id = max_id.unwrap_or_default() + 1;
+        let id = self.species.len();
 
         let mut entry = Species {
             id: SpeciesId(id),
