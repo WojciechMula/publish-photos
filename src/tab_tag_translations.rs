@@ -80,15 +80,15 @@ impl TabTagTranslations {
         match message {
             Message::AddNew => {
                 db.new_tag();
-                db.force_dirty();
+                db.mark_dirty();
             }
             Message::ChangePolish { id, text } => {
                 db.tag_translations.0[id].pl = text;
-                db.force_dirty();
+                db.mark_dirty();
             }
             Message::ChangeEnglish { id, text } => {
                 db.tag_translations.0[id].en = text;
-                db.force_dirty();
+                db.mark_dirty();
             }
             Message::FocusSearch => {
                 self.search_box.take_focus(ctx);

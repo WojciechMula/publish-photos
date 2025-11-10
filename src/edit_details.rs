@@ -45,7 +45,7 @@ pub fn apply(action: EditDetails, db: &mut Database) {
                 let changed = apply_aux(undo, post).is_some();
                 if changed {
                     post.refresh();
-                    db.mark_dirty();
+                    db.mark_posts_dirty();
                     if change_published_flag {
                         db.invalidate_picture_cache();
                         db.bump_version();
@@ -70,7 +70,7 @@ pub fn apply(action: EditDetails, db: &mut Database) {
             if let Some(undo) = undo {
                 post.undo.push(undo);
                 post.refresh();
-                db.mark_dirty();
+                db.mark_posts_dirty();
             }
 
             if change_published_flag {

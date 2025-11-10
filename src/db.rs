@@ -158,17 +158,16 @@ impl Database {
         let id = self.tag_translations.0.len();
 
         self.tag_translations.0.push(Translation::default());
+        self.mark_dirty();
 
         id
     }
 
-    pub fn mark_dirty(&mut self) {
-        if matches!(self.dirty, Some(false)) {
-            self.dirty = None;
-        }
+    pub fn mark_posts_dirty(&mut self) {
+        self.dirty = None;
     }
 
-    pub fn force_dirty(&mut self) {
+    pub fn mark_dirty(&mut self) {
         self.dirty = Some(true);
     }
 
@@ -177,13 +176,13 @@ impl Database {
             return *flag;
         }
 
-        let flag = self.check_dirty();
+        let flag = self.check_for_dirty_posts();
         self.dirty = Some(flag);
 
         flag
     }
 
-    fn check_dirty(&self) -> bool {
+    fn check_for_dirty_posts(&self) -> bool {
         self.posts.iter().any(|entry| entry.is_dirty())
     }
 
@@ -233,7 +232,7 @@ impl Database {
     pub fn add_group(&mut self, group: TagGroup) -> Result<(), String> {
         self.tag_groups.add(group)?;
         self.invalidate_tags_cache();
-        self.force_dirty();
+        self.mark_dirty();
 
         Ok(())
     }
@@ -242,7 +241,7 @@ impl Database {
         if let Some(existing) = self.tag_groups.get_mut(&group.id) {
             if existing.update(group) {
                 self.invalidate_tags_cache();
-                self.force_dirty();
+                self.mark_dirty();
             }
 
             Ok(())
@@ -253,13 +252,13 @@ impl Database {
 
     pub fn move_group_up(&mut self, id: &TagGroupId) {
         if self.tag_groups.move_up(id) {
-            self.force_dirty();
+            self.mark_dirty();
         }
     }
 
     pub fn move_group_down(&mut self, id: &TagGroupId) {
         if self.tag_groups.move_down(id) {
-            self.force_dirty();
+            self.mark_dirty();
         }
     }
 

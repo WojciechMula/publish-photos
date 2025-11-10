@@ -95,7 +95,7 @@ impl Group {
 
         db.invalidate_caches();
         db.refresh_all_records();
-        db.force_dirty();
+        db.mark_dirty();
         db.bump_version();
     }
 }

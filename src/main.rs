@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         }
 
         db.refresh_all_records();
-        db.force_dirty();
+        db.mark_dirty();
 
         db
     };
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     if opts.update_db {
         photos::sync_db::perform(&opts.rootdir, &mut db)?;
         db.refresh_all_records();
-        db.force_dirty();
+        db.mark_dirty();
     }
 
     let native_options = eframe::NativeOptions {
