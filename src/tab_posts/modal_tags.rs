@@ -48,6 +48,8 @@ pub struct ModalTags {
     context_menu_opened: bool,
     tag_groups_opened: bool,
     frequent_tags_opened: bool,
+    tag_groups_opened_flag: Option<bool>,
+    frequent_tags_opened_flag: Option<bool>,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: LazyCell<KeyboardMapping>,
@@ -126,6 +128,8 @@ impl ModalTags {
             context_menu_opened: false,
             tag_groups_opened: true,
             frequent_tags_opened: true,
+            tag_groups_opened_flag: Some(true),
+            frequent_tags_opened_flag: Some(true),
             queue: MessageQueue::new(),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
@@ -154,6 +158,8 @@ impl ModalTags {
         }
 
         self.context_menu_opened = ctx.is_popup_open();
+        self.tag_groups_opened_flag = None;
+        self.frequent_tags_opened_flag = None;
     }
 
     fn create_mapping() -> KeyboardMapping {
@@ -219,9 +225,11 @@ impl ModalTags {
             }
             Message::ToggleTagGroups => {
                 self.tag_groups_opened = !self.tag_groups_opened;
+                self.tag_groups_opened_flag = Some(self.tag_groups_opened);
             }
             Message::ToggleFrequentTags => {
                 self.frequent_tags_opened = !self.frequent_tags_opened;
+                self.frequent_tags_opened_flag = Some(self.frequent_tags_opened);
             }
         }
     }
@@ -315,7 +323,7 @@ impl ModalTags {
         CollapsingHeader::new("Tag groups")
             .id_salt(fmt!("{ID_PREFIX}-tag-groups"))
             .default_open(true)
-            .open(Some(self.tag_groups_opened))
+            .open(self.tag_groups_opened_flag)
             .show(ui, |ui| {
                 for group in db.tag_groups.iter() {
                     ui.separator();
@@ -338,7 +346,7 @@ impl ModalTags {
         CollapsingHeader::new("Frequent tags")
             .id_salt(fmt!("{ID_PREFIX}-frequent-tags"))
             .default_open(true)
-            .open(Some(self.frequent_tags_opened))
+            .open(self.frequent_tags_opened_flag)
             .show(ui, |ui| {
                 if let Some(action) = self.select_tags.draw_tags(ui, style) {
                     queue.push_back(action.into());
