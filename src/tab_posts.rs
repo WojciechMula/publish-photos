@@ -310,6 +310,11 @@ impl TabPosts {
             self.handle_message(ctx, db, msg, &mut queue, main_queue);
         }
 
+        if !queue.is_empty() {
+            self.queue = queue;
+            return;
+        }
+
         match &mut self.modal_window {
             ModalWindow::None => {
                 self.draw(ctx, style, db, &mut queue);
