@@ -21,4 +21,12 @@ impl SearchParts {
 
         self.parts.iter().any(|part| part.contains(phrase))
     }
+
+    pub fn matches_all(&self, fragments: &[&str]) -> bool {
+        if fragments.is_empty() {
+            return true;
+        }
+
+        fragments.iter().any(|phrase| self.matches(phrase))
+    }
 }

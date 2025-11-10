@@ -105,12 +105,13 @@ impl Filter {
 
     pub fn make_view(&mut self, phrase: &str, db: &Database) -> Vec<PostId> {
         let mut tmp = Vec::<(PostId, (Date, String))>::new();
+        let fragments: Vec<&str> = phrase.split_whitespace().collect();
         for post in db
             .posts
             .iter()
             .filter(|post| self.image_state.matches(post))
             .filter(|post| self.current.matches(&post.date))
-            .filter(|post| post.search_parts.matches(phrase))
+            .filter(|post| post.search_parts.matches_all(&fragments))
         {
             let item = (post.id, (post.date, file_stem(&post.files[0])));
             tmp.push(item);

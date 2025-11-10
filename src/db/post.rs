@@ -57,7 +57,7 @@ impl Post {
         self.search_parts.add(&self.pl);
         self.search_parts.add(&self.en);
         for tag in self.tags.iter() {
-            self.search_parts.add(tag);
+            self.search_parts.add(&format!("#{tag}"));
         }
     }
 }

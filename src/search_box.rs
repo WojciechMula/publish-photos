@@ -42,7 +42,7 @@ impl SearchBox {
             phrase.clear();
         }
 
-        phrase = phrase.trim().to_lowercase();
+        phrase = phrase.to_lowercase();
         if phrase != prev {
             ui.ctx()
                 .data_mut(|data| data.insert_persisted(self.id, phrase.clone()));
