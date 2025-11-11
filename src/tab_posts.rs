@@ -43,7 +43,6 @@ use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
 use egui::Context;
-use egui::Grid;
 use egui::Id;
 use egui::Key;
 use egui::Label;
@@ -82,6 +81,7 @@ pub struct TabPosts {
     scroll_item: f32,
     scroll_page: f32,
     scroll_everything: f32,
+    label_width: f32,
     modal_window: ModalWindow,
 
     overlay_size: HashMap<Overlay, Vec2>,
@@ -275,6 +275,7 @@ impl Default for TabPosts {
             scroll_page: 500.0,
             scroll_everything: 0.0,
             modal_window: ModalWindow::None,
+            label_width: 0.0,
             group: None,
             overlay_size: HashMap::new(),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
@@ -616,6 +617,17 @@ impl TabPosts {
             ui.horizontal(|ui| {
                 self.filter.view(ui, db, queue);
             });
+
+            if self.label_width == 0.0 {
+                let w1 = crate::gui::text_size("tags", ui).x;
+                let w2 = crate::gui::text_size("species", ui).x;
+
+                if w1 > w2 {
+                    self.label_width = w1;
+                } else {
+                    self.label_width = w2;
+                }
+            }
         });
 
         if let Some(group) = &self.group {
@@ -818,43 +830,55 @@ impl TabPosts {
                     });
                 });
 
-                Grid::new(("image-details", post.id))
-                    .num_columns(2)
-                    .show(ui, |ui| {
-                        let inline_editor = self.inline_editors.get(&(post.id, Field::Polish));
+                let inline_editor = self.inline_editors.get(&(post.id, Field::Polish));
 
+                ui.horizontal(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_min_width(self.label_width);
                         icon_pl(ui);
-
-                        ui.horizontal(|ui| {
-                            let msg =
-                                inline_edit(ui, post.id, &post.pl, Field::Polish, inline_editor);
-                            if let Some(msg) = msg {
-                                queue.push_back(msg);
-                            }
-                        });
-                        ui.end_row();
-
-                        let inline_editor = self.inline_editors.get(&(post.id, Field::English));
-
-                        icon_en(ui);
-
-                        ui.horizontal(|ui| {
-                            let msg =
-                                inline_edit(ui, post.id, &post.en, Field::English, inline_editor);
-                            if let Some(msg) = msg {
-                                queue.push_back(msg);
-                            }
-                        });
-                        ui.end_row();
-
-                        ui.label("tags");
-                        self.show_tags(ui, style, post, queue);
-                        ui.end_row();
-
-                        ui.label("species");
-                        self.show_species(ui, post, db, queue);
-                        ui.end_row();
                     });
+
+                    ui.horizontal(|ui| {
+                        let msg = inline_edit(ui, post.id, &post.pl, Field::Polish, inline_editor);
+                        if let Some(msg) = msg {
+                            queue.push_back(msg);
+                        }
+                    });
+                });
+
+                let inline_editor = self.inline_editors.get(&(post.id, Field::English));
+
+                ui.horizontal(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_min_width(self.label_width);
+                        icon_en(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        let msg = inline_edit(ui, post.id, &post.en, Field::English, inline_editor);
+                        if let Some(msg) = msg {
+                            queue.push_back(msg);
+                        }
+                    });
+                });
+
+                ui.horizontal(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_min_width(self.label_width);
+                        ui.label("tags");
+                    });
+
+                    self.show_tags(ui, style, post, queue);
+                });
+
+                ui.horizontal(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_min_width(self.label_width);
+                        ui.label("species");
+                    });
+
+                    self.show_species(ui, post, db, queue);
+                });
             });
         });
     }

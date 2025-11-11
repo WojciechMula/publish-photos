@@ -3,6 +3,7 @@ use crate::widgets::Label as CustomLabel;
 use const_format::formatcp as fmt;
 use egui::Button;
 use egui::Color32;
+use egui::FontId;
 use egui::Frame;
 use egui::Image;
 use egui::ImageSource;
@@ -151,6 +152,16 @@ pub fn tag(tag: &str, style: &Style) -> impl Widget {
     widget.background = style.tag_active_bg;
 
     widget
+}
+
+// --------------------------------------------------
+
+pub fn text_size(s: &str, ui: &mut Ui) -> Vec2 {
+    let galley = ui
+        .painter()
+        .layout_no_wrap(s.to_owned(), FontId::default(), Color32::TRANSPARENT);
+
+    galley.size()
 }
 
 // --------------------------------------------------
