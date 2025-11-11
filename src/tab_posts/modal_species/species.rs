@@ -33,12 +33,21 @@ impl RecentSpecies {
             if match_day(&this.date, &item.date) {
                 let species = db.species_by_latin(latin).unwrap();
                 day.insert(species.latin.clone(), species.id);
-                remaining.remove(latin);
-            } else if match_month(&this.date, &item.date) {
+            }
+
+            if match_month(&this.date, &item.date) {
                 let species = db.species_by_latin(latin).unwrap();
                 month.insert(species.latin.clone(), species.id);
-                remaining.remove(latin);
             }
+        }
+
+        for latin in day.keys() {
+            month.remove(latin);
+            remaining.remove(latin);
+        }
+
+        for latin in month.keys() {
+            remaining.remove(latin);
         }
 
         Self {
