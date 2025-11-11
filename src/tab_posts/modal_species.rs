@@ -18,9 +18,11 @@ use crate::search_box::SearchBox;
 use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
+use crate::tab_posts::Post;
 use const_format::formatcp as fmt;
 use egui::CentralPanel;
 use egui::Context;
+use egui::Frame;
 use egui::Key;
 use egui::Label;
 use egui::Layout;
@@ -120,7 +122,7 @@ impl ModalSpecies {
 
         let mut queue = MessageQueue::new();
 
-        self.draw(ctx, style, db, &mut queue);
+        self.draw(ctx, style, db, tab_queue, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -229,9 +231,16 @@ impl ModalSpecies {
         }
     }
 
-    fn draw(&self, ctx: &Context, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    fn draw(
+        &self,
+        ctx: &Context,
+        style: &Style,
+        db: &Database,
+        tab_queue: &mut TabMessageQueue,
+        queue: &mut MessageQueue,
+    ) {
         SidePanel::left(fmt!("{ID_PREFIX}-left")).show(ctx, |ui| {
-            self.draw_header(ui, style, db, queue);
+            self.draw_header(ui, style, db, tab_queue, queue);
         });
 
         TopBottomPanel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ctx, |ui| {
@@ -260,10 +269,17 @@ impl ModalSpecies {
         });
     }
 
-    fn draw_header(&self, ui: &mut Ui, style: &Style, db: &Database, queue: &mut MessageQueue) {
-        self.view_species(ui, db, queue);
-
+    fn draw_header(
+        &self,
+        ui: &mut Ui,
+        style: &Style,
+        db: &Database,
+        tab_queue: &mut TabMessageQueue,
+        queue: &mut MessageQueue,
+    ) {
         let post = db.post(&self.id);
+
+        self.view_species(ui, post, db, tab_queue, queue);
 
         ui.separator();
 
@@ -301,26 +317,58 @@ impl ModalSpecies {
             });
     }
 
-    fn view_species(&self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
-        if let Some(selected_species) = &self.new {
-            if let Some(species) = db.species_by_latin(selected_species) {
-                ui.horizontal(|ui| {
-                    crate::species_view::format_latin(ui, species);
-                    if ui.button("🗙 Clear").clicked() {
-                        queue.push_back(Message::UnsetSpecies);
-                    }
-                });
-
-                ui.horizontal(|ui| {
-                    crate::species_view::format_pl(ui, species);
-                });
-
-                ui.horizontal(|ui| {
-                    crate::species_view::format_en(ui, species);
-                });
-            }
-        } else {
+    fn view_species(
+        &self,
+        ui: &mut Ui,
+        post: &Post,
+        db: &Database,
+        tab_queue: &mut TabMessageQueue,
+        queue: &mut MessageQueue,
+    ) {
+        let Some(selected_species) = &self.new else {
             ui.label("no species selected");
+            return;
+        };
+
+        if let Some(species) = db.species_by_latin(selected_species) {
+            ui.horizontal(|ui| {
+                if ui.button("🗙 Clear").clicked() {
+                    queue.push_back(Message::UnsetSpecies);
+                }
+
+                ui.heading("Selected species")
+            });
+
+            Frame::new()
+                .inner_margin(5.0)
+                .outer_margin(5.0)
+                .fill(ui.visuals().faint_bg_color)
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.horizontal(|ui| {
+                        crate::species_view::format_latin(ui, species);
+                    });
+
+                    ui.horizontal(|ui| {
+                        crate::species_view::format_pl(ui, species);
+                    });
+
+                    ui.horizontal(|ui| {
+                        crate::species_view::format_en(ui, species);
+                    });
+                });
+
+            if post.is_example {
+                if ui.button("🗙 Not a good example").clicked() {
+                    let msg = EditDetails::Example(self.id, false);
+                    tab_queue.push_back(msg.into());
+                }
+            } else {
+                if ui.button("✔ Set as an example").clicked() {
+                    let msg = EditDetails::Example(self.id, true);
+                    tab_queue.push_back(msg.into());
+                }
+            }
         }
     }
 
