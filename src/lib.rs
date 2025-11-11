@@ -7,6 +7,7 @@ mod edit_details;
 mod edit_tags;
 mod gui;
 mod help;
+mod image_cache;
 mod keyboard;
 mod modal;
 mod modal_keyboard;

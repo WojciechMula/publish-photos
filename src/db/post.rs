@@ -33,9 +33,6 @@ pub struct Post {
     pub full_paths: Vec<PathBuf>,
 
     #[serde(skip)]
-    pub loaded: bool,
-
-    #[serde(skip)]
     pub undo: Vec<EditDetails>,
 
     #[serde(skip)]

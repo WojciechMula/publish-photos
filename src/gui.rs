@@ -1,3 +1,4 @@
+use crate::image_cache::ImageCache;
 use crate::style::Style;
 use crate::widgets::Label as CustomLabel;
 use const_format::formatcp as fmt;
@@ -7,6 +8,7 @@ use egui::FontId;
 use egui::Frame;
 use egui::Image;
 use egui::ImageSource;
+use egui::Label;
 use egui::Rect;
 use egui::Response;
 use egui::Sense;
@@ -88,31 +90,60 @@ pub fn widget_size(ui: &mut Ui, widget: impl Widget) -> Vec2 {
 
 // --------------------------------------------------
 
-pub fn add_image(ui: &mut Ui, uri: String, size: f32, radius: f32) -> Response {
-    ui.add(
-        Image::from_uri(uri)
-            .maintain_aspect_ratio(true)
-            .fit_to_exact_size(Vec2::splat(size))
-            .show_loading_spinner(false)
-            .corner_radius(radius),
-    )
+pub fn add_image(
+    ui: &mut Ui,
+    uri: String,
+    image_cache: &mut ImageCache,
+    size: f32,
+    radius: f32,
+) -> Response {
+    if image_cache.is_cached(&uri) {
+        ui.add(
+            Image::from_uri(uri)
+                .maintain_aspect_ratio(true)
+                .fit_to_exact_size(Vec2::splat(size))
+                .show_loading_spinner(false)
+                .corner_radius(radius),
+        )
+    } else {
+        let resp = ui.add_sized(Vec2::splat(size), Label::new(&uri));
+
+        let intersect = ui.clip_rect().intersect(resp.rect);
+        if intersect.is_positive() {
+            image_cache.request(uri);
+        }
+
+        resp
+    }
 }
 
 pub fn add_image_with_tint(
     ui: &mut Ui,
     uri: String,
+    image_cache: &mut ImageCache,
     size: f32,
     radius: f32,
     tint: Color32,
 ) -> Response {
-    ui.add(
-        Image::from_uri(uri)
-            .maintain_aspect_ratio(true)
-            .fit_to_exact_size(Vec2::splat(size))
-            .show_loading_spinner(false)
-            .tint(tint)
-            .corner_radius(radius),
-    )
+    if image_cache.is_cached(&uri) {
+        ui.add(
+            Image::from_uri(uri)
+                .maintain_aspect_ratio(true)
+                .fit_to_exact_size(Vec2::splat(size))
+                .show_loading_spinner(false)
+                .tint(tint)
+                .corner_radius(radius),
+        )
+    } else {
+        let resp = ui.add_sized(Vec2::splat(size), Label::new(&uri));
+
+        let intersect = ui.clip_rect().intersect(resp.rect);
+        if intersect.is_positive() {
+            image_cache.request(uri);
+        }
+
+        resp
+    }
 }
 
 // --------------------------------------------------

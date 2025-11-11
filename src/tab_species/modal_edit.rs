@@ -9,6 +9,7 @@ use crate::gui::button;
 use crate::gui::icon_en;
 use crate::gui::icon_pl;
 use crate::help;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::species_view::image;
 use crate::style::Style;
@@ -99,6 +100,7 @@ impl ModalEdit {
     pub fn update(
         &mut self,
         ctx: &Context,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
@@ -108,7 +110,7 @@ impl ModalEdit {
         }
 
         let mut queue = MessageQueue::new();
-        self.draw(ctx, style, db, &mut queue);
+        self.draw(ctx, image_cache, style, db, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -218,7 +220,14 @@ impl ModalEdit {
         self.can_save = Ok(self.is_modified());
     }
 
-    fn draw(&self, ctx: &Context, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    fn draw(
+        &self,
+        ctx: &Context,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         TopBottomPanel::bottom("modal-species-edit-bottom").show(ctx, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                 if button::save(ui, self.is_modified(), Some(style.button.save)) {
@@ -237,7 +246,14 @@ impl ModalEdit {
 
         CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
-                image(ui, style, db, &self.new, style.image.preview_width);
+                image(
+                    ui,
+                    image_cache,
+                    style,
+                    db,
+                    &self.new,
+                    style.image.preview_width,
+                );
 
                 ui.vertical(|ui| self.draw_details(ui, queue));
             });

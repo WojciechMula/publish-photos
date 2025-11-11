@@ -35,10 +35,10 @@ use crate::gui::icon_pl;
 use crate::gui::tag;
 use crate::gui::widget_size;
 use crate::gui::OverlayLocation;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
 use const_format::formatcp as fmt;
-use eframe::emath::OrderedFloat;
 use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
@@ -51,7 +51,6 @@ use egui::RichText;
 use egui::ScrollArea;
 use egui::Sense;
 use egui::SidePanel;
-use egui::SizeHint;
 use egui::TextEdit;
 use egui::TopBottomPanel;
 use egui::Ui;
@@ -163,7 +162,6 @@ pub enum Message {
     Copy(String),
 
     RefreshView,
-    RequestImage(PostId),
     Hovered(Option<PostId>),
     UpdateScrollAmounts {
         scroll_item: f32,
@@ -217,7 +215,6 @@ impl Message {
             Self::Confirm(_) => unreachable!(),
             Self::Copy(_) => unreachable!(),
             Self::RefreshView => unreachable!(),
-            Self::RequestImage(_) => unreachable!(),
             Self::Hovered(_) => unreachable!(),
             Self::UpdateScrollAmounts { .. } => unreachable!(),
             Self::StartGroupingCurrent => "start grouping photos in the highlighted post",
@@ -295,6 +292,7 @@ impl TabPosts {
     pub fn update(
         &mut self,
         ctx: &Context,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
         main_queue: &mut MainMessageQueue,
@@ -318,16 +316,16 @@ impl TabPosts {
 
         match &mut self.modal_window {
             ModalWindow::None => {
-                self.draw(ctx, style, db, &mut queue);
+                self.draw(ctx, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalTags(window) => {
-                window.update(ctx, style, db, &mut queue);
+                window.update(ctx, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalSpecies(window) => {
-                window.update(ctx, style, db, &mut queue);
+                window.update(ctx, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalPublish(window) => {
-                window.update(ctx, style, db, &mut queue);
+                window.update(ctx, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalView(window) => {
                 window.update(ctx, db, &mut queue);
@@ -356,14 +354,6 @@ impl TabPosts {
             Message::RefreshView => {
                 let phrase = self.filter.search_box.phrase(ctx);
                 self.view = self.filter.make_view(&phrase, db);
-            }
-            Message::RequestImage(id) => {
-                let post = db.post_mut(&id);
-                for uri in &post.uris {
-                    let _ = ctx.try_load_image(uri, SizeHint::Scale(OrderedFloat(1.0)));
-                }
-
-                post.loaded = true;
             }
             Message::EditTags(id) => {
                 queue.push_back(Message::OpenModalTags(id));
@@ -612,7 +602,14 @@ impl TabPosts {
         }
     }
 
-    fn draw(&mut self, ctx: &Context, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    fn draw(
+        &mut self,
+        ctx: &Context,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         TopBottomPanel::top(fmt!("{ID_PREFIX}-filter")).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 self.filter.view(ui, db, queue);
@@ -651,17 +648,24 @@ impl TabPosts {
                     ScrollArea::vertical()
                         .id_salt(fmt!("{ID_PREFIX}-group-scroll"))
                         .show(ui, |ui| {
-                            self.show_group(ui, style, db, queue);
+                            self.show_group(ui, image_cache, style, db, queue);
                         });
                 });
         }
 
         CentralPanel::default().show(ctx, |ui| {
-            self.draw_main_list(ui, style, db, queue);
+            self.draw_main_list(ui, image_cache, style, db, queue);
         });
     }
 
-    fn draw_main_list(&self, ui: &mut Ui, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    fn draw_main_list(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         let mut count = 0;
         let resp = ScrollArea::both()
             .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
@@ -677,7 +681,7 @@ impl TabPosts {
                     }
 
                     let post = db.post(id);
-                    if self.draw_post(ui, style, post, db, queue) {
+                    if self.draw_post(ui, image_cache, style, post, db, queue) {
                         hovered = Some(*id);
                     }
 
@@ -712,6 +716,7 @@ impl TabPosts {
     fn draw_post(
         &self,
         ui: &mut Ui,
+        image_cache: &mut ImageCache,
         style: &Style,
         post: &Post,
         db: &Database,
@@ -726,7 +731,7 @@ impl TabPosts {
         };
 
         let resp = frame(ui, fill, |ui| {
-            self.draw_post_inner(ui, style, post, db, queue);
+            self.draw_post_inner(ui, image_cache, style, post, db, queue);
         });
 
         if resp.double_clicked() {
@@ -739,25 +744,20 @@ impl TabPosts {
     fn draw_post_inner(
         &self,
         ui: &mut Ui,
+        image_cache: &mut ImageCache,
         style: &Style,
         post: &Post,
         db: &Database,
         queue: &mut MessageQueue,
     ) {
         ui.horizontal(|ui| {
-            let uri = if post.loaded {
-                post.uris[0].clone()
-            } else {
-                "file:///dev/null".to_owned()
-            };
-
-            let resp = add_image(ui, uri, style.image.preview_width, style.image.radius);
-            if !post.loaded {
-                let intersect = ui.clip_rect().intersect(resp.rect);
-                if intersect.is_positive() {
-                    queue.push_back(Message::RequestImage(post.id));
-                }
-            }
+            let resp = add_image(
+                ui,
+                post.uris[0].clone(),
+                image_cache,
+                style.image.preview_width,
+                style.image.radius,
+            );
 
             let n = post.files.len();
             if n > 1 {
@@ -897,7 +897,14 @@ impl TabPosts {
         });
     }
 
-    fn show_group(&self, ui: &mut Ui, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    fn show_group(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         let Some(group) = &self.group else {
             return;
         };
@@ -909,6 +916,7 @@ impl TabPosts {
                     add_image(
                         ui,
                         uri.clone(),
+                        image_cache,
                         style.image.preview_width,
                         style.image.radius,
                     );
@@ -916,6 +924,7 @@ impl TabPosts {
                     add_image_with_tint(
                         ui,
                         uri.clone(),
+                        image_cache,
                         style.image.preview_width,
                         style.image.radius,
                         style.image.inactive,
@@ -924,6 +933,7 @@ impl TabPosts {
                     let resp = add_image(
                         ui,
                         uri.clone(),
+                        image_cache,
                         style.image.preview_width,
                         style.image.radius,
                     );

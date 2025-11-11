@@ -5,6 +5,7 @@ use crate::gui::add_image;
 use crate::gui::frame;
 use crate::gui::icon_en;
 use crate::gui::icon_pl;
+use crate::image_cache::ImageCache;
 use crate::style::Style;
 use egui::Label;
 use egui::RichText;
@@ -135,7 +136,13 @@ impl SpeciesList {
         }
     }
 
-    pub fn render(&self, ui: &mut Ui, style: &Style, db: &Database) -> SpeciesListResponse {
+    pub fn render(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+    ) -> SpeciesListResponse {
         let mut result = SpeciesListResponse::default();
 
         let mut hovered: Option<SpeciesId> = None;
@@ -149,7 +156,7 @@ impl SpeciesList {
             };
 
             let resp = frame(ui, fill, |ui| {
-                crate::species_view::block(ui, style, db, species, self.image_width)
+                crate::species_view::block(ui, image_cache, style, db, species, self.image_width)
             });
             if resp.contains_pointer() {
                 hovered = Some(*id);
@@ -178,18 +185,32 @@ pub struct SpeciesListResponse {
     pub double_clicked: Option<SpeciesId>,
 }
 
-pub fn image(ui: &mut Ui, style: &Style, db: &Database, species: &Species, width: f32) {
+pub fn image(
+    ui: &mut Ui,
+    image_cache: &mut ImageCache,
+    style: &Style,
+    db: &Database,
+    species: &Species,
+    width: f32,
+) {
     if let Some(uri) = db.find_examples(species.latin.clone()).first() {
-        add_image(ui, uri.clone(), width, style.image.radius);
+        add_image(ui, uri.clone(), image_cache, width, style.image.radius);
     } else {
         let placeholder = Vec2::new(width, 0.75 * width);
         ui.add_sized(placeholder, Label::new("no image"));
     }
 }
 
-pub fn block(ui: &mut Ui, style: &Style, db: &Database, species: &Species, width: f32) {
+pub fn block(
+    ui: &mut Ui,
+    image_cache: &mut ImageCache,
+    style: &Style,
+    db: &Database,
+    species: &Species,
+    width: f32,
+) {
     ui.horizontal(|ui| {
-        image(ui, style, db, species, width);
+        image(ui, image_cache, style, db, species, width);
 
         ui.vertical(|ui| {
             ui.label(RichText::new(&species.latin).italics().heading());

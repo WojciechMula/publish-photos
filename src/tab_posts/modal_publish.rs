@@ -5,6 +5,7 @@ use crate::db::PostId;
 use crate::edit_details::EditDetails;
 use crate::gui::add_image;
 use crate::gui::button;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
@@ -196,6 +197,7 @@ impl ModalPublish {
     pub fn update(
         &mut self,
         ctx: &Context,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
@@ -216,6 +218,7 @@ impl ModalPublish {
                             add_image(
                                 ui,
                                 uri.clone(),
+                                image_cache,
                                 style.image.preview_width,
                                 style.image.radius,
                             );

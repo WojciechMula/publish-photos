@@ -12,6 +12,7 @@ use crate::edit_tags::Action;
 use crate::gui::add_image;
 use crate::gui::button;
 use crate::help;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::select_tags::SelectTags;
 use crate::select_tags::SelectTagsAction;
@@ -138,6 +139,7 @@ impl ModalTags {
     pub fn update(
         &mut self,
         ctx: &Context,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         tab_queue: &mut TabMessageQueue,
@@ -151,7 +153,7 @@ impl ModalTags {
 
         let mut queue = MessageQueue::new();
 
-        self.draw(ctx, style, db, &mut queue);
+        self.draw(ctx, image_cache, style, db, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -234,7 +236,14 @@ impl ModalTags {
         }
     }
 
-    fn draw(&self, ctx: &Context, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    fn draw(
+        &self,
+        ctx: &Context,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         SidePanel::left(fmt!("{ID_PREFIX}-left"))
             .resizable(false)
             .min_width(style.image.preview_width)
@@ -247,6 +256,7 @@ impl ModalTags {
                             add_image(
                                 ui,
                                 uri.clone(),
+                                image_cache,
                                 style.image.preview_width,
                                 style.image.radius,
                             );

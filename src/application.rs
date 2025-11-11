@@ -2,6 +2,7 @@ use crate::confirm::Confirm;
 use crate::confirm::ConfirmOption;
 use crate::db::Database;
 use crate::edit_details::EditDetails;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
 use crate::modal_keyboard::ModalKeyboard;
@@ -51,6 +52,7 @@ pub struct Application {
 
     queue: MessageQueue,
     initialized: bool,
+    image_cache: ImageCache,
 
     keyboard_mapping: LazyCell<KeyboardMapping>,
 }
@@ -199,6 +201,7 @@ impl Application {
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
             initialized: false,
+            image_cache: ImageCache::default(),
             style: Style::default(),
             queue,
             can_close: false,
@@ -443,12 +446,20 @@ impl eframe::App for Application {
         });
 
         match self.active_tab {
-            Tab::Posts => self
-                .posts
-                .update(ctx, &self.style, &mut self.db, &mut self.queue),
-            Tab::Species => self
-                .species
-                .update(ctx, &self.style, &mut self.db, &mut self.queue),
+            Tab::Posts => self.posts.update(
+                ctx,
+                &mut self.image_cache,
+                &self.style,
+                &mut self.db,
+                &mut self.queue,
+            ),
+            Tab::Species => self.species.update(
+                ctx,
+                &mut self.image_cache,
+                &self.style,
+                &mut self.db,
+                &mut self.queue,
+            ),
             Tab::TagTranslations => self.tag_translations.update(ctx, &mut self.db),
             Tab::TagGroups => {
                 self.tag_groups
@@ -467,6 +478,8 @@ impl eframe::App for Application {
                 window.update(ui, &self.style, &self.db, &mut self.queue);
             });
         }
+
+        self.image_cache.load_requested(ctx);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {

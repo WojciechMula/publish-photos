@@ -13,6 +13,7 @@ use crate::gui::button;
 use crate::gui::icon_en;
 use crate::gui::icon_pl;
 use crate::help;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::search_box::SearchBox;
 use crate::style::Style;
@@ -112,6 +113,7 @@ impl ModalSpecies {
     pub fn update(
         &mut self,
         ctx: &Context,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         tab_queue: &mut TabMessageQueue,
@@ -122,7 +124,7 @@ impl ModalSpecies {
 
         let mut queue = MessageQueue::new();
 
-        self.draw(ctx, style, db, tab_queue, &mut queue);
+        self.draw(ctx, image_cache, style, db, tab_queue, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -234,13 +236,14 @@ impl ModalSpecies {
     fn draw(
         &self,
         ctx: &Context,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         tab_queue: &mut TabMessageQueue,
         queue: &mut MessageQueue,
     ) {
         SidePanel::left(fmt!("{ID_PREFIX}-left")).show(ctx, |ui| {
-            self.draw_header(ui, style, db, tab_queue, queue);
+            self.draw_header(ui, image_cache, style, db, tab_queue, queue);
         });
 
         TopBottomPanel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ctx, |ui| {
@@ -264,7 +267,7 @@ impl ModalSpecies {
 
                 ui.separator();
 
-                self.draw_species(ui, style, db, queue);
+                self.draw_species(ui, image_cache, style, db, queue);
             });
         });
     }
@@ -272,6 +275,7 @@ impl ModalSpecies {
     fn draw_header(
         &self,
         ui: &mut Ui,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         tab_queue: &mut TabMessageQueue,
@@ -310,6 +314,7 @@ impl ModalSpecies {
                     add_image(
                         ui,
                         uri.clone(),
+                        image_cache,
                         style.image.preview_width,
                         style.image.radius,
                     );
@@ -372,17 +377,25 @@ impl ModalSpecies {
         }
     }
 
-    fn draw_species(&self, ui: &mut Ui, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    fn draw_species(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         ScrollArea::vertical()
             .id_salt(fmt!("{ID_PREFIX}-species-scroll"))
             .show(ui, |ui| {
-                self.draw_species_aux(ui, style, db, queue);
+                self.draw_species_aux(ui, image_cache, style, db, queue);
             });
     }
 
     fn draw_species_aux(
         &self,
         ui: &mut Ui,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         queue: &mut MessageQueue,
@@ -404,7 +417,7 @@ impl ModalSpecies {
 
             ui.label(label);
 
-            let resp = collection.render(ui, style, db);
+            let resp = collection.render(ui, image_cache, style, db);
             if let Some(hovered) = resp.hovered {
                 hovered_set = true;
                 if hovered.is_some() {

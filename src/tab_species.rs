@@ -9,6 +9,7 @@ use crate::confirm::Confirm;
 use crate::db::Database;
 use crate::db::SpeciesId;
 use crate::help;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::search_box::SearchBox;
 use crate::species_view::SortOrder;
@@ -111,6 +112,7 @@ impl TabSpecies {
     pub fn update(
         &mut self,
         ctx: &Context,
+        image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
         main_queue: &mut MainMessageQueue,
@@ -123,9 +125,9 @@ impl TabSpecies {
 
         let mut queue = MessageQueue::new();
         match &mut self.modal_window {
-            ModalWindow::None => self.draw(ctx, style, db, &mut queue),
+            ModalWindow::None => self.draw(ctx, image_cache, style, db, &mut queue),
             ModalWindow::ModalEdit(window) => {
-                window.update(ctx, style, db, &mut queue);
+                window.update(ctx, image_cache, style, db, &mut queue);
             }
         }
 
@@ -207,13 +209,27 @@ impl TabSpecies {
         }
     }
 
-    pub fn draw(&self, ctx: &Context, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    pub fn draw(
+        &self,
+        ctx: &Context,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         CentralPanel::default().show(ctx, |ui| {
-            self.draw_main(ui, style, db, queue);
+            self.draw_main(ui, image_cache, style, db, queue);
         });
     }
 
-    pub fn draw_main(&self, ui: &mut Ui, style: &Style, db: &Database, queue: &mut MessageQueue) {
+    pub fn draw_main(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         ui.horizontal(|ui| {
             if let Some(filter) = self.search_box.show(ui) {
                 queue.push_back(Message::FilterByName(filter));
@@ -239,7 +255,7 @@ impl TabSpecies {
             .id_salt("tab-species-scroll")
             .show(ui, |ui| {
                 ui.vertical(|ui| {
-                    let resp = self.list.render(ui, style, db);
+                    let resp = self.list.render(ui, image_cache, style, db);
                     if let Some(id) = resp.hovered {
                         queue.push_back(Message::Hovered(id));
                     }
