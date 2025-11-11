@@ -269,11 +269,15 @@ impl ModalTags {
             ui.vertical_centered_justified(|ui| {
                 self.view_selected_tags(ui, db, style, queue);
 
-                self.draw_tag_groups(ui, db, queue);
+                ScrollArea::vertical()
+                    .id_salt(fmt!("{ID_PREFIX}-tags-scroll"))
+                    .show(ui, |ui| {
+                        self.draw_tag_groups(ui, db, queue);
 
-                ui.separator();
+                        ui.add_space(5.0);
 
-                self.draw_frequent_tags(ui, style, queue);
+                        self.draw_frequent_tags(ui, style, queue);
+                    });
             });
         });
     }
