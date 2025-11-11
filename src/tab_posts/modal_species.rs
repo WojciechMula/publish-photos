@@ -168,6 +168,7 @@ impl ModalSpecies {
 
                 for view in views {
                     view.image_width = style.image.thumbnail_width;
+                    view.set_filter(self.search_box.phrase(ctx), db);
                     view.refresh_view(db);
                 }
             }
@@ -324,9 +325,11 @@ impl ModalSpecies {
     }
 
     fn draw_species(&self, ui: &mut Ui, style: &Style, db: &Database, queue: &mut MessageQueue) {
-        ScrollArea::vertical().show(ui, |ui| {
-            self.draw_species_aux(ui, style, db, queue);
-        });
+        ScrollArea::vertical()
+            .id_salt(fmt!("{ID_PREFIX}-species-scroll"))
+            .show(ui, |ui| {
+                self.draw_species_aux(ui, style, db, queue);
+            });
     }
 
     fn draw_species_aux(
