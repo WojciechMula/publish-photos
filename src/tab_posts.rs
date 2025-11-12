@@ -743,6 +743,13 @@ impl TabPosts {
             if ui.button(label).clicked() {
                 queue.push_back(Message::FilterByMonth(post.date.month));
             }
+
+            ui.separator();
+
+            let label = "Start photos grouping";
+            if ui.button(label).clicked() {
+                queue.push_back(Message::StartGrouping(post.id));
+            }
         });
 
         resp.contains_pointer()
