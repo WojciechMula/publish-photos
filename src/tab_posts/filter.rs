@@ -7,6 +7,7 @@ use crate::db::Post;
 use crate::db::PostId;
 use crate::db::Selector;
 use crate::file_stem;
+use crate::gui::text_size;
 use crate::search_box::SearchBox;
 use const_format::formatcp as fmt;
 use egui::ComboBox;
@@ -17,11 +18,16 @@ use std::collections::VecDeque;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+use egui_material_icons::icons::ICON_CALENDAR_MONTH;
+use egui_material_icons::icons::ICON_PUBLIC;
+
 pub struct Filter {
     image_state: ImageState,
     pub current: Selector,
     count: ImageCounter,
     pub search_box: SearchBox,
+
+    icon_width: f32,
 }
 
 impl Default for Filter {
@@ -31,6 +37,7 @@ impl Default for Filter {
             current: Selector::All,
             count: ImageCounter(0),
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
+            icon_width: 0.0,
         }
     }
 }
@@ -52,6 +59,10 @@ impl Filter {
     }
 
     pub fn view(&mut self, ui: &mut Ui, db: &Database, queue: &mut VecDeque<Message>) {
+        if self.icon_width == 0.0 {
+            self.icon_width = text_size(ICON_CALENDAR_MONTH, ui).x;
+        }
+
         let options = [
             ImageState::Any,
             ImageState::Unpublished,
@@ -85,7 +96,12 @@ impl Filter {
                     };
                     let label = format_selector(selector, count_pictures(view, &self.image_state));
 
-                    ui.selectable_value(&mut current, *selector, label);
+                    ui.horizontal(|ui| {
+                        if matches!(selector, Selector::ByDate(_)) {
+                            ui.add_space(self.icon_width);
+                        }
+                        ui.selectable_value(&mut current, *selector, label);
+                    });
                 }
 
                 if current != self.current {
@@ -129,8 +145,8 @@ impl Filter {
 
 fn format_selector(selector: &Selector, count: usize) -> String {
     let label = match selector {
-        Selector::All => "All images".to_owned(),
-        Selector::ByMonth(month) => month.to_string(),
+        Selector::All => format!("{ICON_PUBLIC} All images"),
+        Selector::ByMonth(month) => format!("{ICON_CALENDAR_MONTH} {month}"),
         Selector::ByDate(date) => format!("{:02}-{:02}", date.month.as_u8(), date.day.as_u8()),
     };
 
