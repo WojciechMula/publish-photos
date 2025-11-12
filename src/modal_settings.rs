@@ -110,10 +110,12 @@ impl ModalSettings {
                         select_color(
                             ui,
                             "published-post-background",
-                            &mut self.new.published_frame,
+                            &mut self.new.published_post,
                         );
                         ui.end_row();
 
+                        ui.label("selected post background");
+                        select_color(ui, "selected-post-background", &mut self.new.selected_post);
                         ui.end_row();
                     });
             });

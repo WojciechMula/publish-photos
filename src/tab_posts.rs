@@ -73,13 +73,11 @@ pub struct TabPosts {
     version: u64,
     view: Vec<PostId>,
     hovered: Option<PostId>,
+    selected: Option<PostId>,
+    scroll_to_selected: bool,
     filter: Filter,
     inline_editors: BTreeMap<(PostId, Field), InlineEditor>,
     group: Option<Group>,
-    scroll_delta: f32,
-    scroll_item: f32,
-    scroll_page: f32,
-    scroll_everything: f32,
     label_width: f32,
     modal_window: ModalWindow,
 
@@ -122,6 +120,7 @@ pub enum Message {
     EditTags(PostId),
     EditSpecies(PostId),
     View(PostId),
+    Select(PostId),
     Publish(PostId),
     InlineEditStart {
         id: PostId,
@@ -163,24 +162,17 @@ pub enum Message {
 
     RefreshView,
     Hovered(Option<PostId>),
-    UpdateScrollAmounts {
-        scroll_item: f32,
-        scroll_page: f32,
-        scroll_everything: f32,
-    },
     StartGroupingCurrent,
     PublishCurrent,
     EditTagsCurrent,
     EditSpeciesCurrent,
     ViewCurrent,
-    ScrollDown,
-    ScrollUp,
-    ScrollPageDown,
-    ScrollPageUp,
-    ScrollManyPagesDown,
-    ScrollManyPagesUp,
-    ScrollHome,
-    ScrollEnd,
+    SelectNext,
+    SelectPrev,
+    SelectNextMany,
+    SelectPrevMany,
+    SelectFirst,
+    SelectLast,
     Undo,
     FocusSearch,
 }
@@ -191,6 +183,7 @@ impl Message {
             Self::EditTags(_) => unreachable!(),
             Self::EditSpecies(_) => unreachable!(),
             Self::View(_) => unreachable!(),
+            Self::Select(_) => unreachable!(),
             Self::Publish(_) => unreachable!(),
             Self::InlineEditStart { .. } => unreachable!(),
             Self::InlineEditChange { .. } => unreachable!(),
@@ -216,20 +209,17 @@ impl Message {
             Self::Copy(_) => unreachable!(),
             Self::RefreshView => unreachable!(),
             Self::Hovered(_) => unreachable!(),
-            Self::UpdateScrollAmounts { .. } => unreachable!(),
             Self::StartGroupingCurrent => "start grouping photos in the highlighted post",
             Self::PublishCurrent => "publish the highlighted post",
             Self::EditTagsCurrent => "edit tags of the highlighted post",
             Self::EditSpeciesCurrent => "edit species of the highlighted post",
             Self::ViewCurrent => "fullscreen view of photos from the highlighted post",
-            Self::ScrollDown => "slightly scroll list down",
-            Self::ScrollUp => "slightly scroll list up",
-            Self::ScrollPageDown => "scroll list down",
-            Self::ScrollPageUp => "scroll list down",
-            Self::ScrollManyPagesDown => "quick scroll list down",
-            Self::ScrollManyPagesUp => "quick scroll list up",
-            Self::ScrollHome => "scroll to the beginning",
-            Self::ScrollEnd => "scroll to the end",
+            Self::SelectNext => "select the next post",
+            Self::SelectPrev => "select the previous post",
+            Self::SelectNextMany => "move selection some position forward",
+            Self::SelectPrevMany => "move selection some position backward",
+            Self::SelectFirst => "scroll to the beginning",
+            Self::SelectLast => "scroll to the end",
             Self::Undo => "undo changes",
             Self::FocusSearch => "focus search bar",
             Self::FocusItem(_) => unreachable!(),
@@ -263,14 +253,12 @@ impl Default for TabPosts {
         Self {
             view: Vec::new(),
             hovered: None,
+            selected: None,
+            scroll_to_selected: false,
             version: 0,
             filter: Filter::default(),
             queue,
             inline_editors: BTreeMap::new(),
-            scroll_delta: 0.0,
-            scroll_item: 100.0,
-            scroll_page: 500.0,
-            scroll_everything: 0.0,
             modal_window: ModalWindow::None,
             label_width: 0.0,
             group: None,
@@ -283,10 +271,12 @@ impl Default for TabPosts {
 impl TabPosts {
     pub fn load(&mut self, db_id: &str, storage: &dyn eframe::Storage) {
         self.filter.load(db_id, storage);
+        self.selected = eframe::get_value(storage, fmt!("{ID_PREFIX}-selected-post"));
     }
 
     pub fn save(&self, db_id: &str, storage: &mut dyn eframe::Storage) {
         self.filter.save(db_id, storage);
+        eframe::set_value(storage, fmt!("{ID_PREFIX}-selected-post"), &self.selected);
     }
 
     pub fn update(
@@ -336,7 +326,7 @@ impl TabPosts {
             self.queue.push_back(msg);
         }
 
-        self.scroll_delta = 0.0;
+        self.scroll_to_selected = false;
     }
 
     fn handle_message(
@@ -403,6 +393,10 @@ impl TabPosts {
             Message::InlineDiscardChanges { id, field } => {
                 self.inline_editors.remove(&(id, field));
             }
+            Message::Select(id) => {
+                self.scroll_to_selected = self.selected != Some(id);
+                self.selected = Some(id);
+            }
             Message::View(id) => {
                 queue.push_back(Message::OpenModalView(id));
             }
@@ -442,15 +436,6 @@ impl TabPosts {
             }
             Message::OverlaySize(overlay, size) => {
                 self.overlay_size.insert(overlay, size);
-            }
-            Message::UpdateScrollAmounts {
-                scroll_item,
-                scroll_page,
-                scroll_everything,
-            } => {
-                self.scroll_item = scroll_item;
-                self.scroll_page = scroll_page;
-                self.scroll_everything = scroll_everything;
             }
             Message::OpenModalTags(id) => {
                 assert!(self.modal_window.is_none());
@@ -532,29 +517,35 @@ impl TabPosts {
                     self.queue.push_back(Message::View(id));
                 }
             }
-            Message::ScrollDown => {
-                self.scroll_delta = -self.scroll_item;
+            Message::SelectNext => {
+                let id = move_selection(&self.view, self.selected, 1);
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
             }
-            Message::ScrollUp => {
-                self.scroll_delta = self.scroll_item;
+            Message::SelectPrev => {
+                let id = move_selection(&self.view, self.selected, -1);
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
             }
-            Message::ScrollPageDown => {
-                self.scroll_delta = -self.scroll_page;
+            Message::SelectNextMany => {
+                let id = move_selection(&self.view, self.selected, 5);
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
             }
-            Message::ScrollPageUp => {
-                self.scroll_delta = self.scroll_page;
+            Message::SelectPrevMany => {
+                let id = move_selection(&self.view, self.selected, -5);
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
             }
-            Message::ScrollManyPagesDown => {
-                self.scroll_delta = -5.0 * self.scroll_page;
+            Message::SelectFirst => {
+                let id = self.view.first().copied();
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
             }
-            Message::ScrollManyPagesUp => {
-                self.scroll_delta = 5.0 * self.scroll_page;
-            }
-            Message::ScrollHome => {
-                self.scroll_delta = self.scroll_everything;
-            }
-            Message::ScrollEnd => {
-                self.scroll_delta = -self.scroll_everything;
+            Message::SelectLast => {
+                let id = self.view.last().copied();
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
             }
             Message::FocusItem(id) => {
                 ctx.memory_mut(|mem| mem.request_focus(id));
@@ -580,16 +571,14 @@ impl TabPosts {
             .key(Key::F, msg(Message::ViewCurrent))
             .key(Key::V, msg(Message::ViewCurrent))
             .key(Key::Space, msg(Message::ViewCurrent))
-            .key(Key::ArrowDown, msg(Message::ScrollDown))
-            .key(Key::ArrowUp, msg(Message::ScrollUp))
-            .ctrl(Key::ArrowDown, msg(Message::ScrollPageDown))
-            .ctrl(Key::ArrowUp, msg(Message::ScrollPageUp))
-            .key(Key::PageDown, msg(Message::ScrollPageDown))
-            .key(Key::PageUp, msg(Message::ScrollPageUp))
-            .ctrl(Key::PageDown, msg(Message::ScrollManyPagesDown))
-            .ctrl(Key::PageUp, msg(Message::ScrollManyPagesUp))
-            .key(Key::Home, msg(Message::ScrollHome))
-            .key(Key::End, msg(Message::ScrollEnd))
+            .key(Key::ArrowDown, msg(Message::SelectNext))
+            .key(Key::ArrowUp, msg(Message::SelectPrev))
+            .ctrl(Key::ArrowDown, msg(Message::SelectNextMany))
+            .ctrl(Key::ArrowUp, msg(Message::SelectPrevMany))
+            .key(Key::PageDown, msg(Message::SelectNextMany))
+            .key(Key::PageUp, msg(Message::SelectPrevMany))
+            .key(Key::Home, msg(Message::SelectFirst))
+            .key(Key::End, msg(Message::SelectLast))
     }
 
     pub fn get_keyboard_mapping(&self) -> &KeyboardMapping {
@@ -667,11 +656,9 @@ impl TabPosts {
         queue: &mut MessageQueue,
     ) {
         let mut count = 0;
-        let resp = ScrollArea::both()
+        ScrollArea::both()
             .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
             .show(ui, |ui| {
-                ui.scroll_with_delta(Vec2::new(0.0, self.scroll_delta));
-
                 let mut hovered: Option<PostId> = None;
                 for id in self.view.iter() {
                     if let Some(group) = &self.group {
@@ -692,25 +679,6 @@ impl TabPosts {
                     queue.push_back(Message::Hovered(hovered));
                 }
             });
-
-        let scroll_page = resp.inner_rect.height();
-        let scroll_everything = resp.content_size.y;
-        let scroll_item = if count > 0 {
-            scroll_everything / count as f32
-        } else {
-            0.0
-        };
-
-        if scroll_item != self.scroll_item
-            || scroll_page != self.scroll_page
-            || scroll_everything != self.scroll_everything
-        {
-            queue.push_back(Message::UpdateScrollAmounts {
-                scroll_item,
-                scroll_page,
-                scroll_everything,
-            });
-        }
     }
 
     fn draw_post(
@@ -722,10 +690,12 @@ impl TabPosts {
         db: &Database,
         queue: &mut MessageQueue,
     ) -> bool {
-        let fill = if self.hovered == Some(post.id) {
+        let fill = if self.selected == Some(post.id) {
+            Some(style.selected_post)
+        } else if self.hovered == Some(post.id) {
             Some(style.hovered_frame)
         } else if post.published {
-            Some(style.published_frame)
+            Some(style.published_post)
         } else {
             None
         };
@@ -734,8 +704,16 @@ impl TabPosts {
             self.draw_post_inner(ui, image_cache, style, post, db, queue);
         });
 
+        if self.scroll_to_selected && self.selected == Some(post.id) {
+            ui.scroll_to_rect(resp.rect, Some(Align::Center));
+        }
+
         if resp.double_clicked() {
             queue.push_back(Message::View(post.id));
+        }
+
+        if resp.clicked() {
+            queue.push_back(Message::Select(post.id));
         }
 
         resp.contains_pointer()
@@ -1059,4 +1037,34 @@ fn image_count(label: String, style: &Style) -> impl Widget {
     widget.background = style.image.overlay.bg;
 
     widget
+}
+
+fn move_selection(view: &[PostId], selected: Option<PostId>, direction: isize) -> Option<PostId> {
+    if view.is_empty() {
+        return None;
+    }
+
+    let Some(selected) = selected else {
+        return Some(view[0]);
+    };
+
+    if let Some(position) = view.iter().position(|post_id| *post_id == selected) {
+        let max = view.len() - 1;
+        let id = clamp(position as isize + direction, 0, max as isize);
+        let id = id as usize;
+
+        Some(view[id])
+    } else {
+        Some(view[0])
+    }
+}
+
+fn clamp(val: isize, min: isize, max: isize) -> isize {
+    if val < min {
+        min
+    } else if val > max {
+        max
+    } else {
+        val
+    }
 }

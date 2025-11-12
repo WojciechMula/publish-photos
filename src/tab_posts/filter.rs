@@ -1,4 +1,5 @@
 use super::Message;
+use super::ID_PREFIX;
 use crate::db::Database;
 use crate::db::Date;
 use crate::db::PictureView;
@@ -7,6 +8,7 @@ use crate::db::PostId;
 use crate::db::Selector;
 use crate::file_stem;
 use crate::search_box::SearchBox;
+use const_format::formatcp as fmt;
 use egui::ComboBox;
 use egui::Ui;
 use serde::Deserialize;
@@ -28,7 +30,7 @@ impl Default for Filter {
             image_state: ImageState::Unpublished,
             current: Selector::All,
             count: ImageCounter(0),
-            search_box: SearchBox::new("tab-images-phrase"),
+            search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
         }
     }
 }
@@ -36,16 +38,16 @@ impl Default for Filter {
 impl Filter {
     pub fn load(&mut self, db_id: &str, storage: &dyn eframe::Storage) {
         self.image_state =
-            eframe::get_value(storage, "tab-images-image-state").unwrap_or(self.image_state);
+            eframe::get_value(storage, fmt!("{ID_PREFIX}-image-state")).unwrap_or(self.image_state);
 
-        let key = format!("{db_id}-tab-images-current");
+        let key = format!("{db_id}-{ID_PREFIX}-current");
         self.current = eframe::get_value(storage, &key).unwrap_or(self.current);
     }
 
     pub fn save(&self, db_id: &str, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, "tab-images-image-state", &self.image_state);
+        eframe::set_value(storage, fmt!("{ID_PREFIX}-image-state"), &self.image_state);
 
-        let key = format!("{db_id}-tab-images-current");
+        let key = format!("{db_id}-{ID_PREFIX}-current");
         eframe::set_value(storage, &key, &self.current);
     }
 

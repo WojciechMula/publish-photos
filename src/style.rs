@@ -7,7 +7,8 @@ use serde::Serialize;
 pub struct Style {
     pub modified: Color32,
     pub hovered_frame: Color32,
-    pub published_frame: Color32,
+    pub selected_post: Color32,
+    pub published_post: Color32,
 
     pub tag_active_bg: Color32,
     pub tag_active_fg: Color32,
@@ -68,7 +69,8 @@ impl Default for Style {
             tag_hovered_fg: Color32::BLACK,
             tag_highlight_fg: crate::colors::RED1,
             hovered_frame: crate::colors::DARK_SLATE_GRAY,
-            published_frame: crate::colors::GRAY30,
+            selected_post: crate::colors::DARK_SLATE_BLUE,
+            published_post: crate::colors::GRAY30,
             image: ImageStyle::default(),
             button: ButtonStyle::default(),
             copied_mark: Color32::GREEN,

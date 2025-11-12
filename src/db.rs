@@ -73,7 +73,9 @@ impl PostList {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(
+    Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize,
+)]
 pub struct PostId(pub usize);
 
 #[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
