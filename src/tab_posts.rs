@@ -1033,7 +1033,14 @@ fn inline_edit(
             result = Some(Message::Copy(current.to_owned()));
         }
 
-        let label = Label::new(current).selectable(false).sense(Sense::CLICK);
+        let mut label = if current.is_empty() {
+            let color = ui.visuals().weak_text_color();
+            Label::new(RichText::new("<click to edit>").color(color))
+        } else {
+            Label::new(current)
+        };
+
+        label = label.selectable(false).sense(Sense::CLICK);
         if ui.add(label).clicked() {
             result = Some(Message::InlineEditStart { id, field });
         }
