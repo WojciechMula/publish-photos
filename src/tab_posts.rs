@@ -22,8 +22,11 @@ use crate::application::Message as MainMessage;
 use crate::application::MessageQueue as MainMessageQueue;
 use crate::confirm::Confirm;
 use crate::db::Database;
+use crate::db::Date;
+use crate::db::Month;
 use crate::db::Post;
 use crate::db::PostId;
+use crate::db::Selector;
 use crate::edit_details::EditDetails;
 use crate::gui::add_image;
 use crate::gui::add_image_with_tint;
@@ -175,6 +178,8 @@ pub enum Message {
     SelectLast,
     Undo,
     FocusSearch,
+    FilterByDate(Date),
+    FilterByMonth(Month),
 }
 
 impl Message {
@@ -223,6 +228,8 @@ impl Message {
             Self::Undo => "undo changes",
             Self::FocusSearch => "focus search bar",
             Self::FocusItem(_) => unreachable!(),
+            Self::FilterByDate(_) => unreachable!(),
+            Self::FilterByMonth(_) => unreachable!(),
         }
     }
 }
@@ -489,32 +496,32 @@ impl TabPosts {
             }
             Message::PublishCurrent => {
                 if let Some(id) = self.hovered {
-                    self.queue.push_back(Message::Publish(id));
+                    queue.push_back(Message::Publish(id));
                 }
             }
             Message::Undo => {
                 if let Some(id) = self.hovered {
-                    self.queue.push_back(EditDetails::Undo(id).into());
+                    queue.push_back(EditDetails::Undo(id).into());
                 }
             }
             Message::EditTagsCurrent => {
                 if let Some(id) = self.hovered {
-                    self.queue.push_back(Message::EditTags(id));
+                    queue.push_back(Message::EditTags(id));
                 }
             }
             Message::EditSpeciesCurrent => {
                 if let Some(id) = self.hovered {
-                    self.queue.push_back(Message::EditSpecies(id));
+                    queue.push_back(Message::EditSpecies(id));
                 }
             }
             Message::StartGroupingCurrent => {
                 if let Some(id) = self.hovered {
-                    self.queue.push_back(Message::StartGrouping(id));
+                    queue.push_back(Message::StartGrouping(id));
                 }
             }
             Message::ViewCurrent => {
                 if let Some(id) = self.hovered {
-                    self.queue.push_back(Message::View(id));
+                    queue.push_back(Message::View(id));
                 }
             }
             Message::SelectNext => {
@@ -549,6 +556,16 @@ impl TabPosts {
             }
             Message::FocusItem(id) => {
                 ctx.memory_mut(|mem| mem.request_focus(id));
+            }
+            Message::FilterByDate(date) => {
+                self.filter.current = Selector::ByDate(date);
+                self.scroll_to_selected = true;
+                queue.push_back(Message::RefreshView);
+            }
+            Message::FilterByMonth(month) => {
+                self.filter.current = Selector::ByMonth(month);
+                self.scroll_to_selected = true;
+                queue.push_back(Message::RefreshView);
             }
         }
     }
@@ -715,6 +732,18 @@ impl TabPosts {
         if resp.clicked() {
             queue.push_back(Message::Select(post.id));
         }
+
+        resp.context_menu(|ui| {
+            let label = format!("Show posts from {}", post.date);
+            if ui.button(label).clicked() {
+                queue.push_back(Message::FilterByDate(post.date));
+            }
+
+            let label = format!("Show posts from {}", post.date.month);
+            if ui.button(label).clicked() {
+                queue.push_back(Message::FilterByMonth(post.date.month));
+            }
+        });
 
         resp.contains_pointer()
     }

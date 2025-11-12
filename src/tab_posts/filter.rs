@@ -19,7 +19,7 @@ use std::fmt::Formatter;
 
 pub struct Filter {
     image_state: ImageState,
-    current: Selector,
+    pub current: Selector,
     count: ImageCounter,
     pub search_box: SearchBox,
 }

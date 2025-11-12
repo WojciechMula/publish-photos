@@ -75,6 +75,18 @@ impl PartialOrd for Date {
     }
 }
 
+impl Display for Date {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "{:04}-{:02}-{:02}",
+            self.year,
+            self.month.as_u8(),
+            self.day.as_u8()
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct Month(u8);
 
