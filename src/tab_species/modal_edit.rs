@@ -29,6 +29,7 @@ use egui::Ui;
 use std::cell::LazyCell;
 use std::collections::VecDeque;
 
+use egui_material_icons::icons::ICON_CONTENT_PASTE;
 use egui_material_icons::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "modal-edit-species";
@@ -339,9 +340,17 @@ impl ModalEdit {
 
 fn edit(ui: &mut Ui, curr: &String) -> Option<String> {
     let mut val = curr.clone();
-    let changed = ui.text_edit_singleline(&mut val).changed();
+    let resp = ui.text_edit_singleline(&mut val);
 
-    if changed && *curr != val {
+    resp.context_menu(|ui| {
+        if ui.button(fmt!("{ICON_CONTENT_PASTE} Paste")).clicked() {
+            let cmd = egui::ViewportCommand::RequestPaste;
+            ui.ctx().send_viewport_cmd(cmd);
+            resp.request_focus();
+        }
+    });
+
+    if resp.changed() && *curr != val {
         Some(val)
     } else {
         None
