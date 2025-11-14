@@ -35,7 +35,6 @@ use crate::gui::icon_en;
 use crate::gui::icon_pl;
 use crate::gui::overlay_label;
 use crate::gui::tag;
-use crate::gui::widget_size;
 use crate::gui::OverlayLocation;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
@@ -57,10 +56,8 @@ use egui::SidePanel;
 use egui::TextEdit;
 use egui::TopBottomPanel;
 use egui::Ui;
-use egui::Vec2;
 use std::cell::LazyCell;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_ADD;
@@ -84,7 +81,6 @@ pub struct TabPosts {
     label_width: f32,
     modal_window: ModalWindow,
 
-    overlay_size: HashMap<Overlay, Vec2>,
     keyboard_mapping: LazyCell<KeyboardMapping>,
 
     pub queue: MessageQueue,
@@ -102,12 +98,6 @@ impl ModalWindow {
     fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
-}
-
-#[derive(Clone, Hash, Eq, PartialEq)]
-pub enum Overlay {
-    Label(String),
-    Button(String),
 }
 
 struct InlineEditor {
@@ -148,7 +138,6 @@ pub enum Message {
     AddToGroup(PostId),
     RemoveFromGroup(PostId),
     SaveGroup,
-    OverlaySize(Overlay, Vec2),
 
     OpenModalPublish(PostId),
     OpenModalView(PostId),
@@ -200,7 +189,6 @@ impl Message {
             Self::AddToGroup(_) => unreachable!(),
             Self::RemoveFromGroup(_) => unreachable!(),
             Self::SaveGroup => unreachable!(),
-            Self::OverlaySize(_, _) => unreachable!(),
             Self::OpenModalPublish(_) => unreachable!(),
             Self::OpenModalView(_) => unreachable!(),
             Self::OpenModalTags(_) => unreachable!(),
@@ -269,7 +257,6 @@ impl Default for TabPosts {
             modal_window: ModalWindow::None,
             label_width: 0.0,
             group: None,
-            overlay_size: HashMap::new(),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
     }
@@ -440,9 +427,6 @@ impl TabPosts {
 
                 group.apply(db);
                 queue.push_back(Message::RefreshView);
-            }
-            Message::OverlaySize(overlay, size) => {
-                self.overlay_size.insert(overlay, size);
             }
             Message::OpenModalTags(id) => {
                 assert!(self.modal_window.is_none());
@@ -775,47 +759,36 @@ impl TabPosts {
 
             let n = post.files.len();
             if n > 1 {
-                let count = ImageCounter(n);
-                let label = count.to_string();
-                let widget = overlay_label(label.clone(), style);
-                let overlay_id = Overlay::Label(label);
+                add_overlay(
+                    ui,
+                    resp.clone(),
+                    OverlayLocation::BottomRight,
+                    style.image.overlay.margin,
+                    |ui| {
+                        let count = ImageCounter(n);
+                        let label = count.to_string();
 
-                if let Some(size) = self.overlay_size.get(&overlay_id) {
-                    add_overlay(
-                        ui,
-                        resp.clone(),
-                        OverlayLocation::BottomRight,
-                        *size,
-                        style.image.overlay.margin,
-                        widget,
-                    );
-                } else {
-                    let size = widget_size(ui, widget);
-                    queue.push_back(Message::OverlaySize(overlay_id, size));
-                }
+                        ui.add(overlay_label(label, style))
+                    },
+                );
             }
 
             if self.group.is_some() {
-                let label = fmt!("{ICON_ADD} Add to group");
-                let overlay_id = Overlay::Button(label.to_owned());
-                let button = Button::new(label).fill(style.button.save);
+                let resp = add_overlay(
+                    ui,
+                    resp,
+                    OverlayLocation::TopLeft,
+                    style.image.overlay.margin,
+                    |ui: &mut Ui| {
+                        let label = fmt!("{ICON_ADD} Add to group");
+                        let button = Button::new(label).fill(style.button.save);
 
-                if let Some(size) = self.overlay_size.get(&overlay_id) {
-                    let resp = add_overlay(
-                        ui,
-                        resp,
-                        OverlayLocation::TopLeft,
-                        *size,
-                        style.image.overlay.margin,
-                        button,
-                    );
+                        ui.add(button)
+                    },
+                );
 
-                    if resp.clicked() {
-                        queue.push_back(Message::AddToGroup(post.id));
-                    }
-                } else {
-                    let size = widget_size(ui, button);
-                    queue.push_back(Message::OverlaySize(overlay_id, size));
+                if resp.clicked() {
+                    queue.push_back(Message::AddToGroup(post.id));
                 }
             }
 
@@ -952,25 +925,20 @@ impl TabPosts {
                         style.image.radius,
                     );
 
-                    let label = fmt!("{ICON_DELETE} Remove from group");
-                    let button = Button::new(label).fill(style.button.remove);
-                    let overlay_id = Overlay::Label(label.to_owned());
+                    let resp = add_overlay(
+                        ui,
+                        resp,
+                        OverlayLocation::BottomRight,
+                        style.image.overlay.margin,
+                        |ui| {
+                            let label = fmt!("{ICON_DELETE} Remove from group");
+                            let button = Button::new(label).fill(style.button.remove);
 
-                    if let Some(size) = self.overlay_size.get(&overlay_id) {
-                        let resp = add_overlay(
-                            ui,
-                            resp,
-                            OverlayLocation::BottomRight,
-                            *size,
-                            style.image.overlay.margin,
-                            button,
-                        );
-                        if resp.clicked() {
-                            queue.push_back(Message::RemoveFromGroup(*id));
-                        }
-                    } else {
-                        let size = widget_size(ui, button);
-                        queue.push_back(Message::OverlaySize(overlay_id, size));
+                            ui.add(button)
+                        },
+                    );
+                    if resp.clicked() {
+                        queue.push_back(Message::RemoveFromGroup(*id));
                     }
                 }
             }

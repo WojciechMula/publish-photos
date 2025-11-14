@@ -2,6 +2,7 @@ use crate::image_cache::ImageCache;
 use crate::style::Style;
 use crate::widgets::Label as CustomLabel;
 use const_format::formatcp as fmt;
+use egui::Align;
 use egui::Button;
 use egui::Color32;
 use egui::FontId;
@@ -9,7 +10,7 @@ use egui::Frame;
 use egui::Image;
 use egui::ImageSource;
 use egui::Label;
-use egui::Rect;
+use egui::Layout;
 use egui::Response;
 use egui::Sense;
 use egui::Ui;
@@ -60,32 +61,21 @@ pub fn add_overlay(
     ui: &mut Ui,
     resp: Response,
     location: OverlayLocation,
-    size: Vec2,
     margin: Vec2,
-    widget: impl Widget,
+    contents: impl FnOnce(&mut Ui) -> Response,
 ) -> Response {
-    let min_x = resp.rect.min.x + margin.x;
-    let max_x = resp.rect.max.x - margin.x;
+    let rect = resp.rect.shrink2(margin);
 
-    let min_y = resp.rect.min.y + margin.y;
-    let max_y = resp.rect.max.y - margin.y;
-
-    let pos = match location {
-        OverlayLocation::TopLeft => egui::pos2(min_x, min_y),
-        OverlayLocation::TopRight => egui::pos2(max_x - size.x, min_y),
-        OverlayLocation::BottomLeft => egui::pos2(min_x, min_y - size.y),
-        OverlayLocation::BottomRight => egui::pos2(max_x - size.x, max_y - size.y),
+    let layout = match location {
+        OverlayLocation::TopLeft => Layout::left_to_right(Align::Min),
+        OverlayLocation::TopRight => Layout::right_to_left(Align::Min),
+        OverlayLocation::BottomLeft => Layout::left_to_right(Align::Max),
+        OverlayLocation::BottomRight => Layout::right_to_left(Align::Max),
     };
 
-    let rect = Rect::from_min_size(pos, size);
+    let mut ui = ui.new_child(UiBuilder::new().max_rect(rect).layout(layout));
 
-    ui.place(rect, widget)
-}
-
-pub fn widget_size(ui: &mut Ui, widget: impl Widget) -> Vec2 {
-    let resp = ui.add(widget);
-
-    resp.rect.size()
+    contents(&mut ui)
 }
 
 // --------------------------------------------------
