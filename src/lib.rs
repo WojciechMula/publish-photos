@@ -8,6 +8,7 @@ mod edit_tags;
 mod gui;
 mod help;
 mod image_cache;
+mod image_counter;
 mod keyboard;
 mod modal;
 mod modal_keyboard;
@@ -23,6 +24,8 @@ mod tab_tag_groups;
 mod tab_tag_translations;
 mod tag_hints;
 mod widgets;
+
+pub use image_counter::ImageCounter;
 
 // --------------------------------------------------
 

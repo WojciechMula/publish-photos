@@ -1,8 +1,8 @@
-use super::filter::ImageCounter;
 use crate::db::Database;
 use crate::db::Latin;
 use crate::db::PostId;
 use crate::db::TagList;
+use crate::ImageCounter;
 use std::path::PathBuf;
 
 pub struct Group {

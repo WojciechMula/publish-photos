@@ -197,6 +197,18 @@ pub fn text_size(s: &str, ui: &mut Ui) -> Vec2 {
 
 // --------------------------------------------------
 
+pub fn overlay_label(label: String, style: &Style) -> impl Widget {
+    use crate::widgets::Label;
+
+    let mut widget = Label::new(label);
+    widget.padding = 3.0;
+    widget.rounding = 5.0;
+    widget.color = style.image.overlay.fg;
+    widget.background = style.image.overlay.bg;
+
+    widget
+}
+
 pub mod button {
     use super::*;
 

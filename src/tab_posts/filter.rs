@@ -9,14 +9,13 @@ use crate::db::Selector;
 use crate::file_stem;
 use crate::gui::text_size;
 use crate::search_box::SearchBox;
+use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use egui::ComboBox;
 use egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::fmt::Display;
-use std::fmt::Formatter;
 
 use egui_material_icons::icons::ICON_CALENDAR_MONTH;
 use egui_material_icons::icons::ICON_PUBLIC;
@@ -188,21 +187,6 @@ impl ImageState {
             Self::Any => true,
             Self::Published => post.published,
             Self::Unpublished => !post.published,
-        }
-    }
-}
-
-// --------------------------------------------------
-
-#[derive(Eq, PartialEq)]
-pub struct ImageCounter(pub usize);
-
-impl Display for ImageCounter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        match self.0 {
-            0 => f.write_str("no images"),
-            1 => f.write_str("1 image"),
-            _ => write!(f, "{} images", self.0),
         }
     }
 }

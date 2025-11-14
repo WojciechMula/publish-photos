@@ -3,7 +3,7 @@ use super::SpeciesId;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Latin(String);
 
 impl Latin {
@@ -57,6 +57,12 @@ pub struct Species {
 
     #[serde(skip)]
     pub search_parts: SearchParts,
+
+    #[serde(skip)]
+    pub examples: Vec<String>,
+
+    #[serde(skip)]
+    pub current_example: usize,
 }
 
 impl Species {
@@ -101,6 +107,31 @@ impl Species {
         self.search_parts.clear();
         for item in items {
             self.search_parts.add(item);
+        }
+    }
+
+    pub fn next_example(&mut self) {
+        let n = self.examples.len();
+        if n == 0 {
+            return;
+        }
+
+        self.current_example += 1;
+        if self.current_example >= n {
+            self.current_example = 0;
+        }
+    }
+
+    pub fn prev_example(&mut self) {
+        let n = self.examples.len();
+        if n == 0 {
+            return;
+        }
+
+        if self.current_example > 0 {
+            self.current_example -= 1;
+        } else {
+            self.current_example = n - 1;
         }
     }
 }

@@ -5,9 +5,7 @@ mod modal_species;
 mod modal_tags;
 mod modal_view;
 
-use egui::Widget;
 use filter::Filter;
-use filter::ImageCounter;
 use group::Group;
 use modal_publish::Message as ModalPublishMessage;
 use modal_publish::ModalPublish;
@@ -35,12 +33,14 @@ use crate::gui::button;
 use crate::gui::frame;
 use crate::gui::icon_en;
 use crate::gui::icon_pl;
+use crate::gui::overlay_label;
 use crate::gui::tag;
 use crate::gui::widget_size;
 use crate::gui::OverlayLocation;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
+use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use egui::Align;
 use egui::Button;
@@ -777,7 +777,7 @@ impl TabPosts {
             if n > 1 {
                 let count = ImageCounter(n);
                 let label = count.to_string();
-                let widget = image_count(label.clone(), style);
+                let widget = overlay_label(label.clone(), style);
                 let overlay_id = Overlay::Label(label);
 
                 if let Some(size) = self.overlay_size.get(&overlay_id) {
@@ -1061,18 +1061,6 @@ fn inline_edit(
     }
 
     result
-}
-
-fn image_count(label: String, style: &Style) -> impl Widget {
-    use crate::widgets::Label;
-
-    let mut widget = Label::new(label);
-    widget.padding = 3.0;
-    widget.rounding = 5.0;
-    widget.color = style.image.overlay.fg;
-    widget.background = style.image.overlay.bg;
-
-    widget
 }
 
 fn move_selection(view: &[PostId], selected: Option<PostId>, direction: isize) -> Option<PostId> {

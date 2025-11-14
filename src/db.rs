@@ -28,6 +28,7 @@ use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -54,6 +55,9 @@ pub struct Database {
     pub tag_hints: TagHints,
 
     #[serde(skip)]
+    pub needs_refresh_species_examples: bool,
+
+    #[serde(skip)]
     pub version: u64,
 
     #[serde(skip)]
@@ -78,7 +82,7 @@ impl PostList {
 )]
 pub struct PostId(pub usize);
 
-#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct SpeciesId(pub usize);
 
 pub enum Language {
@@ -209,19 +213,28 @@ impl Database {
         self.species.iter().find(|species| species.latin == *key)
     }
 
+    pub fn species_mut_by_latin(&mut self, key: &Latin) -> Option<&mut Species> {
+        self.species
+            .iter_mut()
+            .find(|species| species.latin == *key)
+    }
+
     pub fn species_by_id(&self, id: &SpeciesId) -> Option<&Species> {
         self.species.get(id.0)
     }
 
-    pub fn find_examples(&self, key: Latin) -> Vec<String> {
+    pub fn species_mut_by_id(&mut self, id: &SpeciesId) -> Option<&mut Species> {
+        self.species.get_mut(id.0)
+    }
+
+    pub fn find_examples(&self, key: &Latin) -> Vec<String> {
         let mut res = Vec::<String>::new();
-        let key = Some(key);
 
         for post in self
             .posts
             .iter()
             .filter(|post| post.is_example)
-            .filter(|post| post.species == key)
+            .filter(|post| post.species.as_ref().is_some_and(|species| species == key))
         {
             for uri in &post.uris {
                 res.push(uri.clone());
@@ -290,6 +303,33 @@ impl Database {
         }
     }
 
+    fn refresh_species_examples(&mut self) {
+        let mut tmp = HashMap::<Latin, Vec<String>>::new();
+        for post in self
+            .posts
+            .iter()
+            .filter(|post| post.is_example)
+            .filter(|post| post.species.is_some())
+        {
+            let species = post.species.as_ref().unwrap();
+            tmp.entry(species.clone())
+                .and_modify(|list| {
+                    for uri in &post.uris {
+                        list.push(uri.clone());
+                    }
+                })
+                .or_insert_with(|| post.uris.clone());
+        }
+
+        for species in self.species.iter_mut() {
+            if let Some(examples) = tmp.remove(&species.latin) {
+                species.examples = examples;
+            } else {
+                species.examples.clear();
+            }
+        }
+    }
+
     pub fn drop_post(&mut self, id: &PostId) {
         let Some(index) = self.posts.iter().position(|post| post.id == *id) else {
             return;
@@ -302,6 +342,11 @@ impl Database {
         self.refresh_picture_views();
         self.refresh_tags_views();
         self.refresh_tag_hints();
+
+        if self.needs_refresh_species_examples {
+            self.refresh_species_examples();
+            self.needs_refresh_species_examples = false;
+        }
     }
 
     fn refresh_tags_views(&mut self) {
@@ -381,6 +426,8 @@ impl Database {
 
             entry.refresh();
         }
+
+        self.refresh_species_examples();
     }
 
     pub fn invalidate_caches(&mut self) {

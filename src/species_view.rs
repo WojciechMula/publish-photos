@@ -5,12 +5,20 @@ use crate::gui::add_image;
 use crate::gui::frame;
 use crate::gui::icon_en;
 use crate::gui::icon_pl;
+use crate::gui::overlay_label;
 use crate::image_cache::ImageCache;
 use crate::style::Style;
+use crate::ImageCounter;
+use egui::Align;
 use egui::Label;
+use egui::Layout;
 use egui::RichText;
 use egui::Ui;
+use egui::UiBuilder;
 use egui::Vec2;
+
+use egui_material_icons::icons::ICON_ARROW_BACK_2;
+use egui_material_icons::icons::ICON_PLAY_ARROW;
 
 #[derive(Default)]
 pub struct SpeciesList {
@@ -156,8 +164,12 @@ impl SpeciesList {
             };
 
             let resp = frame(ui, fill, |ui| {
-                crate::species_view::block(ui, image_cache, style, db, species, self.image_width)
+                let action = block(ui, image_cache, style, db, species, self.image_width);
+                if let Some(action) = action {
+                    result.species_view_action = Some((action, *id));
+                }
             });
+
             if resp.contains_pointer() {
                 hovered = Some(*id);
             }
@@ -178,39 +190,72 @@ impl SpeciesList {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SpeciesListResponse {
     pub hovered: Option<Option<SpeciesId>>,
     pub clicked: Option<SpeciesId>,
     pub double_clicked: Option<SpeciesId>,
+    pub species_view_action: Option<(SpeciesViewAction, SpeciesId)>,
+}
+
+#[derive(Debug, Clone)]
+pub enum SpeciesViewAction {
+    SelectNext,
+    SelectPrev,
 }
 
 pub fn image(
     ui: &mut Ui,
     image_cache: &mut ImageCache,
     style: &Style,
-    db: &Database,
+    _db: &Database,
     species: &Species,
     width: f32,
-) {
-    if let Some(uri) = db.find_examples(species.latin.clone()).first() {
-        add_image(ui, uri.clone(), image_cache, width, style.image.radius);
-    } else {
+) -> Option<SpeciesViewAction> {
+    let n = species.examples.len();
+    if n == 0 {
         let placeholder = Vec2::new(width, 0.75 * width);
-        ui.add_sized(placeholder, Label::new("no image"));
+        ui.add_sized(placeholder, Label::new("no images"));
+        return None;
     }
+
+    let mut result: Option<SpeciesViewAction> = None;
+
+    let uri = &species.examples[species.current_example];
+    let resp = add_image(ui, uri.clone(), image_cache, width, style.image.radius);
+    if n > 1 {
+        let mut ui = ui.new_child(
+            UiBuilder::new()
+                .max_rect(resp.rect.shrink(5.0))
+                .layout(Layout::right_to_left(Align::Max)),
+        );
+
+        ui.horizontal(|ui| {
+            if ui.button(ICON_PLAY_ARROW).clicked() {
+                result = Some(SpeciesViewAction::SelectNext);
+            }
+            if ui.button(ICON_ARROW_BACK_2).clicked() {
+                result = Some(SpeciesViewAction::SelectPrev);
+            }
+            ui.add(overlay_label(ImageCounter(n).to_string(), style));
+        });
+    }
+
+    result
 }
 
-pub fn block(
+fn block(
     ui: &mut Ui,
     image_cache: &mut ImageCache,
     style: &Style,
     db: &Database,
     species: &Species,
     width: f32,
-) {
+) -> Option<SpeciesViewAction> {
+    let mut result: Option<SpeciesViewAction> = None;
+
     ui.horizontal(|ui| {
-        image(ui, image_cache, style, db, species, width);
+        result = image(ui, image_cache, style, db, species, width);
 
         ui.vertical(|ui| {
             ui.label(RichText::new(&species.latin).italics().heading());
@@ -227,6 +272,8 @@ pub fn block(
             }
         });
     });
+
+    result
 }
 
 pub fn format_latin(ui: &mut Ui, species: &Species) {

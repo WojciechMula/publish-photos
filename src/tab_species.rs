@@ -14,6 +14,7 @@ use crate::keyboard::KeyboardMapping;
 use crate::search_box::SearchBox;
 use crate::species_view::SortOrder;
 use crate::species_view::SpeciesList;
+use crate::species_view::SpeciesViewAction;
 use crate::style::Style;
 use const_format::formatcp as fmt;
 use egui::CentralPanel;
@@ -65,6 +66,9 @@ pub enum Message {
     Confirm(Confirm),
     CloseModal,
     FocusSearch,
+    SpeciesViewAction(SpeciesViewAction, SpeciesId),
+    SelectPrevExample,
+    SelectNextExample,
 }
 
 impl Message {
@@ -82,6 +86,9 @@ impl Message {
             Self::Confirm(_) => unreachable!(),
             Self::CloseModal => unreachable!(),
             Self::FocusSearch => help::FOCUS_SEARCH,
+            Self::SpeciesViewAction(..) => unreachable!(),
+            Self::SelectPrevExample => "select the previous example from the list",
+            Self::SelectNextExample => "select the next example from the list",
         }
     }
 }
@@ -144,6 +151,8 @@ impl TabSpecies {
             .key(Key::E, Message::EditCurrent.into())
             .ctrl(Key::E, Message::EditCurrent.into())
             .ctrl(Key::N, Message::AddNew.into())
+            .key(Key::ArrowRight, Message::SelectPrevExample.into())
+            .key(Key::ArrowLeft, Message::SelectNextExample.into())
     }
 
     pub fn get_keyboard_mapping(&self) -> &KeyboardMapping {
@@ -206,6 +215,28 @@ impl TabSpecies {
             Message::FocusSearch => {
                 self.search_box.take_focus(ctx);
             }
+            Message::SpeciesViewAction(action, id) => {
+                if let Some(species) = db.species_mut_by_id(&id) {
+                    match action {
+                        SpeciesViewAction::SelectNext => species.next_example(),
+                        SpeciesViewAction::SelectPrev => species.prev_example(),
+                    }
+                }
+            }
+            Message::SelectPrevExample => {
+                if let Some(id) = self.list.hovered.as_ref() {
+                    if let Some(species) = db.species_mut_by_id(id) {
+                        species.prev_example();
+                    }
+                }
+            }
+            Message::SelectNextExample => {
+                if let Some(id) = self.list.hovered.as_ref() {
+                    if let Some(species) = db.species_mut_by_id(id) {
+                        species.next_example();
+                    }
+                }
+            }
         }
     }
 
@@ -261,6 +292,9 @@ impl TabSpecies {
                     }
                     if let Some(id) = resp.double_clicked {
                         queue.push_back(Message::Edit(id));
+                    }
+                    if let Some((action, id)) = resp.species_view_action {
+                        queue.push_back(Message::SpeciesViewAction(action, id));
                     }
                 });
             });
