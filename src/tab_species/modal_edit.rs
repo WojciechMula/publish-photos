@@ -5,13 +5,13 @@ use crate::db::Database;
 use crate::db::Latin;
 use crate::db::Species;
 use crate::db::SpeciesId;
+use crate::gui::add_image;
 use crate::gui::button;
 use crate::gui::icon_en;
 use crate::gui::icon_pl;
 use crate::help;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
-use crate::species_view::image;
 use crate::style::Style;
 use crate::tab_species::Message as TabMessage;
 use crate::tab_species::MessageQueue as TabMessageQueue;
@@ -22,12 +22,16 @@ use egui::Context;
 use egui::Grid;
 use egui::Key;
 use egui::Layout;
+use egui::ScrollArea;
+use egui::SidePanel;
 use egui::TopBottomPanel;
 use egui::Ui;
 use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_WARNING;
+
+const ID_PREFIX: &str = "modal-edit-species";
 
 pub struct ModalEdit {
     original: Option<Species>,
@@ -110,7 +114,7 @@ impl ModalEdit {
         }
 
         let mut queue = MessageQueue::new();
-        self.draw(ctx, image_cache, style, db, &mut queue);
+        self.draw(ctx, image_cache, style, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -225,10 +229,32 @@ impl ModalEdit {
         ctx: &Context,
         image_cache: &mut ImageCache,
         style: &Style,
-        db: &Database,
         queue: &mut MessageQueue,
     ) {
-        TopBottomPanel::bottom("modal-species-edit-bottom").show(ctx, |ui| {
+        SidePanel::left(fmt!("{ID_PREFIX}-left"))
+            .resizable(false)
+            .min_width(style.image.preview_width)
+            .show(ctx, |ui| {
+                if let Some(species) = &self.original {
+                    ScrollArea::vertical()
+                        .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
+                        .show(ui, |ui| {
+                            for uri in &species.examples {
+                                add_image(
+                                    ui,
+                                    uri.clone(),
+                                    image_cache,
+                                    style.image.preview_width,
+                                    style.image.radius,
+                                );
+                            }
+                        });
+                } else {
+                    //
+                }
+            });
+
+        TopBottomPanel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ctx, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                 if button::save(ui, self.is_modified(), Some(style.button.save)) {
                     queue.push_back(Message::SaveAndExit);
@@ -245,18 +271,7 @@ impl ModalEdit {
         });
 
         CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                image(
-                    ui,
-                    image_cache,
-                    style,
-                    db,
-                    &self.new,
-                    style.image.preview_width,
-                );
-
-                ui.vertical(|ui| self.draw_details(ui, queue));
-            });
+            self.draw_details(ui, queue);
         });
     }
 
@@ -309,8 +324,16 @@ impl ModalEdit {
         if let Some(original) = &self.original {
             self.new != *original
         } else {
-            true
+            !self.is_empty()
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.new.latin.is_empty()
+            && self.new.pl.is_empty()
+            && self.new.wikipedia_pl.is_empty()
+            && self.new.en.is_empty()
+            && self.new.wikipedia_en.is_empty()
     }
 }
 
