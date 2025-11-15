@@ -44,6 +44,7 @@ pub struct ModalSpecies {
     new: Option<Latin>,
     original: Option<Latin>,
     recent_species: RecentSpecies,
+    recent_species_version: u64,
     search_box: SearchBox,
     species_hovered: Option<SpeciesId>,
 
@@ -94,12 +95,14 @@ impl ModalSpecies {
         let original = post.species.clone();
         let new = original.clone();
         let recent_species = RecentSpecies::new(id, db);
+        let recent_species_version = db.current_version.species;
 
         let mut res = Self {
             id,
             new,
             original,
             recent_species,
+            recent_species_version,
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
             species_hovered: None,
             queue: MessageQueue::new(),
@@ -118,6 +121,12 @@ impl ModalSpecies {
         db: &Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        if self.recent_species_version != db.current_version.species {
+            self.recent_species = RecentSpecies::new(self.id, db);
+            self.recent_species_version = db.current_version.species;
+            self.queue.push_back(Message::RefreshView);
+        }
+
         while let Some(message) = self.queue.pop_front() {
             self.handle_message(ctx, message, style, db, tab_queue);
         }
