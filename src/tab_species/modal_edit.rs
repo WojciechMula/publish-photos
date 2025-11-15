@@ -27,6 +27,7 @@ use egui::SidePanel;
 use egui::TopBottomPanel;
 use egui::Ui;
 use std::cell::LazyCell;
+use std::collections::BTreeSet;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_CONTENT_PASTE;
@@ -38,6 +39,7 @@ pub struct ModalEdit {
     original: Option<Species>,
     new: Species,
     can_save: Result<bool, String>,
+    categories: BTreeSet<String>,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: LazyCell<KeyboardMapping>,
@@ -55,6 +57,7 @@ pub enum Message {
     ChangeEnglish(String),
     ChangeWikipediaPl(String),
     ChangeWikipediaEn(String),
+    ChangeCategory(Option<String>),
 }
 
 impl Message {
@@ -68,6 +71,7 @@ impl Message {
             Self::ChangeEnglish(_) => unreachable!(),
             Self::ChangeWikipediaPl(_) => unreachable!(),
             Self::ChangeWikipediaEn(_) => unreachable!(),
+            Self::ChangeCategory(_) => unreachable!(),
         }
     }
 }
@@ -85,6 +89,7 @@ impl ModalEdit {
             original: None,
             new: Species::default(),
             queue: MessageQueue::new(),
+            categories: BTreeSet::new(),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
     }
@@ -98,6 +103,7 @@ impl ModalEdit {
             original: Some(original),
             new,
             queue: MessageQueue::new(),
+            categories: BTreeSet::new(),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
     }
@@ -110,6 +116,8 @@ impl ModalEdit {
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        self.update_categories(db);
+
         while let Some(msg) = self.queue.pop_front() {
             self.handle_message(style, db, msg, tab_queue);
         }
@@ -198,6 +206,10 @@ impl ModalEdit {
                 self.new.wikipedia_en = text;
                 self.validate(db);
             }
+            Message::ChangeCategory(maybe_text) => {
+                self.new.category = maybe_text;
+                self.validate(db);
+            }
         }
     }
 
@@ -223,6 +235,23 @@ impl ModalEdit {
         }
 
         self.can_save = Ok(self.is_modified());
+    }
+
+    fn update_categories(&mut self, db: &Database) {
+        if !self.categories.is_empty() {
+            return;
+        }
+
+        let mut tmp = BTreeSet::<String>::new();
+        for species in &db.species {
+            if let Some(category) = &species.category {
+                if !tmp.contains(category) {
+                    tmp.insert(category.clone());
+                }
+            }
+        }
+
+        self.categories = tmp;
     }
 
     fn draw(
@@ -251,7 +280,7 @@ impl ModalEdit {
                             }
                         });
                 } else {
-                    //
+                    ui.label("no images");
                 }
             });
 
@@ -315,6 +344,39 @@ impl ModalEdit {
             ui.horizontal(|ui| {
                 if let Some(val) = edit(ui, &self.new.wikipedia_en) {
                     queue.push_back(Message::ChangeWikipediaEn(val));
+                }
+            });
+            ui.end_row();
+
+            ui.label("category");
+            ui.horizontal(|ui| {
+                let mut val = match &self.new.category {
+                    Some(category) => category.clone(),
+                    None => "".to_owned(),
+                };
+
+                let resp = ui.text_edit_singleline(&mut val);
+                resp.context_menu(|ui| {
+                    if ui.button(fmt!("{ICON_CONTENT_PASTE} Paste")).clicked() {
+                        let cmd = egui::ViewportCommand::RequestPaste;
+                        ui.ctx().send_viewport_cmd(cmd);
+                        resp.request_focus();
+                    }
+
+                    if !self.categories.is_empty() {
+                        ui.separator();
+                        for category in &self.categories {
+                            if ui.button(category).clicked() {
+                                val = category.clone();
+                            }
+                        }
+                    }
+                });
+
+                let val = if val.is_empty() { None } else { Some(val) };
+
+                if self.new.category != val {
+                    queue.push_back(Message::ChangeCategory(val));
                 }
             });
             ui.end_row();

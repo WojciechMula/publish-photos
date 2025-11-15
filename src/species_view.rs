@@ -270,6 +270,15 @@ fn block(
                     format_en(ui, species);
                 });
             }
+
+            if let Some(category) = &species.category {
+                ui.horizontal(|ui| {
+                    ui.label("category:");
+
+                    let color = ui.visuals().strong_text_color();
+                    ui.colored_label(color, category);
+                });
+            }
         });
     });
 

@@ -51,6 +51,7 @@ pub struct Species {
     pub wikipedia_pl: String,
     pub en: String,
     pub wikipedia_en: String,
+    pub category: Option<String>,
 
     #[serde(skip)]
     pub id: SpeciesId,
@@ -94,6 +95,11 @@ impl Species {
             changed = true;
         }
 
+        if self.category != other.category {
+            self.category = other.category.clone();
+            changed = true;
+        }
+
         if changed {
             self.refresh();
         }
@@ -107,6 +113,10 @@ impl Species {
         self.search_parts.clear();
         for item in items {
             self.search_parts.add(item);
+        }
+
+        if let Some(category) = &self.category {
+            self.search_parts.add(category);
         }
     }
 
