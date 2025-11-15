@@ -6,6 +6,7 @@ use crate::application::Message as MainMessage;
 use crate::db::Database;
 use crate::db::PostId;
 use crate::keyboard::KeyboardMapping;
+use crate::tab_posts::ImageCache;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
 use egui::Align;
@@ -20,6 +21,7 @@ use std::collections::VecDeque;
 pub struct ModalView {
     post_id: PostId,
     cursor: Cursor,
+    initialized: bool,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: LazyCell<KeyboardMapping>,
@@ -71,6 +73,7 @@ impl ModalView {
         let post = db.post(id);
 
         Self {
+            initialized: false,
             queue: MessageQueue::new(),
             post_id: *id,
             cursor: Cursor::new(post.uris.len()),
@@ -152,16 +155,30 @@ impl ModalView {
         }
     }
 
-    pub fn update(&mut self, ctx: &Context, db: &Database, tab_queue: &mut TabMessageQueue) {
+    pub fn update(
+        &mut self,
+        ctx: &Context,
+        image_cache: &mut ImageCache,
+        db: &Database,
+        tab_queue: &mut TabMessageQueue,
+    ) {
         let Some(current) = self.cursor.current() else {
             return;
         };
+
+        let post = db.post(&self.post_id);
+
+        if !self.initialized {
+            for uri in &post.uris {
+                image_cache.request(uri.clone());
+            }
+            self.initialized = true;
+        }
 
         while let Some(msg) = self.queue.pop_front() {
             self.handle_message(msg, tab_queue);
         }
 
-        let post = db.post(&self.post_id);
         let n = post.uris.len();
 
         CentralPanel::default().show(ctx, |ui| {

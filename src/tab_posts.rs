@@ -312,7 +312,7 @@ impl TabPosts {
                 window.update(ctx, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalView(window) => {
-                window.update(ctx, db, &mut queue);
+                window.update(ctx, image_cache, db, &mut queue);
             }
         }
 
