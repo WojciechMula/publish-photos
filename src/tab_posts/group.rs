@@ -95,7 +95,6 @@ impl Group {
 
         db.invalidate_caches();
         db.refresh_all_records();
-        db.mark_dirty();
-        db.bump_version();
+        db.current_version.posts += 1;
     }
 }

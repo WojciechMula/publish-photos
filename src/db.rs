@@ -58,10 +58,18 @@ pub struct Database {
     pub needs_refresh_species_examples: bool,
 
     #[serde(skip)]
-    pub version: u64,
+    pub saved_version: Version,
 
     #[serde(skip)]
-    dirty: Option<bool>,
+    pub current_version: Version,
+}
+
+#[derive(Default, Clone)]
+pub struct Version {
+    pub posts: u64,
+    pub species: u64,
+    pub tag_groups: u64,
+    pub tag_translations: u64,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -103,7 +111,6 @@ impl Database {
         };
 
         result.refresh_all_records();
-        result.version = 1;
 
         Ok(result)
     }
@@ -114,12 +121,10 @@ impl Database {
             Some(dir) => dir.to_path_buf(),
             None => unreachable!("path to a file always has parent"),
         };
-        let version = 1;
 
         let mut result = Self {
             rootpath,
             rootdir,
-            version,
             ..Self::default()
         };
 
@@ -149,14 +154,14 @@ impl Database {
         entry.refresh();
 
         self.species.push(entry);
-        self.mark_dirty();
+        self.current_version.species += 1;
     }
 
     pub fn update_species(&mut self, data: &Species) {
         let entry = &mut self.species[data.id.0];
         if entry.update(data) {
             entry.refresh();
-            self.mark_dirty();
+            self.current_version.species += 1;
         }
     }
 
@@ -164,28 +169,29 @@ impl Database {
         let id = self.tag_translations.0.len();
 
         self.tag_translations.0.push(Translation::default());
-        self.mark_dirty();
+        self.current_version.tag_translations += 1;
 
         id
     }
 
-    pub fn mark_posts_dirty(&mut self) {
-        self.dirty = None;
-    }
-
-    pub fn mark_dirty(&mut self) {
-        self.dirty = Some(true);
-    }
-
     pub fn is_dirty(&mut self) -> bool {
-        if let Some(flag) = &self.dirty {
-            return *flag;
+        if self.current_version.species != self.saved_version.species {
+            return true;
         }
 
-        let flag = self.check_for_dirty_posts();
-        self.dirty = Some(flag);
+        if self.current_version.tag_translations != self.saved_version.tag_translations {
+            return true;
+        }
 
-        flag
+        if self.current_version.tag_groups != self.saved_version.tag_groups {
+            return true;
+        }
+
+        if self.current_version.posts != self.saved_version.posts {
+            return self.check_for_dirty_posts();
+        }
+
+        false
     }
 
     fn check_for_dirty_posts(&self) -> bool {
@@ -194,7 +200,7 @@ impl Database {
 
     pub fn mark_saved(&mut self) {
         self.posts.0.iter_mut().for_each(|entry| entry.undo.clear());
-        self.dirty = Some(false);
+        self.saved_version = self.current_version.clone();
     }
 
     pub fn post(&self, id: &PostId) -> &Post {
@@ -247,7 +253,7 @@ impl Database {
     pub fn add_group(&mut self, group: TagGroup) -> Result<(), String> {
         self.tag_groups.add(group)?;
         self.invalidate_tags_cache();
-        self.mark_dirty();
+        self.current_version.tag_groups += 1;
 
         Ok(())
     }
@@ -256,7 +262,7 @@ impl Database {
         if let Some(existing) = self.tag_groups.get_mut(&group.id) {
             if existing.update(group) {
                 self.invalidate_tags_cache();
-                self.mark_dirty();
+                self.current_version.tag_groups += 1;
             }
 
             Ok(())
@@ -267,13 +273,13 @@ impl Database {
 
     pub fn move_group_up(&mut self, id: &TagGroupId) {
         if self.tag_groups.move_up(id) {
-            self.mark_dirty();
+            self.current_version.tag_groups += 1;
         }
     }
 
     pub fn move_group_down(&mut self, id: &TagGroupId) {
         if self.tag_groups.move_down(id) {
-            self.mark_dirty();
+            self.current_version.tag_groups += 1;
         }
     }
 
@@ -442,10 +448,6 @@ impl Database {
     pub fn invalidate_tags_cache(&mut self) {
         self.tags_views.clear();
         self.tag_hints.clear();
-    }
-
-    pub fn bump_version(&mut self) {
-        self.version += 1;
     }
 }
 

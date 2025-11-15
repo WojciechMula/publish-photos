@@ -282,9 +282,9 @@ impl TabPosts {
         main_queue: &mut MainMessageQueue,
     ) {
         db.refresh_caches();
-        if self.version != db.version {
+        if self.version != db.current_version.posts {
             self.queue.push_back(Message::RefreshView);
-            self.version = db.version;
+            self.version = db.current_version.posts;
         }
 
         let mut queue = MessageQueue::new();
