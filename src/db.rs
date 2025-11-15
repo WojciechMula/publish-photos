@@ -55,13 +55,13 @@ pub struct Database {
     pub tag_hints: TagHints,
 
     #[serde(skip)]
-    pub needs_refresh_species_examples: bool,
-
-    #[serde(skip)]
-    pub saved_version: Version,
+    saved_version: Version,
 
     #[serde(skip)]
     pub current_version: Version,
+
+    #[serde(skip)]
+    cache_versions: CacheVersion,
 }
 
 #[derive(Default, Clone)]
@@ -70,6 +70,28 @@ pub struct Version {
     pub species: u64,
     pub tag_groups: u64,
     pub tag_translations: u64,
+}
+
+struct CacheVersion {
+    picture_views: u64,
+    species_examples: u64,
+    tags_views_posts: u64,
+    tags_views_tag_translations: u64,
+    tags_views_tag_groups: u64,
+    tag_hints: u64,
+}
+
+impl Default for CacheVersion {
+    fn default() -> Self {
+        Self {
+            picture_views: u64::MAX,
+            species_examples: u64::MAX,
+            tags_views_posts: u64::MAX,
+            tags_views_tag_translations: u64::MAX,
+            tags_views_tag_groups: u64::MAX,
+            tag_hints: u64::MAX,
+        }
+    }
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -233,26 +255,8 @@ impl Database {
         self.species.get_mut(id.0)
     }
 
-    pub fn find_examples(&self, key: &Latin) -> Vec<String> {
-        let mut res = Vec::<String>::new();
-
-        for post in self
-            .posts
-            .iter()
-            .filter(|post| post.is_example)
-            .filter(|post| post.species.as_ref().is_some_and(|species| species == key))
-        {
-            for uri in &post.uris {
-                res.push(uri.clone());
-            }
-        }
-
-        res
-    }
-
     pub fn add_group(&mut self, group: TagGroup) -> Result<(), String> {
         self.tag_groups.add(group)?;
-        self.invalidate_tags_cache();
         self.current_version.tag_groups += 1;
 
         Ok(())
@@ -261,7 +265,6 @@ impl Database {
     pub fn update_group(&mut self, group: TagGroup) -> Result<(), String> {
         if let Some(existing) = self.tag_groups.get_mut(&group.id) {
             if existing.update(group) {
-                self.invalidate_tags_cache();
                 self.current_version.tag_groups += 1;
             }
 
@@ -292,9 +295,11 @@ impl Database {
     }
 
     pub fn refresh_picture_views(&mut self) {
-        if !self.picture_views.is_empty() {
+        if self.cache_versions.picture_views == self.current_version.posts {
             return;
         }
+
+        self.cache_versions.picture_views = self.current_version.posts;
 
         for post in self.posts.iter() {
             let all = Selector::All;
@@ -310,6 +315,12 @@ impl Database {
     }
 
     fn refresh_species_examples(&mut self) {
+        if self.cache_versions.species_examples == self.current_version.posts {
+            return;
+        }
+
+        self.cache_versions.species_examples = self.current_version.posts;
+
         let mut tmp = HashMap::<Latin, Vec<String>>::new();
         for post in self
             .posts
@@ -348,17 +359,21 @@ impl Database {
         self.refresh_picture_views();
         self.refresh_tags_views();
         self.refresh_tag_hints();
-
-        if self.needs_refresh_species_examples {
-            self.refresh_species_examples();
-            self.needs_refresh_species_examples = false;
-        }
+        self.refresh_species_examples();
     }
 
     fn refresh_tags_views(&mut self) {
-        if !self.tags_views.is_empty() {
+        let cv = &mut self.cache_versions;
+        if cv.tags_views_posts == self.current_version.posts
+            && cv.tags_views_tag_translations == self.current_version.tag_translations
+            && cv.tags_views_tag_groups == self.current_version.tag_groups
+        {
             return;
         }
+
+        cv.tags_views_posts = self.current_version.posts;
+        cv.tags_views_tag_translations = self.current_version.tag_translations;
+        cv.tags_views_tag_groups = self.current_version.tag_groups;
 
         let all = Selector::All;
         let mut view_all = TranslatedTagsView::default();
@@ -400,9 +415,11 @@ impl Database {
     }
 
     pub fn refresh_tag_hints(&mut self) {
-        if !self.tag_hints.is_empty() {
+        if self.cache_versions.tag_hints == self.current_version.posts {
             return;
         }
+
+        self.cache_versions.tag_hints = self.current_version.posts;
 
         let mut builder = Builder::default();
         for post in self.posts.0.iter() {
@@ -434,20 +451,6 @@ impl Database {
         }
 
         self.refresh_species_examples();
-    }
-
-    pub fn invalidate_caches(&mut self) {
-        self.invalidate_picture_cache();
-        self.invalidate_tags_cache();
-    }
-
-    pub fn invalidate_picture_cache(&mut self) {
-        self.picture_views.clear();
-    }
-
-    pub fn invalidate_tags_cache(&mut self) {
-        self.tags_views.clear();
-        self.tag_hints.clear();
     }
 }
 

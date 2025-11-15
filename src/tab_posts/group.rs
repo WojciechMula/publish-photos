@@ -93,7 +93,6 @@ impl Group {
             db.drop_post(id);
         }
 
-        db.invalidate_caches();
         db.refresh_all_records();
         db.current_version.posts += 1;
     }

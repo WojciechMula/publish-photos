@@ -36,33 +36,15 @@ pub fn apply(action: EditDetails, db: &mut Database) {
         EditDetails::Undo(id) => {
             let post = db.post_mut(&id);
             if let Some(undo) = post.undo.pop() {
-                let change_published_flag = matches!(
-                    action,
-                    EditDetails::SetPublished(_) | EditDetails::UnsetPublished(_)
-                );
-                let change_tags = matches!(action, EditDetails::SetTags(_, _));
-
                 let changed = apply_aux(undo, post).is_some();
                 if changed {
                     post.refresh();
                     db.current_version.posts += 1;
-                    if change_published_flag {
-                        db.invalidate_picture_cache();
-                    }
-                    if change_tags {
-                        db.invalidate_tags_cache();
-                    }
                 }
             }
         }
 
         _ => {
-            let change_published_flag = matches!(
-                action,
-                EditDetails::SetPublished(_) | EditDetails::UnsetPublished(_)
-            );
-            let change_tags = matches!(action, EditDetails::SetTags(_, _));
-
             let id = action.id();
             let post = db.post_mut(&id);
             let undo = apply_aux(action, post);
@@ -70,13 +52,6 @@ pub fn apply(action: EditDetails, db: &mut Database) {
                 post.undo.push(undo);
                 post.refresh();
                 db.current_version.posts += 1;
-            }
-
-            if change_published_flag {
-                db.invalidate_picture_cache();
-            }
-            if change_tags {
-                db.invalidate_tags_cache();
             }
         }
     }
