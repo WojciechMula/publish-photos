@@ -37,10 +37,18 @@ pub struct ModalEdit {
     select_tags: SelectTags,
     original: Option<TagGroup>,
 
-    can_save: Result<bool, String>,
+    state: ModalState,
+    label_width: f32,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: LazyCell<KeyboardMapping>,
+}
+
+enum ModalState {
+    NoChanges,
+    Modified,
+    NameError(String),
+    TagError(String),
 }
 
 #[derive(Clone)]
@@ -91,7 +99,8 @@ impl Default for ModalEdit {
             name: String::new(),
             original: None,
             queue: MessageQueue::new(),
-            can_save: Ok(false),
+            state: ModalState::NoChanges,
+            label_width: 0.0,
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
     }
@@ -100,7 +109,7 @@ impl Default for ModalEdit {
 impl ModalEdit {
     pub fn new() -> Self {
         Self {
-            title: "Create new group".to_owned(),
+            title: "Create a new group".to_owned(),
             ..Default::default()
         }
     }
@@ -172,7 +181,7 @@ impl ModalEdit {
                 }
             }
             Message::SaveAndExit => {
-                assert_eq!(self.can_save, Ok(true));
+                assert!(matches!(self.state, ModalState::NoChanges));
                 if self.original.is_some() {
                     match db.update_group(self.mk_tag_group()) {
                         Ok(_) => tab_queue.push_back(TabMessage::CloseModal),
@@ -225,7 +234,7 @@ impl ModalEdit {
 
     fn validate(&mut self, db: &Database) {
         if self.name.is_empty() {
-            self.can_save = Err("name cannot be empty".to_string());
+            self.state = ModalState::NameError("name cannot be empty".to_string());
             return;
         }
 
@@ -240,36 +249,35 @@ impl ModalEdit {
             });
 
         if duplicated_name {
-            self.can_save = Err("name alrady used".to_string());
+            self.state = ModalState::NameError("name alrady used".to_string());
             return;
         }
 
         if self.select_tags.tags.is_empty() {
-            self.can_save = Err("no tags".to_string());
+            self.state = ModalState::TagError("no tags".to_string());
             return;
         }
 
-        self.can_save = Ok(self.is_modified());
+        if self.is_modified() {
+            self.state = ModalState::Modified;
+        } else {
+            self.state = ModalState::NoChanges;
+        }
     }
 
-    fn draw(&self, ctx: &Context, style: &Style, queue: &mut MessageQueue) {
+    fn draw(&mut self, ctx: &Context, style: &Style, queue: &mut MessageQueue) {
         TopBottomPanel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ctx, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                let can_save = match self.can_save {
-                    Ok(can_save) => can_save,
-                    Err(_) => false,
-                };
+                if self.label_width == 0.0 {
+                    self.label_width = crate::gui::max_size(&["Tags:", "Name:"], ui);
+                }
 
+                let can_save = matches!(self.state, ModalState::Modified);
                 if button::save(ui, can_save, Some(style.button.save)) {
                     queue.push_back(Message::SaveAndExit);
                 }
                 if button::cancel(ui) {
                     queue.push_back(Message::SoftClose);
-                }
-
-                if let Err(msg) = &self.can_save {
-                    let color = ui.visuals().error_fg_color;
-                    ui.colored_label(color, msg);
                 }
             });
         });
@@ -288,12 +296,31 @@ impl ModalEdit {
     }
 
     fn draw_current(&self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
-        let mut name = self.name.clone();
-        if ui.text_edit_singleline(&mut name).changed() {
-            queue.push_back(Message::SetName(name));
-        }
+        let err_color = ui.visuals().error_fg_color;
+
+        ui.horizontal(|ui| {
+            ui.horizontal(|ui| {
+                ui.set_min_width(self.label_width);
+                ui.label("Name:");
+            });
+            let mut name = self.name.clone();
+            if ui.text_edit_singleline(&mut name).changed() {
+                queue.push_back(Message::SetName(name));
+            }
+
+            if let ModalState::NameError(msg) = &self.state {
+                ui.colored_label(err_color, msg);
+            }
+        });
 
         ui.horizontal_wrapped(|ui| {
+            ui.horizontal(|ui| {
+                ui.set_min_width(self.label_width);
+                ui.label("Tags:");
+            });
+            if let ModalState::TagError(msg) = &self.state {
+                ui.colored_label(err_color, msg);
+            }
             for tag in self.select_tags.tags.iter() {
                 if ui.add(tag_button(tag, "", style)).clicked() {
                     queue.push_back(Action::RemoveTag(tag.clone()).into());
@@ -318,7 +345,7 @@ impl ModalEdit {
         if let Some(original) = &self.original {
             self.name != original.name || self.select_tags.tags != original.tags
         } else {
-            true
+            !self.name.is_empty() || !self.select_tags.tags.is_empty()
         }
     }
 }

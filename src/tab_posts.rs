@@ -606,14 +606,7 @@ impl TabPosts {
             });
 
             if self.label_width == 0.0 {
-                let w1 = crate::gui::text_size("tags", ui).x;
-                let w2 = crate::gui::text_size("species", ui).x;
-
-                if w1 > w2 {
-                    self.label_width = w1;
-                } else {
-                    self.label_width = w2;
-                }
+                self.label_width = crate::gui::max_size(&["tags", "species"], ui);
             }
         });
 

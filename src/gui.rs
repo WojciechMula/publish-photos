@@ -185,6 +185,18 @@ pub fn text_size(s: &str, ui: &mut Ui) -> Vec2 {
     galley.size()
 }
 
+pub fn max_size(strings: &[&str], ui: &mut Ui) -> f32 {
+    let mut max_size = 0.0;
+    for s in strings {
+        let size = text_size(s, ui).x;
+        if size > max_size {
+            max_size = size;
+        }
+    }
+
+    max_size
+}
+
 // --------------------------------------------------
 
 pub fn overlay_label(label: String, style: &Style) -> impl Widget {
