@@ -16,6 +16,7 @@ use crate::help;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::search_box::SearchBox;
+use crate::species_view::SpeciesViewAction;
 use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
@@ -58,6 +59,7 @@ type MessageQueue = VecDeque<Message>;
 pub enum Message {
     RefreshView,
     SpeciesHovered(Option<SpeciesId>),
+    SpeciesViewAction(SpeciesViewAction, SpeciesId),
     SetSpecies(SpeciesId),
     FilterByName(String),
     UnsetSpecies,
@@ -72,6 +74,7 @@ impl Message {
         match self {
             Self::RefreshView => unreachable!(),
             Self::SpeciesHovered(_) => unreachable!(),
+            Self::SpeciesViewAction { .. } => unreachable!(),
             Self::SetSpecies(_) => unreachable!(),
             Self::FilterByName(_) => unreachable!(),
             Self::UnsetSpecies => unreachable!(),
@@ -118,7 +121,7 @@ impl ModalSpecies {
         ctx: &Context,
         image_cache: &mut ImageCache,
         style: &Style,
-        db: &Database,
+        db: &mut Database,
         tab_queue: &mut TabMessageQueue,
     ) {
         if self.recent_species_version != db.current_version.species {
@@ -157,7 +160,7 @@ impl ModalSpecies {
         ctx: &Context,
         message: Message,
         style: &Style,
-        db: &Database,
+        db: &mut Database,
         tab_queue: &mut TabMessageQueue,
     ) {
         match message {
@@ -238,6 +241,14 @@ impl ModalSpecies {
             }
             Message::FocusSearch => {
                 self.search_box.take_focus(ctx);
+            }
+            Message::SpeciesViewAction(action, id) => {
+                if let Some(species) = db.species_mut_by_id(&id) {
+                    match action {
+                        SpeciesViewAction::SelectNext => species.next_example(),
+                        SpeciesViewAction::SelectPrev => species.prev_example(),
+                    }
+                }
             }
         }
     }
@@ -435,6 +446,9 @@ impl ModalSpecies {
             }
             if let Some(clicked) = resp.clicked {
                 queue.push_back(Message::SetSpecies(clicked));
+            }
+            if let Some((action, id)) = resp.species_view_action {
+                queue.push_back(Message::SpeciesViewAction(action, id));
             }
         }
 

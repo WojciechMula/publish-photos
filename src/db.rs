@@ -384,7 +384,11 @@ impl Database {
         self.latin2id.clear();
         for species in &self.species {
             let inserted = self.latin2id.insert(species.latin.clone(), species.id);
-            assert!(inserted.is_none(), "species with latin name '{}' repeated", species.latin.as_str());
+            assert!(
+                inserted.is_none(),
+                "species with latin name '{}' repeated",
+                species.latin.as_str()
+            );
         }
     }
 

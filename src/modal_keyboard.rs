@@ -86,6 +86,7 @@ impl ModalWindowTrait for ModalKeyboard {
 
                 Grid::new(("keyboard-help-grid", id))
                     .num_columns(2)
+                    .striped(true)
                     .show(ui, |ui| {
                         for (key, modifiers, help) in mapping {
                             ui.add(
