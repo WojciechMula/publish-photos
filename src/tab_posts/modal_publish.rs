@@ -91,8 +91,8 @@ impl ModalPublish {
             label: "Copy text".to_owned(),
             text,
         }];
-        for full_path in &post.full_paths {
-            let full_path = full_path.display().to_string();
+        for item in &post.files_meta {
+            let full_path = item.full_path.display().to_string();
             entries.push(Entry {
                 label: full_path.clone(),
                 text: full_path,
@@ -214,10 +214,10 @@ impl ModalPublish {
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
-                        for uri in &post.uris {
+                        for meta in &post.files_meta {
                             add_image(
                                 ui,
-                                uri.clone(),
+                                meta,
                                 image_cache,
                                 style.image.preview_width,
                                 style.image.radius,

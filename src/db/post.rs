@@ -4,6 +4,7 @@ use super::PostId;
 use super::SearchParts;
 use super::TagList;
 use crate::edit_details::EditDetails;
+use crate::jpeg::ImageSize;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -27,10 +28,7 @@ pub struct Post {
     pub id: PostId,
 
     #[serde(skip)]
-    pub uris: Vec<String>,
-
-    #[serde(skip)]
-    pub full_paths: Vec<PathBuf>,
+    pub files_meta: Vec<FileMetadata>,
 
     #[serde(skip)]
     pub undo: Vec<EditDetails>,
@@ -57,4 +55,11 @@ impl Post {
             self.search_parts.add(&format!("#{tag}"));
         }
     }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct FileMetadata {
+    pub full_path: PathBuf,
+    pub uri: String,
+    pub image_size: Option<ImageSize>,
 }

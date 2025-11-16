@@ -818,7 +818,7 @@ impl TabPosts {
         ui.horizontal(|ui| {
             let resp = add_image(
                 ui,
-                post.uris[0].clone(),
+                &post.files_meta[0],
                 image_cache,
                 style.image.preview_width,
                 style.image.radius,
@@ -979,11 +979,11 @@ impl TabPosts {
 
         for (entry_id, id) in group.iter().enumerate() {
             let post = db.post(id);
-            for (photo_id, uri) in post.uris.iter().enumerate() {
+            for (photo_id, meta) in post.files_meta.iter().enumerate() {
                 if entry_id == 0 && photo_id == 0 {
                     add_image(
                         ui,
-                        uri.clone(),
+                        meta,
                         image_cache,
                         style.image.preview_width,
                         style.image.radius,
@@ -991,7 +991,7 @@ impl TabPosts {
                 } else if photo_id > 0 {
                     add_image_with_tint(
                         ui,
-                        uri.clone(),
+                        meta,
                         image_cache,
                         style.image.preview_width,
                         style.image.radius,
@@ -1000,7 +1000,7 @@ impl TabPosts {
                 } else {
                     let resp = add_image(
                         ui,
-                        uri.clone(),
+                        meta,
                         image_cache,
                         style.image.preview_width,
                         style.image.radius,

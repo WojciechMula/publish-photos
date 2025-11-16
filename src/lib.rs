@@ -9,6 +9,7 @@ mod gui;
 mod help;
 mod image_cache;
 mod image_counter;
+mod jpeg;
 mod keyboard;
 mod modal;
 mod modal_keyboard;

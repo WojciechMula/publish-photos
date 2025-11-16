@@ -1,3 +1,4 @@
+use super::FileMetadata;
 use super::SearchParts;
 use super::SpeciesId;
 use serde::Deserialize;
@@ -60,7 +61,7 @@ pub struct Species {
     pub search_parts: SearchParts,
 
     #[serde(skip)]
-    pub examples: Vec<String>,
+    pub examples: Vec<FileMetadata>,
 
     #[serde(skip)]
     pub current_example: usize,

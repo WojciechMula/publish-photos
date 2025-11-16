@@ -221,8 +221,8 @@ pub fn image(
 
     let mut result: Option<SpeciesViewAction> = None;
 
-    let uri = &species.examples[species.current_example];
-    let resp = add_image(ui, uri.clone(), image_cache, width, style.image.radius);
+    let meta = &species.examples[species.current_example];
+    let resp = add_image(ui, meta, image_cache, width, style.image.radius);
     if n > 1 {
         let mut ui = ui.new_child(
             UiBuilder::new()

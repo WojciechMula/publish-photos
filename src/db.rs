@@ -9,6 +9,7 @@ mod tag_translations;
 pub use date::Date;
 pub use date::Day;
 pub use date::Month;
+pub use post::FileMetadata;
 pub use post::Post;
 pub use search_parts::SearchParts;
 pub use species::Latin;
@@ -21,6 +22,8 @@ pub use tag_translations::TagTranslations;
 pub use tag_translations::TranslatedTag;
 pub use tag_translations::Translation;
 
+use crate::jpeg::identify as identify_jpeg;
+use crate::jpeg::ImageSize;
 use crate::tag_hints::Builder;
 use crate::tag_hints::TagHints;
 use serde::Deserialize;
@@ -29,6 +32,8 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -327,7 +332,7 @@ impl Database {
 
         self.cache_versions.species_examples = self.current_version.posts;
 
-        let mut tmp = HashMap::<Latin, Vec<String>>::new();
+        let mut tmp = HashMap::<Latin, Vec<FileMetadata>>::new();
         for post in self
             .posts
             .iter()
@@ -337,11 +342,11 @@ impl Database {
             let species = post.species.as_ref().unwrap();
             tmp.entry(species.clone())
                 .and_modify(|list| {
-                    for uri in &post.uris {
-                        list.push(uri.clone());
+                    for meta in &post.files_meta {
+                        list.push(meta.clone());
                     }
                 })
-                .or_insert_with(|| post.uris.clone());
+                .or_insert_with(|| post.files_meta.clone());
         }
 
         for species in self.species.iter_mut() {
@@ -457,15 +462,33 @@ impl Database {
     }
 
     pub fn refresh_all_records(&mut self) {
+        const HEAD_BYTES: u64 = 1024 * 16;
+
+        let mut buf = Vec::<u8>::with_capacity(HEAD_BYTES as usize);
+
+        fn identify(path: &Path, buf: &mut Vec<u8>) -> Option<ImageSize> {
+            let file = File::open(path).ok()?;
+            let mut file = file.take(HEAD_BYTES);
+
+            buf.clear();
+            file.read_to_end(buf).ok()?;
+
+            identify_jpeg(buf)
+        }
+
         for (id, entry) in self.posts.0.iter_mut().enumerate() {
             entry.id = PostId(id);
-            entry.full_paths.clear();
-            entry.uris.clear();
+            entry.files_meta.clear();
             for path in &entry.files {
                 let full_path = self.rootdir.join(path);
+                let image_size = identify(&full_path, &mut buf);
                 let uri = format!("file://{}", full_path.display());
-                entry.full_paths.push(full_path);
-                entry.uris.push(uri);
+
+                entry.files_meta.push(FileMetadata {
+                    full_path,
+                    uri,
+                    image_size,
+                });
             }
 
             entry.refresh();

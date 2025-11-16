@@ -384,10 +384,10 @@ impl ModalSpecies {
         ScrollArea::vertical()
             .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
             .show(ui, |ui| {
-                for uri in &post.uris {
+                for meta in &post.files_meta {
                     add_image(
                         ui,
-                        uri.clone(),
+                        meta,
                         image_cache,
                         style.image.preview_width,
                         style.image.radius,
