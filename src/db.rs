@@ -243,18 +243,12 @@ impl Database {
     }
 
     pub fn species_by_latin(&self, key: &Latin) -> Option<&Species> {
-        let Some(id) = self.latin2id.get(key) else {
-            return None;
-        };
-
+        let id = self.latin2id.get(key)?;
         self.species.get(id.0)
     }
 
     pub fn species_mut_by_latin(&mut self, key: &Latin) -> Option<&mut Species> {
-        let Some(id) = self.latin2id.get(key) else {
-            return None;
-        };
-
+        let id = self.latin2id.get(key)?;
         self.species.get_mut(id.0)
     }
 
@@ -311,6 +305,7 @@ impl Database {
         }
 
         self.cache_versions.picture_views = self.current_version.posts;
+        self.picture_views.clear();
 
         for post in self.posts.iter() {
             let all = Selector::All;
@@ -380,8 +375,8 @@ impl Database {
         }
 
         self.cache_versions.latin2id = self.current_version.species;
-
         self.latin2id.clear();
+
         for species in &self.species {
             let inserted = self.latin2id.insert(species.latin.clone(), species.id);
             assert!(
@@ -404,6 +399,8 @@ impl Database {
         cv.tags_views_posts = self.current_version.posts;
         cv.tags_views_tag_translations = self.current_version.tag_translations;
         cv.tags_views_tag_groups = self.current_version.tag_groups;
+
+        self.tags_views.clear();
 
         let all = Selector::All;
         let mut view_all = TranslatedTagsView::default();
