@@ -52,6 +52,9 @@ pub struct Database {
     tags_views: BTreeMap<Selector, TranslatedTagsView>,
 
     #[serde(skip)]
+    latin2id: BTreeMap<Latin, SpeciesId>,
+
+    #[serde(skip)]
     pub tag_hints: TagHints,
 
     #[serde(skip)]
@@ -79,6 +82,7 @@ struct CacheVersion {
     tags_views_tag_translations: u64,
     tags_views_tag_groups: u64,
     tag_hints: u64,
+    latin2id: u64,
 }
 
 impl Default for CacheVersion {
@@ -90,6 +94,7 @@ impl Default for CacheVersion {
             tags_views_tag_translations: u64::MAX,
             tags_views_tag_groups: u64::MAX,
             tag_hints: u64::MAX,
+            latin2id: u64::MAX,
         }
     }
 }
@@ -238,13 +243,19 @@ impl Database {
     }
 
     pub fn species_by_latin(&self, key: &Latin) -> Option<&Species> {
-        self.species.iter().find(|species| species.latin == *key)
+        let Some(id) = self.latin2id.get(key) else {
+            return None;
+        };
+
+        self.species.get(id.0)
     }
 
     pub fn species_mut_by_latin(&mut self, key: &Latin) -> Option<&mut Species> {
-        self.species
-            .iter_mut()
-            .find(|species| species.latin == *key)
+        let Some(id) = self.latin2id.get(key) else {
+            return None;
+        };
+
+        self.species.get_mut(id.0)
     }
 
     pub fn species_by_id(&self, id: &SpeciesId) -> Option<&Species> {
@@ -359,7 +370,22 @@ impl Database {
         self.refresh_picture_views();
         self.refresh_tags_views();
         self.refresh_tag_hints();
+        self.refresh_latin2id();
         self.refresh_species_examples();
+    }
+
+    fn refresh_latin2id(&mut self) {
+        if self.cache_versions.latin2id == self.current_version.species {
+            return;
+        }
+
+        self.cache_versions.latin2id = self.current_version.species;
+
+        self.latin2id.clear();
+        for species in &self.species {
+            let inserted = self.latin2id.insert(species.latin.clone(), species.id);
+            assert!(inserted.is_none(), "species with latin name '{}' repeated", species.latin.as_str());
+        }
     }
 
     fn refresh_tags_views(&mut self) {
