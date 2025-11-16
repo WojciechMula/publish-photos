@@ -68,6 +68,7 @@ use egui_material_icons::icons::ICON_CLOSE;
 use egui_material_icons::icons::ICON_DELETE;
 use egui_material_icons::icons::ICON_DIALOGS;
 use egui_material_icons::icons::ICON_EDIT;
+use egui_material_icons::icons::ICON_FULLSCREEN;
 use egui_material_icons::icons::ICON_UNDO;
 
 const ID_PREFIX: &str = "tab-posts";
@@ -268,22 +269,27 @@ impl Default for TabPosts {
 mod shortcut {
     use super::*;
 
-    pub const EDIT_TAGS: KeyboardShortcut = KeyboardShortcut {
-        logical_key: Key::T,
-        modifiers: Modifiers::CTRL,
-    };
-    pub const EDIT_SPECIES: KeyboardShortcut = KeyboardShortcut {
-        logical_key: Key::S,
-        modifiers: Modifiers::CTRL,
-    };
-    pub const PUBLISH: KeyboardShortcut = KeyboardShortcut {
-        logical_key: Key::P,
-        modifiers: Modifiers::CTRL,
-    };
-    pub const START_GROUPING: KeyboardShortcut = KeyboardShortcut {
-        logical_key: Key::G,
-        modifiers: Modifiers::CTRL,
-    };
+    const fn ctrl(key: Key) -> KeyboardShortcut {
+        KeyboardShortcut {
+            logical_key: key,
+            modifiers: Modifiers::CTRL,
+        }
+    }
+
+    const fn key(key: Key) -> KeyboardShortcut {
+        KeyboardShortcut {
+            logical_key: key,
+            modifiers: Modifiers::NONE,
+        }
+    }
+
+    pub const EDIT_TAGS: KeyboardShortcut = ctrl(Key::T);
+    pub const EDIT_SPECIES: KeyboardShortcut = ctrl(Key::S);
+    pub const PUBLISH: KeyboardShortcut = ctrl(Key::P);
+    pub const START_GROUPING: KeyboardShortcut = ctrl(Key::G);
+    pub const PREVIEW_1: KeyboardShortcut = key(Key::F);
+    pub const PREVIEW_2: KeyboardShortcut = key(Key::V);
+    pub const PREVIEW_3: KeyboardShortcut = key(Key::Space);
 }
 
 impl TabPosts {
@@ -579,7 +585,7 @@ impl TabPosts {
     }
 
     fn create_mapping() -> KeyboardMapping {
-        fn msg(msg: Message) -> MainMessage {
+        const fn msg(msg: Message) -> MainMessage {
             MainMessage::TabPosts(msg)
         }
 
@@ -599,9 +605,9 @@ impl TabPosts {
                 msg(Message::EditSpeciesCurrent),
             )
             .shortcut(shortcut::START_GROUPING, msg(Message::StartGroupingCurrent))
-            .key(Key::F, msg(Message::ViewCurrent))
-            .key(Key::V, msg(Message::ViewCurrent))
-            .key(Key::Space, msg(Message::ViewCurrent))
+            .shortcut(shortcut::PREVIEW_1, msg(Message::ViewCurrent))
+            .shortcut(shortcut::PREVIEW_2, msg(Message::ViewCurrent))
+            .shortcut(shortcut::PREVIEW_3, msg(Message::ViewCurrent))
             .key(Key::ArrowDown, msg(Message::SelectNext))
             .key(Key::ArrowUp, msg(Message::SelectPrev))
             .ctrl(Key::ArrowDown, msg(Message::SelectNextMany))
@@ -783,6 +789,12 @@ impl TabPosts {
             .shortcut_text(format_shortcut(shortcut::PUBLISH));
         if ui.add_enabled(enabled, button).clicked() {
             queue.push_back(Message::Publish(post.id));
+        }
+
+        let button = Button::new(fmt!("{ICON_FULLSCREEN} Show fullscreen"))
+            .shortcut_text(format_shortcut(shortcut::PREVIEW_1));
+        if ui.add(button).clicked() {
+            queue.push_back(Message::View(post.id));
         }
 
         ui.separator();
