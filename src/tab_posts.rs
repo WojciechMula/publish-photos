@@ -64,6 +64,7 @@ use egui_material_icons::icons::ICON_ADD;
 use egui_material_icons::icons::ICON_CHECK;
 use egui_material_icons::icons::ICON_CLOSE;
 use egui_material_icons::icons::ICON_DELETE;
+use egui_material_icons::icons::ICON_DIALOGS;
 use egui_material_icons::icons::ICON_EDIT;
 use egui_material_icons::icons::ICON_UNDO;
 
@@ -710,26 +711,52 @@ impl TabPosts {
             queue.push_back(Message::Select(post.id));
         }
 
-        resp.context_menu(|ui| {
-            let label = format!("Show posts from {}", post.date);
-            if ui.button(label).clicked() {
-                queue.push_back(Message::FilterByDate(post.date));
-            }
-
-            let label = format!("Show posts from {}", post.date.month);
-            if ui.button(label).clicked() {
-                queue.push_back(Message::FilterByMonth(post.date.month));
-            }
-
-            ui.separator();
-
-            let label = "Start photos grouping";
-            if ui.button(label).clicked() {
-                queue.push_back(Message::StartGrouping(post.id));
-            }
-        });
+        resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
 
         resp.contains_pointer()
+    }
+
+    fn post_context_menu(&self, ui: &mut Ui, post: &Post, queue: &mut MessageQueue) {
+        let enabled = match &self.filter.current {
+            Selector::ByDate(date) => *date != post.date,
+            _ => true,
+        };
+        let button = Button::new(format!("Show posts from {}", post.date));
+        if ui.add_enabled(enabled, button).clicked() {
+            queue.push_back(Message::FilterByDate(post.date));
+        }
+
+        let enabled = match &self.filter.current {
+            Selector::ByMonth(month) => *month != post.date.month,
+            _ => true,
+        };
+        let button = Button::new(format!("Show posts from {}", post.date.month));
+        if ui.add_enabled(enabled, button).clicked() {
+            queue.push_back(Message::FilterByMonth(post.date.month));
+        }
+
+        ui.separator();
+
+        if ui.button(fmt!("{ICON_DIALOGS} Edit tags")).clicked() {
+            queue.push_back(Message::EditTags(post.id));
+        }
+
+        if ui.button(fmt!("{ICON_DIALOGS} Edit species")).clicked() {
+            queue.push_back(Message::EditSpecies(post.id));
+        }
+
+        let enabled = !post.published;
+        let button = Button::new(fmt!("{ICON_DIALOGS} Publish post"));
+        if ui.add_enabled(enabled, button).clicked() {
+            queue.push_back(Message::Publish(post.id));
+        }
+
+        ui.separator();
+
+        let label = "Start photos grouping";
+        if ui.button(label).clicked() {
+            queue.push_back(Message::StartGrouping(post.id));
+        }
     }
 
     fn draw_post_inner(
