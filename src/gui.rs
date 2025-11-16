@@ -59,7 +59,7 @@ pub enum OverlayLocation {
 
 pub fn add_overlay(
     ui: &mut Ui,
-    resp: Response,
+    resp: &Response,
     location: OverlayLocation,
     margin: Vec2,
     contents: impl FnOnce(&mut Ui) -> Response,

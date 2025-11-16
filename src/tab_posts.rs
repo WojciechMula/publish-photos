@@ -828,7 +828,7 @@ impl TabPosts {
             if n > 1 {
                 add_overlay(
                     ui,
-                    resp.clone(),
+                    &resp,
                     OverlayLocation::BottomRight,
                     style.image.overlay.margin,
                     |ui| {
@@ -840,10 +840,24 @@ impl TabPosts {
                 );
             }
 
+            if post.published {
+                add_overlay(
+                    ui,
+                    &resp,
+                    OverlayLocation::TopLeft,
+                    style.image.overlay.margin,
+                    |ui| {
+                        let text = RichText::new(ICON_CHECK).color(style.copied_mark);
+                        let label = Label::new(text).selectable(false);
+                        ui.add(label)
+                    },
+                );
+            }
+
             if self.group.is_some() {
                 let resp = add_overlay(
                     ui,
-                    resp,
+                    &resp,
                     OverlayLocation::TopLeft,
                     style.image.overlay.margin,
                     |ui: &mut Ui| {
@@ -994,7 +1008,7 @@ impl TabPosts {
 
                     let resp = add_overlay(
                         ui,
-                        resp,
+                        &resp,
                         OverlayLocation::BottomRight,
                         style.image.overlay.margin,
                         |ui| {
