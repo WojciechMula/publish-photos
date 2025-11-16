@@ -47,8 +47,10 @@ use egui::CentralPanel;
 use egui::Context;
 use egui::Id;
 use egui::Key;
+use egui::KeyboardShortcut;
 use egui::Label;
 use egui::Layout;
+use egui::Modifiers;
 use egui::RichText;
 use egui::ScrollArea;
 use egui::Sense;
@@ -261,6 +263,27 @@ impl Default for TabPosts {
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
     }
+}
+
+mod shortcut {
+    use super::*;
+
+    pub const EDIT_TAGS: KeyboardShortcut = KeyboardShortcut {
+        logical_key: Key::T,
+        modifiers: Modifiers::CTRL,
+    };
+    pub const EDIT_SPECIES: KeyboardShortcut = KeyboardShortcut {
+        logical_key: Key::S,
+        modifiers: Modifiers::CTRL,
+    };
+    pub const PUBLISH: KeyboardShortcut = KeyboardShortcut {
+        logical_key: Key::P,
+        modifiers: Modifiers::CTRL,
+    };
+    pub const START_GROUPING: KeyboardShortcut = KeyboardShortcut {
+        logical_key: Key::G,
+        modifiers: Modifiers::CTRL,
+    };
 }
 
 impl TabPosts {
@@ -562,14 +585,20 @@ impl TabPosts {
 
         KeyboardMapping::default()
             .key(Key::Slash, msg(Message::FocusSearch))
-            .ctrl(Key::P, msg(Message::PublishCurrent))
-            .key(Key::P, msg(Message::PublishCurrent))
+            .shortcut(shortcut::PUBLISH, msg(Message::PublishCurrent))
+            .key(shortcut::PUBLISH.logical_key, msg(Message::PublishCurrent))
             .ctrl(Key::Z, msg(Message::Undo))
-            .ctrl(Key::T, msg(Message::EditTagsCurrent))
-            .key(Key::T, msg(Message::EditTagsCurrent))
-            .ctrl(Key::S, msg(Message::EditSpeciesCurrent))
-            .key(Key::S, msg(Message::EditSpeciesCurrent))
-            .ctrl(Key::G, msg(Message::StartGroupingCurrent))
+            .shortcut(shortcut::EDIT_TAGS, msg(Message::EditTagsCurrent))
+            .key(
+                shortcut::EDIT_TAGS.logical_key,
+                msg(Message::EditTagsCurrent),
+            )
+            .shortcut(shortcut::EDIT_SPECIES, msg(Message::EditSpeciesCurrent))
+            .key(
+                shortcut::EDIT_SPECIES.logical_key,
+                msg(Message::EditSpeciesCurrent),
+            )
+            .shortcut(shortcut::START_GROUPING, msg(Message::StartGroupingCurrent))
             .key(Key::F, msg(Message::ViewCurrent))
             .key(Key::V, msg(Message::ViewCurrent))
             .key(Key::Space, msg(Message::ViewCurrent))
@@ -737,24 +766,30 @@ impl TabPosts {
 
         ui.separator();
 
-        if ui.button(fmt!("{ICON_DIALOGS} Edit tags")).clicked() {
+        let button = Button::new(fmt!("{ICON_DIALOGS} Edit tags"))
+            .shortcut_text(format_shortcut(shortcut::EDIT_TAGS));
+        if ui.add(button).clicked() {
             queue.push_back(Message::EditTags(post.id));
         }
 
-        if ui.button(fmt!("{ICON_DIALOGS} Edit species")).clicked() {
+        let button = Button::new(fmt!("{ICON_DIALOGS} Edit species"))
+            .shortcut_text(format_shortcut(shortcut::EDIT_SPECIES));
+        if ui.add(button).clicked() {
             queue.push_back(Message::EditSpecies(post.id));
         }
 
         let enabled = !post.published;
-        let button = Button::new(fmt!("{ICON_DIALOGS} Publish post"));
+        let button = Button::new(fmt!("{ICON_DIALOGS} Publish post"))
+            .shortcut_text(format_shortcut(shortcut::PUBLISH));
         if ui.add_enabled(enabled, button).clicked() {
             queue.push_back(Message::Publish(post.id));
         }
 
         ui.separator();
 
-        let label = "Start photos grouping";
-        if ui.button(label).clicked() {
+        let button = Button::new("Start photos grouping")
+            .shortcut_text(format_shortcut(shortcut::START_GROUPING));
+        if ui.add(button).clicked() {
             queue.push_back(Message::StartGrouping(post.id));
         }
     }
@@ -1079,4 +1114,8 @@ fn clamp(val: isize, min: isize, max: isize) -> isize {
     } else {
         val
     }
+}
+
+fn format_shortcut(shortcut: KeyboardShortcut) -> String {
+    crate::keyboard::format_shortcut(&shortcut.logical_key, &shortcut.modifiers)
 }

@@ -81,35 +81,6 @@ impl Shortcut {
 
         result
     }
-
-    fn text(&self) -> String {
-        let mut result = String::new();
-
-        if self.modifiers.command | self.modifiers.ctrl {
-            result += "Ctrl";
-        }
-
-        if self.modifiers.alt {
-            if !result.is_empty() {
-                result += "-";
-            }
-            result += "Alt";
-        }
-
-        if self.modifiers.shift {
-            if !result.is_empty() {
-                result += "-";
-            }
-            result += "Shift";
-        }
-
-        if !result.is_empty() {
-            result += "-";
-        }
-        result += self.key.name();
-
-        result
-    }
 }
 
 impl Widget for Shortcut {
@@ -141,8 +112,13 @@ impl Widget for Shortcut {
 
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, max_height), Sense::empty());
 
-        response
-            .widget_info(|| WidgetInfo::labeled(WidgetType::Label, ui.is_enabled(), self.text()));
+        response.widget_info(|| {
+            WidgetInfo::labeled(
+                WidgetType::Label,
+                ui.is_enabled(),
+                crate::keyboard::format_shortcut(&self.key, &self.modifiers),
+            )
+        });
 
         if ui.is_rect_visible(response.rect) {
             let mut x = rect.left_top().x;

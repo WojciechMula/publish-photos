@@ -2,6 +2,7 @@ use crate::application::Message;
 use egui::Event;
 use egui::InputState;
 use egui::Key;
+use egui::KeyboardShortcut;
 use egui::Modifiers;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -19,6 +20,11 @@ impl KeyboardMapping {
 
     pub fn ctrl(mut self, key: Key, msg: Message) -> Self {
         self.add(key, Modifiers::COMMAND.plus(Modifiers::CTRL), msg);
+        self
+    }
+
+    pub fn shortcut(mut self, shortcut: KeyboardShortcut, msg: Message) -> Self {
+        self.add(shortcut.logical_key, shortcut.modifiers, msg);
         self
     }
 
@@ -106,4 +112,33 @@ fn key_pressed(input: &mut InputState) -> Option<Key> {
     }
 
     None
+}
+
+pub fn format_shortcut(key: &Key, modifiers: &Modifiers) -> String {
+    let mut result = String::new();
+
+    if modifiers.command | modifiers.ctrl {
+        result += "Ctrl";
+    }
+
+    if modifiers.alt {
+        if !result.is_empty() {
+            result += "-";
+        }
+        result += "Alt";
+    }
+
+    if modifiers.shift {
+        if !result.is_empty() {
+            result += "-";
+        }
+        result += "Shift";
+    }
+
+    if !result.is_empty() {
+        result += "-";
+    }
+    result += key.name();
+
+    result
 }
