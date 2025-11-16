@@ -36,6 +36,8 @@ use species::RecentSpecies;
 use std::cell::LazyCell;
 use std::collections::VecDeque;
 
+use egui_material_icons::icons::ICON_MAGNIFICATION_LARGE;
+use egui_material_icons::icons::ICON_MAGNIFICATION_SMALL;
 use egui_material_icons::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "modal-post-species";
@@ -48,9 +50,33 @@ pub struct ModalSpecies {
     recent_species_version: u64,
     search_box: SearchBox,
     species_hovered: Option<SpeciesId>,
+    species_thumbnail_size: ThumbnailSize,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: LazyCell<KeyboardMapping>,
+}
+
+#[derive(Default, PartialEq, Eq, Clone, Copy)]
+pub enum ThumbnailSize {
+    #[default]
+    Small,
+    Large,
+}
+
+impl ThumbnailSize {
+    const fn name(&self) -> &str {
+        match self {
+            Self::Small => fmt!("{ICON_MAGNIFICATION_SMALL} small"),
+            Self::Large => fmt!("{ICON_MAGNIFICATION_LARGE} large"),
+        }
+    }
+
+    const fn width(&self, style: &Style) -> f32 {
+        match self {
+            Self::Small => style.image.thumbnail_width,
+            Self::Large => style.image.preview_width,
+        }
+    }
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -67,6 +93,7 @@ pub enum Message {
     SaveAndExit,
     CancelAndExit,
     FocusSearch,
+    ThumbnailSize(ThumbnailSize),
 }
 
 impl Message {
@@ -82,6 +109,7 @@ impl Message {
             Self::SaveAndExit => help::SAVE_AND_EXIT,
             Self::CancelAndExit => unreachable!(),
             Self::FocusSearch => help::FOCUS_SEARCH,
+            Self::ThumbnailSize(_) => unreachable!(),
         }
     }
 }
@@ -108,6 +136,7 @@ impl ModalSpecies {
             recent_species_version,
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
             species_hovered: None,
+            species_thumbnail_size: ThumbnailSize::Small,
             queue: MessageQueue::new(),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         };
@@ -183,7 +212,7 @@ impl ModalSpecies {
                 ];
 
                 for view in views {
-                    view.image_width = style.image.thumbnail_width;
+                    view.image_width = self.species_thumbnail_size.width(style);
                     view.set_filter(self.search_box.phrase(ctx), db);
                     view.refresh_view(db);
                 }
@@ -198,6 +227,18 @@ impl ModalSpecies {
                 for view in views {
                     view.set_filter(value.clone(), db);
                     view.refresh_view(db);
+                }
+            }
+            Message::ThumbnailSize(ts) => {
+                let views = [
+                    &mut self.recent_species.day,
+                    &mut self.recent_species.month,
+                    &mut self.recent_species.remaining,
+                ];
+
+                self.species_thumbnail_size = ts;
+                for view in views {
+                    view.image_width = self.species_thumbnail_size.width(style);
                 }
             }
             Message::SetSpecies(id) => {
@@ -262,9 +303,11 @@ impl ModalSpecies {
         tab_queue: &mut TabMessageQueue,
         queue: &mut MessageQueue,
     ) {
-        SidePanel::left(fmt!("{ID_PREFIX}-left")).show(ctx, |ui| {
-            self.draw_header(ui, image_cache, style, db, tab_queue, queue);
-        });
+        SidePanel::left(fmt!("{ID_PREFIX}-left"))
+            .resizable(false)
+            .show(ctx, |ui| {
+                self.draw_header(ui, image_cache, style, db, tab_queue, queue);
+            });
 
         TopBottomPanel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ctx, |ui| {
             ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
@@ -282,6 +325,17 @@ impl ModalSpecies {
                 ui.horizontal(|ui| {
                     if let Some(phrase) = self.search_box.show(ui) {
                         queue.push_back(Message::FilterByName(phrase));
+                    }
+
+                    ui.separator();
+
+                    let mut val = self.species_thumbnail_size;
+                    for option in [ThumbnailSize::Small, ThumbnailSize::Large] {
+                        ui.selectable_value(&mut val, option, option.name());
+                    }
+
+                    if val != self.species_thumbnail_size {
+                        queue.push_back(Message::ThumbnailSize(val));
                     }
                 });
 
