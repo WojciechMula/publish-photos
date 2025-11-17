@@ -41,8 +41,6 @@ use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
-use eframe::emath::OrderedFloat;
-use egui::pos2;
 use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
@@ -53,7 +51,6 @@ use egui::KeyboardShortcut;
 use egui::Label;
 use egui::Layout;
 use egui::Modifiers;
-use egui::Rect;
 use egui::RichText;
 use egui::ScrollArea;
 use egui::Sense;
@@ -79,7 +76,6 @@ const ID_PREFIX: &str = "tab-posts";
 pub struct TabPosts {
     version: u64,
     view: Vec<PostId>,
-    yranges: Vec<(f32, f32)>,
     hovered: Option<PostId>,
     selected: Option<PostId>,
     scroll_to_selected: bool,
@@ -255,7 +251,6 @@ impl Default for TabPosts {
 
         Self {
             view: Vec::new(),
-            yranges: Vec::new(),
             hovered: None,
             selected: None,
             scroll_to_selected: false,
@@ -373,7 +368,6 @@ impl TabPosts {
             Message::RefreshView => {
                 let phrase = self.filter.search_box.phrase(ctx);
                 self.view = self.filter.make_view(&phrase, db);
-                self.yranges.clear();
             }
             Message::EditTags(id) => {
                 queue.push_back(Message::OpenModalTags(id));
@@ -679,12 +673,7 @@ impl TabPosts {
         }
 
         CentralPanel::default().show(ctx, |ui| {
-            let mut tmp = Vec::<(f32, f32)>::new();
-            std::mem::swap(&mut tmp, &mut self.yranges);
-
-            self.draw_main_list(ui, image_cache, style, db, queue, &mut tmp);
-
-            std::mem::swap(&mut tmp, &mut self.yranges);
+            self.draw_main_list(ui, image_cache, style, db, queue);
         });
     }
 
@@ -695,95 +684,25 @@ impl TabPosts {
         style: &Style,
         db: &Database,
         queue: &mut MessageQueue,
-        yranges: &mut Vec<(f32, f32)>,
     ) {
+        let mut count = 0;
         ScrollArea::both()
-            .id_salt((
-                ID_PREFIX,
-                "scroll-main",
-                self.filter.current,
-                self.filter.image_state,
-            ))
-            .show_viewport(ui, |ui, rect| {
+            .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
+            .show(ui, |ui| {
                 let mut hovered: Option<PostId> = None;
-                if yranges.is_empty() || self.group.is_some() {
-                    yranges.reserve(self.view.len());
-                    for id in self.view.iter() {
-                        if let Some(group) = &self.group {
-                            if group.contains(id) {
-                                continue;
-                            }
-                        }
-
-                        let post = db.post(id);
-                        let (is_hovered, y_min, y_max) =
-                            self.draw_post(ui, image_cache, style, post, db, queue);
-                        if is_hovered {
-                            hovered = Some(*id);
-                        }
-
-                        yranges.push((y_min, y_max));
-                    }
-                } else {
-                    let y_min = rect.min.y;
-                    let y_max = rect.max.y;
-                    let spacing = ui.style().spacing.item_spacing.y;
-                    let (post_y_first, _) = yranges.first().unwrap();
-                    let (_, post_y_last) = yranges.last().unwrap();
-
-                    let delta_y = if *post_y_first < 0.0 {
-                        post_y_first.abs()
-                    } else {
-                        0.0
-                    };
-
-                    let start_idx = match yranges
-                        .binary_search_by_key(&OrderedFloat(y_min), |(_min, max)| {
-                            OrderedFloat(*max)
-                        }) {
-                        Ok(index) | Err(index) => index,
-                    };
-
-                    if start_idx > 0 {
-                        ui.add_space(yranges[start_idx - 1].1 - post_y_first);
-                    }
-
-                    for index in start_idx..yranges.len() {
-                        let (post_y_min, post_y_max) = yranges[index];
-                        let post_y_min = post_y_min + delta_y;
-                        let post_y_max = post_y_max + delta_y;
-
-                        if post_y_max < y_min {
-                            ui.add_space(post_y_max - post_y_min + spacing);
+                for id in self.view.iter() {
+                    if let Some(group) = &self.group {
+                        if group.contains(id) {
                             continue;
                         }
-                        if post_y_min > y_max {
-                            ui.add_space(post_y_last - post_y_min);
-                            break;
-                        }
-
-                        let id = self.view[index];
-                        let post = db.post(&id);
-                        let (is_hovered, _, _) =
-                            self.draw_post(ui, image_cache, style, post, db, queue);
-
-                        if is_hovered {
-                            hovered = Some(id);
-                        }
                     }
 
-                    if self.scroll_to_selected {
-                        if let Some(post_id) = &self.selected {
-                            if let Some(raw_index) = self.view.iter().position(|id| post_id == id) {
-                                let (post_y_min, post_y_max) = yranges[raw_index];
-
-                                let min = pos2(0.0, post_y_min + delta_y - y_min);
-                                let max = pos2(1.0, post_y_max + delta_y - y_min);
-                                let rect = Rect::from_min_max(min, max);
-                                ui.scroll_to_rect(rect, Some(Align::Center));
-                            }
-                        }
+                    let post = db.post(id);
+                    if self.draw_post(ui, image_cache, style, post, db, queue) {
+                        hovered = Some(*id);
                     }
+
+                    count += 1;
                 }
 
                 if hovered != self.hovered {
@@ -800,7 +719,7 @@ impl TabPosts {
         post: &Post,
         db: &Database,
         queue: &mut MessageQueue,
-    ) -> (bool, f32, f32) {
+    ) -> bool {
         let fill = if self.selected == Some(post.id) {
             Some(style.selected_post)
         } else if self.hovered == Some(post.id) {
@@ -829,7 +748,7 @@ impl TabPosts {
 
         resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
 
-        (resp.contains_pointer(), resp.rect.min.y, resp.rect.max.y)
+        resp.contains_pointer()
     }
 
     fn post_context_menu(&self, ui: &mut Ui, post: &Post, queue: &mut MessageQueue) {

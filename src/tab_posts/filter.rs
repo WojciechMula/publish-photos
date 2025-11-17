@@ -21,7 +21,7 @@ use egui_material_icons::icons::ICON_CALENDAR_MONTH;
 use egui_material_icons::icons::ICON_PUBLIC;
 
 pub struct Filter {
-    pub image_state: ImageState,
+    image_state: ImageState,
     pub current: Selector,
     count: ImageCounter,
     pub search_box: SearchBox,
