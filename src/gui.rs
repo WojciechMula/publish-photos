@@ -47,6 +47,22 @@ pub fn frame<R>(
     .response
 }
 
+pub fn tight_frame<R>(
+    ui: &mut Ui,
+    fill: Option<Color32>,
+    add_contents: impl FnOnce(&mut Ui) -> R,
+) -> Response {
+    ui.scope_builder(UiBuilder::new().sense(Sense::CLICK | Sense::HOVER), |ui| {
+        let mut frame = Frame::new().inner_margin(4);
+        if let Some(fill) = fill {
+            frame.fill = fill
+        }
+
+        frame.show(ui, |ui| add_contents(ui))
+    })
+    .response
+}
+
 // --------------------------------------------------
 
 #[derive(Copy, Clone)]

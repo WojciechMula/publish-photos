@@ -35,6 +35,7 @@ use crate::gui::icon_en;
 use crate::gui::icon_pl;
 use crate::gui::overlay_label;
 use crate::gui::tag;
+use crate::gui::tight_frame;
 use crate::gui::OverlayLocation;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
@@ -44,6 +45,7 @@ use const_format::formatcp as fmt;
 use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
+use egui::Color32;
 use egui::Context;
 use egui::Id;
 use egui::Key;
@@ -69,6 +71,8 @@ use egui_material_icons::icons::ICON_DELETE;
 use egui_material_icons::icons::ICON_DIALOGS;
 use egui_material_icons::icons::ICON_EDIT;
 use egui_material_icons::icons::ICON_FULLSCREEN;
+use egui_material_icons::icons::ICON_GRID_ON;
+use egui_material_icons::icons::ICON_LIST;
 use egui_material_icons::icons::ICON_UNDO;
 
 const ID_PREFIX: &str = "tab-posts";
@@ -84,10 +88,26 @@ pub struct TabPosts {
     group: Option<Group>,
     label_width: f32,
     modal_window: ModalWindow,
+    view_kind: ViewKind,
 
     keyboard_mapping: LazyCell<KeyboardMapping>,
 
     pub queue: MessageQueue,
+}
+
+#[derive(PartialEq, Eq, Clone)]
+pub enum ViewKind {
+    List,
+    Grid,
+}
+
+impl ViewKind {
+    const fn name(&self) -> &str {
+        match self {
+            Self::List => fmt!("{ICON_LIST} list"),
+            Self::Grid => fmt!("{ICON_GRID_ON} grid"),
+        }
+    }
 }
 
 pub enum ModalWindow {
@@ -173,6 +193,7 @@ pub enum Message {
     FocusSearch,
     FilterByDate(Date),
     FilterByMonth(Month),
+    ViewKind(ViewKind),
 }
 
 impl Message {
@@ -222,6 +243,7 @@ impl Message {
             Self::FocusItem(_) => unreachable!(),
             Self::FilterByDate(_) => unreachable!(),
             Self::FilterByMonth(_) => unreachable!(),
+            Self::ViewKind(_) => unreachable!(),
         }
     }
 }
@@ -259,6 +281,7 @@ impl Default for TabPosts {
             queue,
             inline_editors: BTreeMap::new(),
             modal_window: ModalWindow::None,
+            view_kind: ViewKind::Grid,
             label_width: 0.0,
             group: None,
             keyboard_mapping: LazyCell::new(Self::create_mapping),
@@ -581,6 +604,9 @@ impl TabPosts {
                 self.scroll_to_selected = true;
                 queue.push_back(Message::RefreshView);
             }
+            Message::ViewKind(view_kind) => {
+                self.view_kind = view_kind;
+            }
         }
     }
 
@@ -639,6 +665,17 @@ impl TabPosts {
         TopBottomPanel::top(fmt!("{ID_PREFIX}-filter")).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 self.filter.view(ui, db, queue);
+
+                ui.separator();
+
+                let mut val = self.view_kind.clone();
+                for option in [ViewKind::List, ViewKind::Grid] {
+                    ui.selectable_value(&mut val, option.clone(), option.name());
+                }
+
+                if val != self.view_kind {
+                    queue.push_back(Message::ViewKind(val));
+                }
             });
 
             if self.label_width == 0.0 {
@@ -673,7 +710,10 @@ impl TabPosts {
         }
 
         CentralPanel::default().show(ctx, |ui| {
-            self.draw_main_list(ui, image_cache, style, db, queue);
+            match self.view_kind {
+                ViewKind::List => self.draw_main_list(ui, image_cache, style, db, queue),
+                ViewKind::Grid => self.draw_grid(ui, image_cache, style, db, queue),
+            };
         });
     }
 
@@ -685,7 +725,6 @@ impl TabPosts {
         db: &Database,
         queue: &mut MessageQueue,
     ) {
-        let mut count = 0;
         ScrollArea::both()
             .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
             .show(ui, |ui| {
@@ -701,8 +740,6 @@ impl TabPosts {
                     if self.draw_post(ui, image_cache, style, post, db, queue) {
                         hovered = Some(*id);
                     }
-
-                    count += 1;
                 }
 
                 if hovered != self.hovered {
@@ -720,15 +757,7 @@ impl TabPosts {
         db: &Database,
         queue: &mut MessageQueue,
     ) -> bool {
-        let fill = if self.selected == Some(post.id) {
-            Some(style.selected_post)
-        } else if self.hovered == Some(post.id) {
-            Some(style.hovered_frame)
-        } else if post.published {
-            Some(style.published_post)
-        } else {
-            None
-        };
+        let fill = self.fill(post, style);
 
         let resp = frame(ui, fill, |ui| {
             self.draw_post_inner(ui, image_cache, style, post, db, queue);
@@ -806,6 +835,72 @@ impl TabPosts {
         }
     }
 
+    fn draw_image(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        post: &Post,
+        queue: &mut MessageQueue,
+    ) {
+        let resp = add_image(
+            ui,
+            &post.files_meta[0],
+            image_cache,
+            style.image.preview_width,
+            style.image.radius,
+        );
+
+        let n = post.files.len();
+        if n > 1 {
+            add_overlay(
+                ui,
+                &resp,
+                OverlayLocation::BottomRight,
+                style.image.overlay.margin,
+                |ui| {
+                    let count = ImageCounter(n);
+                    let label = count.to_string();
+
+                    ui.add(overlay_label(label, style))
+                },
+            );
+        }
+
+        if post.published {
+            add_overlay(
+                ui,
+                &resp,
+                OverlayLocation::TopLeft,
+                style.image.overlay.margin,
+                |ui| {
+                    let text = RichText::new(ICON_CHECK).color(style.copied_mark);
+                    let label = Label::new(text).selectable(false);
+                    ui.add(label)
+                },
+            );
+        }
+
+        if self.group.is_some() {
+            let resp = add_overlay(
+                ui,
+                &resp,
+                OverlayLocation::TopLeft,
+                style.image.overlay.margin,
+                |ui: &mut Ui| {
+                    let label = fmt!("{ICON_ADD} Add to group");
+                    let button = Button::new(label).fill(style.button.save);
+
+                    ui.add(button)
+                },
+            );
+
+            if resp.clicked() {
+                queue.push_back(Message::AddToGroup(post.id));
+            }
+        }
+    }
+
     fn draw_post_inner(
         &self,
         ui: &mut Ui,
@@ -816,62 +911,7 @@ impl TabPosts {
         queue: &mut MessageQueue,
     ) {
         ui.horizontal(|ui| {
-            let resp = add_image(
-                ui,
-                &post.files_meta[0],
-                image_cache,
-                style.image.preview_width,
-                style.image.radius,
-            );
-
-            let n = post.files.len();
-            if n > 1 {
-                add_overlay(
-                    ui,
-                    &resp,
-                    OverlayLocation::BottomRight,
-                    style.image.overlay.margin,
-                    |ui| {
-                        let count = ImageCounter(n);
-                        let label = count.to_string();
-
-                        ui.add(overlay_label(label, style))
-                    },
-                );
-            }
-
-            if post.published {
-                add_overlay(
-                    ui,
-                    &resp,
-                    OverlayLocation::TopLeft,
-                    style.image.overlay.margin,
-                    |ui| {
-                        let text = RichText::new(ICON_CHECK).color(style.copied_mark);
-                        let label = Label::new(text).selectable(false);
-                        ui.add(label)
-                    },
-                );
-            }
-
-            if self.group.is_some() {
-                let resp = add_overlay(
-                    ui,
-                    &resp,
-                    OverlayLocation::TopLeft,
-                    style.image.overlay.margin,
-                    |ui: &mut Ui| {
-                        let label = fmt!("{ICON_ADD} Add to group");
-                        let button = Button::new(label).fill(style.button.save);
-
-                        ui.add(button)
-                    },
-                );
-
-                if resp.clicked() {
-                    queue.push_back(Message::AddToGroup(post.id));
-                }
-            }
+            self.draw_image(ui, image_cache, style, post, queue);
 
             ui.vertical(|ui| {
                 ui.with_layout(Layout::top_down_justified(Align::LEFT), |ui| {
@@ -1054,6 +1094,81 @@ impl TabPosts {
                 ui.label("—");
             }
         });
+    }
+
+    fn draw_grid(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
+        ScrollArea::both()
+            .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
+            .show(ui, |ui| {
+                let mut hovered: Option<PostId> = None;
+                let width = ui.available_size().x;
+                let n = (width / (style.image.preview_width + 8.0)) as usize;
+
+                let mut it = self.view.iter().filter(|id| {
+                    if let Some(group) = &self.group {
+                        !group.contains(id)
+                    } else {
+                        true
+                    }
+                });
+
+                let mut empty = false;
+                while !empty {
+                    ui.horizontal(|ui| {
+                        for _ in 0..n {
+                            if let Some(id) = it.next() {
+                                let post = db.post(id);
+                                let fill = self.fill(post, style);
+
+                                let resp = tight_frame(ui, fill, |ui| {
+                                    self.draw_image(ui, image_cache, style, post, queue);
+                                });
+
+                                if self.scroll_to_selected && self.selected == Some(post.id) {
+                                    ui.scroll_to_rect(resp.rect, Some(Align::Center));
+                                }
+
+                                if resp.contains_pointer() {
+                                    hovered = Some(*id);
+                                }
+                                if resp.clicked() {
+                                    queue.push_back(Message::Select(post.id));
+                                }
+                                if resp.double_clicked() {
+                                    queue.push_back(Message::View(post.id));
+                                }
+                                resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
+                            } else {
+                                empty = true;
+                                break;
+                            }
+                        }
+                    });
+                }
+
+                if hovered != self.hovered {
+                    queue.push_back(Message::Hovered(hovered));
+                }
+            });
+    }
+
+    fn fill(&self, post: &Post, style: &Style) -> Option<Color32> {
+        if self.selected == Some(post.id) {
+            Some(style.selected_post)
+        } else if self.hovered == Some(post.id) {
+            Some(style.hovered_frame)
+        } else if post.published {
+            Some(style.published_post)
+        } else {
+            None
+        }
     }
 }
 
