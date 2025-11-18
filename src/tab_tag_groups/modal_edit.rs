@@ -181,7 +181,7 @@ impl ModalEdit {
                 }
             }
             Message::SaveAndExit => {
-                assert!(matches!(self.state, ModalState::NoChanges));
+                assert!(matches!(self.state, ModalState::Modified));
                 if self.original.is_some() {
                     match db.update_group(self.mk_tag_group()) {
                         Ok(_) => tab_queue.push_back(TabMessage::CloseModal),
