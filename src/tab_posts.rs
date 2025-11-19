@@ -60,6 +60,8 @@ use egui::SidePanel;
 use egui::TextEdit;
 use egui::TopBottomPanel;
 use egui::Ui;
+use serde::Deserialize;
+use serde::Serialize;
 use std::cell::LazyCell;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
@@ -95,7 +97,7 @@ pub struct TabPosts {
     pub queue: MessageQueue,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
 pub enum ViewKind {
     List,
     Grid,
@@ -281,7 +283,7 @@ impl Default for TabPosts {
             queue,
             inline_editors: BTreeMap::new(),
             modal_window: ModalWindow::None,
-            view_kind: ViewKind::Grid,
+            view_kind: ViewKind::List,
             label_width: 0.0,
             group: None,
             keyboard_mapping: LazyCell::new(Self::create_mapping),
@@ -318,12 +320,20 @@ mod shortcut {
 impl TabPosts {
     pub fn load(&mut self, db_id: &str, storage: &dyn eframe::Storage) {
         self.filter.load(db_id, storage);
-        self.selected = eframe::get_value(storage, fmt!("{ID_PREFIX}-selected-post"));
+        if let Some(value) =
+            eframe::get_value::<Option<PostId>>(storage, fmt!("{ID_PREFIX}-selected-post"))
+        {
+            self.selected = value;
+        }
+        if let Some(view_kind) = eframe::get_value(storage, fmt!("{ID_PREFIX}-view-kind")) {
+            self.view_kind = view_kind;
+        }
     }
 
     pub fn save(&self, db_id: &str, storage: &mut dyn eframe::Storage) {
         self.filter.save(db_id, storage);
         eframe::set_value(storage, fmt!("{ID_PREFIX}-selected-post"), &self.selected);
+        eframe::set_value(storage, fmt!("{ID_PREFIX}-view-kind"), &self.view_kind);
     }
 
     pub fn update(
