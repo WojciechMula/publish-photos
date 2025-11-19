@@ -616,6 +616,7 @@ impl TabPosts {
             }
             Message::ViewKind(view_kind) => {
                 self.view_kind = view_kind;
+                self.scroll_to_selected = true;
             }
         }
     }
