@@ -230,7 +230,7 @@ impl ModalEdit {
             });
 
         if duplicated_name {
-            self.can_save = Err("species alrady defined".to_string());
+            self.can_save = Err("species already defined".to_string());
             return;
         }
 
@@ -292,11 +292,6 @@ impl ModalEdit {
                 if button::cancel(ui) {
                     queue.push_back(Message::SoftClose);
                 }
-
-                if let Err(msg) = &self.can_save {
-                    let color = ui.visuals().error_fg_color;
-                    ui.colored_label(color, msg);
-                }
             });
         });
 
@@ -307,10 +302,15 @@ impl ModalEdit {
 
     fn draw_details(&self, ui: &mut Ui, queue: &mut MessageQueue) {
         Grid::new("species-details").num_columns(2).show(ui, |ui| {
-            ui.label("latin");
+            ui.label("Latin");
             ui.horizontal(|ui| {
                 if let Some(val) = edit(ui, (&self.new.latin).into()) {
                     queue.push_back(Message::ChangeLatin(val.into()));
+                }
+
+                if let Err(msg) = &self.can_save {
+                    let color = ui.visuals().error_fg_color;
+                    ui.colored_label(color, msg);
                 }
             });
 
@@ -321,14 +321,13 @@ impl ModalEdit {
                 if let Some(val) = edit(ui, &self.new.pl) {
                     queue.push_back(Message::ChangePolish(val));
                 }
-            });
-            ui.end_row();
 
-            ui.label("wiki");
-            ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, &self.new.wikipedia_pl) {
-                    queue.push_back(Message::ChangeWikipediaPl(val));
-                }
+                ui.label("wiki");
+                ui.horizontal(|ui| {
+                    if let Some(val) = edit(ui, &self.new.wikipedia_pl) {
+                        queue.push_back(Message::ChangeWikipediaPl(val));
+                    }
+                });
             });
             ui.end_row();
 
@@ -337,14 +336,13 @@ impl ModalEdit {
                 if let Some(val) = edit(ui, &self.new.en) {
                     queue.push_back(Message::ChangeEnglish(val));
                 }
-            });
-            ui.end_row();
 
-            ui.label("wiki");
-            ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, &self.new.wikipedia_en) {
-                    queue.push_back(Message::ChangeWikipediaEn(val));
-                }
+                ui.label("wiki");
+                ui.horizontal(|ui| {
+                    if let Some(val) = edit(ui, &self.new.wikipedia_en) {
+                        queue.push_back(Message::ChangeWikipediaEn(val));
+                    }
+                });
             });
             ui.end_row();
 
