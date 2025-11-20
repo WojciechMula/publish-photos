@@ -85,6 +85,7 @@ pub struct TabPosts {
     hovered: Option<PostId>,
     selected: Option<PostId>,
     scroll_to_selected: bool,
+    grid_columns: isize,
     filter: Filter,
     inline_editors: BTreeMap<(PostId, Field), InlineEditor>,
     group: Option<Group>,
@@ -187,15 +188,18 @@ pub enum Message {
     ViewCurrent,
     SelectNext,
     SelectPrev,
-    SelectNextMany,
-    SelectPrevMany,
+    SelectNextRow,
+    SelectPrevRow,
+    SelectNextRowsMany,
+    SelectPrevRowsMany,
     SelectFirst,
     SelectLast,
     Undo,
     FocusSearch,
     FilterByDate(Date),
     FilterByMonth(Month),
-    ViewKind(ViewKind),
+    SetViewKind(ViewKind),
+    SetGridColumns(isize),
 }
 
 impl Message {
@@ -236,8 +240,10 @@ impl Message {
             Self::ViewCurrent => "fullscreen view of photos from the highlighted post",
             Self::SelectNext => "select the next post",
             Self::SelectPrev => "select the previous post",
-            Self::SelectNextMany => "move selection some position forward",
-            Self::SelectPrevMany => "move selection some position backward",
+            Self::SelectNextRow => "select the next post",
+            Self::SelectPrevRow => "select the previous post",
+            Self::SelectNextRowsMany => "move selection some position forward",
+            Self::SelectPrevRowsMany => "move selection some position backward",
             Self::SelectFirst => "scroll to the beginning",
             Self::SelectLast => "scroll to the end",
             Self::Undo => "undo changes",
@@ -245,7 +251,8 @@ impl Message {
             Self::FocusItem(_) => unreachable!(),
             Self::FilterByDate(_) => unreachable!(),
             Self::FilterByMonth(_) => unreachable!(),
-            Self::ViewKind(_) => unreachable!(),
+            Self::SetViewKind(_) => unreachable!(),
+            Self::SetGridColumns(_) => unreachable!(),
         }
     }
 }
@@ -278,6 +285,7 @@ impl Default for TabPosts {
             hovered: None,
             selected: None,
             scroll_to_selected: false,
+            grid_columns: 1,
             version: 0,
             filter: Filter::default(),
             queue,
@@ -581,13 +589,23 @@ impl TabPosts {
                 self.scroll_to_selected = self.selected != id;
                 self.selected = id;
             }
-            Message::SelectNextMany => {
-                let id = move_selection(&self.view, self.selected, 5);
+            Message::SelectNextRow => {
+                let id = move_selection(&self.view, self.selected, self.grid_columns);
                 self.scroll_to_selected = self.selected != id;
                 self.selected = id;
             }
-            Message::SelectPrevMany => {
-                let id = move_selection(&self.view, self.selected, -5);
+            Message::SelectPrevRow => {
+                let id = move_selection(&self.view, self.selected, -self.grid_columns);
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
+            }
+            Message::SelectNextRowsMany => {
+                let id = move_selection(&self.view, self.selected, 5 * self.grid_columns);
+                self.scroll_to_selected = self.selected != id;
+                self.selected = id;
+            }
+            Message::SelectPrevRowsMany => {
+                let id = move_selection(&self.view, self.selected, -5 * self.grid_columns);
                 self.scroll_to_selected = self.selected != id;
                 self.selected = id;
             }
@@ -614,9 +632,13 @@ impl TabPosts {
                 self.scroll_to_selected = true;
                 queue.push_back(Message::RefreshView);
             }
-            Message::ViewKind(view_kind) => {
+            Message::SetViewKind(view_kind) => {
                 self.view_kind = view_kind;
                 self.scroll_to_selected = true;
+                self.grid_columns = 1;
+            }
+            Message::SetGridColumns(grid_columns) => {
+                self.grid_columns = grid_columns;
             }
         }
     }
@@ -645,12 +667,14 @@ impl TabPosts {
             .shortcut(shortcut::PREVIEW_1, msg(Message::ViewCurrent))
             .shortcut(shortcut::PREVIEW_2, msg(Message::ViewCurrent))
             .shortcut(shortcut::PREVIEW_3, msg(Message::ViewCurrent))
-            .key(Key::ArrowDown, msg(Message::SelectNext))
-            .key(Key::ArrowUp, msg(Message::SelectPrev))
-            .ctrl(Key::ArrowDown, msg(Message::SelectNextMany))
-            .ctrl(Key::ArrowUp, msg(Message::SelectPrevMany))
-            .key(Key::PageDown, msg(Message::SelectNextMany))
-            .key(Key::PageUp, msg(Message::SelectPrevMany))
+            .key(Key::ArrowDown, msg(Message::SelectNextRow))
+            .key(Key::ArrowUp, msg(Message::SelectPrevRow))
+            .key(Key::ArrowLeft, msg(Message::SelectPrev))
+            .key(Key::ArrowRight, msg(Message::SelectNext))
+            .ctrl(Key::ArrowDown, msg(Message::SelectNextRowsMany))
+            .ctrl(Key::ArrowUp, msg(Message::SelectPrevRowsMany))
+            .key(Key::PageDown, msg(Message::SelectNextRowsMany))
+            .key(Key::PageUp, msg(Message::SelectPrevRowsMany))
             .key(Key::Home, msg(Message::SelectFirst))
             .key(Key::End, msg(Message::SelectLast))
     }
@@ -685,7 +709,7 @@ impl TabPosts {
                 }
 
                 if val != self.view_kind {
-                    queue.push_back(Message::ViewKind(val));
+                    queue.push_back(Message::SetViewKind(val));
                 }
             });
 
@@ -1120,7 +1144,10 @@ impl TabPosts {
             .show(ui, |ui| {
                 let mut hovered: Option<PostId> = None;
                 let width = ui.available_size().x;
-                let n = (width / (style.image.preview_width + 8.0)) as usize;
+                let n = (width / (style.image.preview_width + 8.0)) as isize;
+                if n != self.grid_columns {
+                    queue.push_back(Message::SetGridColumns(n));
+                }
 
                 let mut it = self.view.iter().filter(|id| {
                     if let Some(group) = &self.group {
