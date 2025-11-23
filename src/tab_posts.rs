@@ -171,10 +171,6 @@ pub enum Message {
     RemoveFromGroup(PostId),
     SaveGroup,
 
-    OpenModalPublish(PostId),
-    OpenModalView(PostId),
-    OpenModalTags(PostId),
-    OpenModalSpecies(PostId),
     ModalTags(ModalTagsMessage),
     ModalSpecies(ModalSpeciesMessage),
     ModalView(ModalViewMessage),
@@ -228,10 +224,6 @@ impl Message {
             Self::AddToGroup(_) => unreachable!(),
             Self::RemoveFromGroup(_) => unreachable!(),
             Self::SaveGroup => unreachable!(),
-            Self::OpenModalPublish(_) => unreachable!(),
-            Self::OpenModalView(_) => unreachable!(),
-            Self::OpenModalTags(_) => unreachable!(),
-            Self::OpenModalSpecies(_) => unreachable!(),
             Self::ModalTags(msg) => msg.name(),
             Self::ModalSpecies(msg) => msg.name(),
             Self::ModalView(msg) => msg.name(),
@@ -425,10 +417,14 @@ impl TabPosts {
                 self.view = self.filter.make_view(&phrase, db);
             }
             Message::EditTags(id) => {
-                queue.push_back(Message::OpenModalTags(id));
+                assert!(self.modal_window.is_none());
+                let window = ModalTags::new(id, db);
+                self.modal_window = ModalWindow::ModalTags(Box::new(window));
             }
             Message::EditSpecies(id) => {
-                queue.push_back(Message::OpenModalSpecies(id));
+                assert!(self.modal_window.is_none());
+                let window = ModalSpecies::new(id, db);
+                self.modal_window = ModalWindow::ModalSpecies(Box::new(window));
             }
             Message::InlineEditStart { id, field } => {
                 let post = db.post_mut(&id);
@@ -477,10 +473,14 @@ impl TabPosts {
                 self.selected = Some(id);
             }
             Message::View(id) => {
-                queue.push_back(Message::OpenModalView(id));
+                assert!(self.modal_window.is_none());
+                let window = ModalView::new(id, db);
+                self.modal_window = ModalWindow::ModalView(Box::new(window));
             }
             Message::Publish(id) => {
-                queue.push_back(Message::OpenModalPublish(id));
+                assert!(self.modal_window.is_none());
+                let window = ModalPublish::new(id, db);
+                self.modal_window = ModalWindow::ModalPublish(Box::new(window));
             }
             Message::Hovered(post_id) => {
                 self.hovered = post_id;
@@ -512,26 +512,6 @@ impl TabPosts {
 
                 group.apply(db);
                 queue.push_back(Message::RefreshView);
-            }
-            Message::OpenModalTags(id) => {
-                assert!(self.modal_window.is_none());
-                let window = ModalTags::new(id, db);
-                self.modal_window = ModalWindow::ModalTags(Box::new(window));
-            }
-            Message::OpenModalSpecies(id) => {
-                assert!(self.modal_window.is_none());
-                let window = ModalSpecies::new(id, db);
-                self.modal_window = ModalWindow::ModalSpecies(Box::new(window));
-            }
-            Message::OpenModalPublish(id) => {
-                assert!(self.modal_window.is_none());
-                let window = ModalPublish::new(id, db);
-                self.modal_window = ModalWindow::ModalPublish(Box::new(window));
-            }
-            Message::OpenModalView(id) => {
-                assert!(self.modal_window.is_none());
-                let window = ModalView::new(id, db);
-                self.modal_window = ModalWindow::ModalView(Box::new(window));
             }
             Message::EditDescription(id) => {
                 assert!(self.modal_window.is_none());
