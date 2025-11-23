@@ -1,5 +1,6 @@
 mod filter;
 mod group;
+mod modal_desc;
 mod modal_publish;
 mod modal_species;
 mod modal_tags;
@@ -7,6 +8,8 @@ mod modal_view;
 
 use filter::Filter;
 use group::Group;
+use modal_desc::Message as ModalDescriptionMessage;
+use modal_desc::ModalDescription;
 use modal_publish::Message as ModalPublishMessage;
 use modal_publish::ModalPublish;
 use modal_species::Message as ModalSpeciesMessage;
@@ -119,6 +122,7 @@ pub enum ModalWindow {
     ModalSpecies(Box<ModalSpecies>),
     ModalPublish(Box<ModalPublish>),
     ModalView(Box<ModalView>),
+    ModalDescription(Box<ModalDescription>),
 }
 
 impl ModalWindow {
@@ -137,6 +141,7 @@ pub type MessageQueue = VecDeque<Message>;
 #[derive(Clone)]
 pub enum Message {
     FocusItem(Id),
+    EditDescription(PostId),
     EditTags(PostId),
     EditSpecies(PostId),
     View(PostId),
@@ -173,6 +178,7 @@ pub enum Message {
     ModalTags(ModalTagsMessage),
     ModalSpecies(ModalSpeciesMessage),
     ModalView(ModalViewMessage),
+    ModalDescription(ModalDescriptionMessage),
     ModalPublish(ModalPublishMessage),
     CloseModal,
     Confirm(Confirm),
@@ -183,6 +189,7 @@ pub enum Message {
     Hovered(Option<PostId>),
     StartGroupingCurrent,
     PublishCurrent,
+    EditDescriptionCurrent,
     EditTagsCurrent,
     EditSpeciesCurrent,
     ViewCurrent,
@@ -205,6 +212,7 @@ pub enum Message {
 impl Message {
     pub const fn name(&self) -> &str {
         match self {
+            Self::EditDescription(_) => unreachable!(),
             Self::EditTags(_) => unreachable!(),
             Self::EditSpecies(_) => unreachable!(),
             Self::View(_) => unreachable!(),
@@ -227,6 +235,7 @@ impl Message {
             Self::ModalTags(msg) => msg.name(),
             Self::ModalSpecies(msg) => msg.name(),
             Self::ModalView(msg) => msg.name(),
+            Self::ModalDescription(msg) => msg.name(),
             Self::ModalPublish(msg) => msg.name(),
             Self::CloseModal => unreachable!(),
             Self::Confirm(_) => unreachable!(),
@@ -235,6 +244,7 @@ impl Message {
             Self::Hovered(_) => unreachable!(),
             Self::StartGroupingCurrent => "start grouping photos in the highlighted post",
             Self::PublishCurrent => "publish the highlighted post",
+            Self::EditDescriptionCurrent => "edit description of the highlighted post",
             Self::EditTagsCurrent => "edit tags of the highlighted post",
             Self::EditSpeciesCurrent => "edit species of the highlighted post",
             Self::ViewCurrent => "fullscreen view of photos from the highlighted post",
@@ -316,6 +326,7 @@ mod shortcut {
         }
     }
 
+    pub const EDIT_DESCRIPTION: KeyboardShortcut = ctrl(Key::E);
     pub const EDIT_TAGS: KeyboardShortcut = ctrl(Key::T);
     pub const EDIT_SPECIES: KeyboardShortcut = ctrl(Key::S);
     pub const PUBLISH: KeyboardShortcut = ctrl(Key::P);
@@ -384,6 +395,9 @@ impl TabPosts {
             }
             ModalWindow::ModalView(window) => {
                 window.update(ctx, image_cache, db, &mut queue);
+            }
+            ModalWindow::ModalDescription(window) => {
+                window.update(ctx, image_cache, style, db, &mut queue);
             }
         }
 
@@ -516,8 +530,13 @@ impl TabPosts {
             }
             Message::OpenModalView(id) => {
                 assert!(self.modal_window.is_none());
-                let window = ModalView::new(&id, db);
+                let window = ModalView::new(id, db);
                 self.modal_window = ModalWindow::ModalView(Box::new(window));
+            }
+            Message::EditDescription(id) => {
+                assert!(self.modal_window.is_none());
+                let window = ModalDescription::new(id, db);
+                self.modal_window = ModalWindow::ModalDescription(Box::new(window));
             }
             Message::CloseModal => {
                 assert!(!self.modal_window.is_none());
@@ -535,6 +554,11 @@ impl TabPosts {
             }
             Message::ModalView(msg) => {
                 if let ModalWindow::ModalView(window) = &mut self.modal_window {
+                    window.queue.push_back(msg);
+                }
+            }
+            Message::ModalDescription(msg) => {
+                if let ModalWindow::ModalDescription(window) = &mut self.modal_window {
                     window.queue.push_back(msg);
                 }
             }
@@ -557,6 +581,11 @@ impl TabPosts {
             Message::Undo => {
                 if let Some(id) = self.hovered {
                     queue.push_back(EditDetails::Undo(id).into());
+                }
+            }
+            Message::EditDescriptionCurrent => {
+                if let Some(id) = self.hovered {
+                    queue.push_back(Message::EditDescription(id));
                 }
             }
             Message::EditTagsCurrent => {
@@ -653,6 +682,14 @@ impl TabPosts {
             .shortcut(shortcut::PUBLISH, msg(Message::PublishCurrent))
             .key(shortcut::PUBLISH.logical_key, msg(Message::PublishCurrent))
             .ctrl(Key::Z, msg(Message::Undo))
+            .shortcut(
+                shortcut::EDIT_DESCRIPTION,
+                msg(Message::EditDescriptionCurrent),
+            )
+            .key(
+                shortcut::EDIT_DESCRIPTION.logical_key,
+                msg(Message::EditDescriptionCurrent),
+            )
             .shortcut(shortcut::EDIT_TAGS, msg(Message::EditTagsCurrent))
             .key(
                 shortcut::EDIT_TAGS.logical_key,
@@ -685,6 +722,7 @@ impl TabPosts {
             ModalWindow::ModalTags(window) => &window.keyboard_mapping,
             ModalWindow::ModalPublish(window) => &window.keyboard_mapping,
             ModalWindow::ModalView(window) => &window.keyboard_mapping,
+            ModalWindow::ModalDescription(window) => &window.keyboard_mapping,
             ModalWindow::None => &self.keyboard_mapping,
         }
     }
@@ -835,6 +873,12 @@ impl TabPosts {
         }
 
         ui.separator();
+
+        let button = Button::new(fmt!("{ICON_DIALOGS} Edit description"))
+            .shortcut_text(format_shortcut(shortcut::EDIT_DESCRIPTION));
+        if ui.add(button).clicked() {
+            queue.push_back(Message::EditDescription(post.id));
+        }
 
         let button = Button::new(fmt!("{ICON_DIALOGS} Edit tags"))
             .shortcut_text(format_shortcut(shortcut::EDIT_TAGS));

@@ -69,13 +69,13 @@ impl Message {
 }
 
 impl ModalView {
-    pub fn new(id: &PostId, db: &Database) -> Self {
-        let post = db.post(id);
+    pub fn new(id: PostId, db: &Database) -> Self {
+        let post = db.post(&id);
 
         Self {
             initialized: false,
             queue: MessageQueue::new(),
-            post_id: *id,
+            post_id: id,
             cursor: Cursor::new(post.files_meta.len()),
             keyboard_mapping: LazyCell::new(Self::create_mapping),
         }
