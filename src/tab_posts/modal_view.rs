@@ -76,35 +76,56 @@ impl ModalView {
             queue: MessageQueue::new(),
             post_id: id,
             cursor: Cursor::new(post.files_meta.len()),
-            keyboard_mapping: Self::create_mapping(),
+            keyboard_mapping: Self::create_mapping(post.files.len()),
         }
     }
 
-    fn create_mapping() -> KeyboardMapping {
+    fn create_mapping(photos_count: usize) -> KeyboardMapping {
         fn msg(msg: Message) -> MainMessage {
             MainMessage::TabPosts(TabMessage::ModalView(msg))
         }
 
-        KeyboardMapping::default()
+        let mut km = KeyboardMapping::default()
             .key(Key::Escape, msg(Message::Close))
             .key(Key::Space, msg(Message::Close))
             .key(Key::F, msg(Message::Close))
-            .key(Key::V, msg(Message::Close))
-            .key(Key::ArrowUp, msg(Message::SelectPrev))
-            .key(Key::ArrowLeft, msg(Message::SelectPrev))
-            .key(Key::ArrowDown, msg(Message::SelectNext))
-            .key(Key::ArrowRight, msg(Message::SelectNext))
-            .key(Key::Home, msg(Message::SelectFirst))
-            .key(Key::End, msg(Message::SelectLast))
-            .key(Key::Num1, msg(Message::SelectPhoto1))
-            .key(Key::Num2, msg(Message::SelectPhoto2))
-            .key(Key::Num3, msg(Message::SelectPhoto3))
-            .key(Key::Num4, msg(Message::SelectPhoto4))
-            .key(Key::Num5, msg(Message::SelectPhoto5))
-            .key(Key::Num6, msg(Message::SelectPhoto6))
-            .key(Key::Num7, msg(Message::SelectPhoto7))
-            .key(Key::Num8, msg(Message::SelectPhoto8))
-            .key(Key::Num9, msg(Message::SelectPhoto9))
+            .key(Key::V, msg(Message::Close));
+
+        if photos_count > 1 {
+            km = km
+                .key(Key::ArrowUp, msg(Message::SelectPrev))
+                .key(Key::ArrowLeft, msg(Message::SelectPrev))
+                .key(Key::ArrowDown, msg(Message::SelectNext))
+                .key(Key::ArrowRight, msg(Message::SelectNext))
+                .key(Key::Home, msg(Message::SelectFirst))
+                .key(Key::End, msg(Message::SelectLast))
+                .key(Key::Num1, msg(Message::SelectPhoto1))
+                .key(Key::Num2, msg(Message::SelectPhoto2));
+        }
+
+        if photos_count >= 3 {
+            km = km.key(Key::Num3, msg(Message::SelectPhoto3));
+        }
+        if photos_count >= 4 {
+            km = km.key(Key::Num4, msg(Message::SelectPhoto4));
+        }
+        if photos_count >= 5 {
+            km = km.key(Key::Num5, msg(Message::SelectPhoto5));
+        }
+        if photos_count >= 6 {
+            km = km.key(Key::Num6, msg(Message::SelectPhoto6));
+        }
+        if photos_count >= 7 {
+            km = km.key(Key::Num7, msg(Message::SelectPhoto7));
+        }
+        if photos_count >= 8 {
+            km = km.key(Key::Num8, msg(Message::SelectPhoto8));
+        }
+        if photos_count >= 9 {
+            km = km.key(Key::Num9, msg(Message::SelectPhoto9));
+        }
+
+        km
     }
 
     fn handle_message(&mut self, msg: Message, tab_queue: &mut TabMessageQueue) {
