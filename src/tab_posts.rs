@@ -320,6 +320,7 @@ mod shortcut {
     pub const EDIT_DESCRIPTION: KeyboardShortcut = ctrl(Key::E);
     pub const EDIT_TAGS: KeyboardShortcut = ctrl(Key::T);
     pub const EDIT_SPECIES: KeyboardShortcut = ctrl(Key::S);
+    pub const UNDO: KeyboardShortcut = ctrl(Key::Z);
     pub const PUBLISH: KeyboardShortcut = ctrl(Key::P);
     pub const START_GROUPING: KeyboardShortcut = ctrl(Key::G);
     pub const PREVIEW_1: KeyboardShortcut = key(Key::F);
@@ -875,6 +876,13 @@ impl TabPosts {
             queue.push_back(Message::EditSpecies(post.id));
         }
 
+        let enabled = post.is_dirty();
+        let button =
+            Button::new(fmt!("{ICON_UNDO} Undo")).shortcut_text(format_shortcut(shortcut::UNDO));
+        if ui.add_enabled(enabled, button).clicked() {
+            queue.push_back(EditDetails::Undo(post.id).into());
+        }
+
         let enabled = !post.published;
         let button = Button::new(fmt!("{ICON_DIALOGS} Publish post"))
             .shortcut_text(format_shortcut(shortcut::PUBLISH));
@@ -985,18 +993,6 @@ impl TabPosts {
                             let label = format!("{}", post.files[0].display());
                             ui.heading(label);
                         };
-
-                        if !post.published {
-                            if ui.button("Publish").clicked() {
-                                queue.push_back(Message::Publish(post.id));
-                            }
-                        }
-
-                        if post.is_dirty() {
-                            if ui.button(fmt!("{ICON_UNDO} Undo")).clicked() {
-                                queue.push_back(EditDetails::Undo(post.id).into());
-                            }
-                        }
                     });
                 });
 
