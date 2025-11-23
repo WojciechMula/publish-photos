@@ -95,5 +95,6 @@ impl Group {
 
         db.refresh_all_records();
         db.current_version.posts += 1;
+        db.current_version.photos += 1;
     }
 }
