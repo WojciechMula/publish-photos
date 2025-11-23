@@ -28,6 +28,10 @@ impl TagTranslations {
 
         None
     }
+
+    pub fn prune_empty(&mut self) {
+        self.0.retain(|trans| !trans.is_empty());
+    }
 }
 
 // --------------------------------------------------
@@ -73,4 +77,10 @@ impl Eq for TranslatedTag {}
 pub struct Translation {
     pub en: String,
     pub pl: String,
+}
+
+impl Translation {
+    pub fn is_empty(&self) -> bool {
+        self.pl.is_empty() && self.en.is_empty()
+    }
 }

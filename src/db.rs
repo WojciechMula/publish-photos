@@ -166,6 +166,8 @@ impl Database {
     }
 
     pub fn save(&mut self, path: &Path) -> Result<(), Box<dyn std::error::Error + 'static>> {
+        self.tag_translations.prune_empty();
+
         let contents = toml::to_string(self)?;
 
         std::fs::write(path, &contents)?;
