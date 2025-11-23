@@ -5,15 +5,19 @@ use crate::gui::icon_en;
 use crate::gui::icon_pl;
 use crate::keyboard::KeyboardMapping;
 use crate::search_box::SearchBox;
+use egui::Align;
 use egui::CentralPanel;
 use egui::Context;
+use egui::Id;
 use egui::Key;
 use egui::ScrollArea;
+use egui::TextEdit;
 use egui::Ui;
 use std::collections::VecDeque;
 
 pub struct TabTagTranslations {
     search_box: SearchBox,
+    scroll_to: Option<usize>,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
@@ -51,6 +55,7 @@ impl Default for TabTagTranslations {
             queue: MessageQueue::new(),
             search_box: SearchBox::new("tab-tags-search"),
             keyboard_mapping: Self::create_mapping(),
+            scroll_to: None,
         }
     }
 }
@@ -67,6 +72,8 @@ impl TabTagTranslations {
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
         }
+
+        self.scroll_to = None;
     }
 
     fn create_mapping() -> KeyboardMapping {
@@ -78,7 +85,9 @@ impl TabTagTranslations {
     fn handle_message(&mut self, ctx: &Context, db: &mut Database, message: Message) {
         match message {
             Message::AddNew => {
-                db.new_tag();
+                let id = db.new_tag_translation();
+                self.scroll_to = Some(id);
+                ctx.memory_mut(|mem| mem.request_focus(Id::new(format!("en-{id}"))));
             }
             Message::ChangePolish { id, text } => {
                 db.tag_translations.0[id].pl = text;
@@ -147,8 +156,14 @@ impl TabTagTranslations {
             icon_en(ui);
 
             let mut en = trans.en.clone();
-            if ui.text_edit_singleline(&mut en).changed() {
+            let edit = TextEdit::singleline(&mut en).id(Id::new(format!("en-{id}")));
+            let resp = ui.add(edit);
+            if resp.changed() {
                 queue.push_back(Message::ChangeEnglish { id, text: en });
+            }
+
+            if self.scroll_to == Some(id) {
+                ui.scroll_to_rect(resp.rect, Some(Align::Center));
             }
 
             icon_pl(ui);

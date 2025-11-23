@@ -197,7 +197,7 @@ impl Database {
         }
     }
 
-    pub fn new_tag(&mut self) -> usize {
+    pub fn new_tag_translation(&mut self) -> usize {
         let id = self.tag_translations.0.len();
 
         self.tag_translations.0.push(Translation::default());
