@@ -15,7 +15,6 @@ use egui::Context;
 use egui::Image;
 use egui::Key;
 use egui::Layout;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 pub struct ModalView {
@@ -24,7 +23,7 @@ pub struct ModalView {
     initialized: bool,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -77,7 +76,7 @@ impl ModalView {
             queue: MessageQueue::new(),
             post_id: id,
             cursor: Cursor::new(post.files_meta.len()),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 

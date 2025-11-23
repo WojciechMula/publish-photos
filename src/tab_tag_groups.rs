@@ -14,7 +14,6 @@ use egui::Context;
 use egui::Key;
 use egui::ScrollArea;
 use egui::Ui;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 mod modal_edit;
@@ -31,7 +30,7 @@ pub struct TabTagGroups {
     modal_window: ModalWindow,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 #[derive(Clone)]
@@ -79,7 +78,7 @@ impl Default for TabTagGroups {
     fn default() -> Self {
         Self {
             queue: MessageQueue::new(),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
             modal_window: ModalWindow::None,
         }
     }

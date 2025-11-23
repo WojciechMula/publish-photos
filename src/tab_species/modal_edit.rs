@@ -26,7 +26,6 @@ use egui::ScrollArea;
 use egui::SidePanel;
 use egui::TopBottomPanel;
 use egui::Ui;
-use std::cell::LazyCell;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 
@@ -42,7 +41,7 @@ pub struct ModalEdit {
     categories: BTreeSet<String>,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -90,7 +89,7 @@ impl ModalEdit {
             new: Species::default(),
             queue: MessageQueue::new(),
             categories: BTreeSet::new(),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 
@@ -104,7 +103,7 @@ impl ModalEdit {
             new,
             queue: MessageQueue::new(),
             categories: BTreeSet::new(),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 

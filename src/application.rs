@@ -30,7 +30,6 @@ use egui::TopBottomPanel;
 use egui::ViewportCommand;
 use serde::Deserialize;
 use serde::Serialize;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_HELP;
@@ -54,7 +53,7 @@ pub struct Application {
     initialized: bool,
     image_cache: ImageCache,
 
-    keyboard_mapping: LazyCell<KeyboardMapping>,
+    keyboard_mapping: KeyboardMapping,
 }
 
 pub type MessageQueue = VecDeque<Message>;
@@ -205,7 +204,7 @@ impl Application {
             style: Style::default(),
             queue,
             can_close: false,
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 

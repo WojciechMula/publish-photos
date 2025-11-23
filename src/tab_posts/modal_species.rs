@@ -33,7 +33,6 @@ use egui::SidePanel;
 use egui::TopBottomPanel;
 use egui::Ui;
 use species::RecentSpecies;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_MAGNIFICATION_LARGE;
@@ -53,7 +52,7 @@ pub struct ModalSpecies {
     species_thumbnail_size: ThumbnailSize,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 #[derive(Default, PartialEq, Eq, Clone, Copy)]
@@ -138,7 +137,7 @@ impl ModalSpecies {
             species_hovered: None,
             species_thumbnail_size: ThumbnailSize::Small,
             queue: MessageQueue::new(),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         };
 
         res.queue.push_back(Message::RefreshView);

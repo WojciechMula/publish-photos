@@ -23,7 +23,6 @@ use egui::Key;
 use egui::Layout;
 use egui::TopBottomPanel;
 use egui::Ui;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_WARNING;
@@ -41,7 +40,7 @@ pub struct ModalEdit {
     label_width: f32,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 enum ModalState {
@@ -101,7 +100,7 @@ impl Default for ModalEdit {
             queue: MessageQueue::new(),
             state: ModalState::NoChanges,
             label_width: 0.0,
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 }

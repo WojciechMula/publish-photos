@@ -65,7 +65,6 @@ use egui::TopBottomPanel;
 use egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
-use std::cell::LazyCell;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 
@@ -96,7 +95,7 @@ pub struct TabPosts {
     modal_window: ModalWindow,
     view_kind: ViewKind,
 
-    keyboard_mapping: LazyCell<KeyboardMapping>,
+    keyboard_mapping: KeyboardMapping,
 
     pub queue: MessageQueue,
 }
@@ -296,7 +295,7 @@ impl Default for TabPosts {
             view_kind: ViewKind::List,
             label_width: 0.0,
             group: None,
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 }

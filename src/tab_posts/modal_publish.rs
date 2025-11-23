@@ -23,7 +23,6 @@ use egui::RichText;
 use egui::ScrollArea;
 use egui::SidePanel;
 use egui::TopBottomPanel;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_CHECK;
@@ -37,7 +36,7 @@ pub struct ModalPublish {
     entries: Vec<Entry>,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -104,7 +103,7 @@ impl ModalPublish {
             id,
             entries,
             queue: MessageQueue::new(),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 

@@ -24,9 +24,9 @@ use egui::ScrollArea;
 use egui::SidePanel;
 use egui::TextEdit;
 use egui::TopBottomPanel;
-use egui_material_icons::icons::ICON_WARNING;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
+
+use egui_material_icons::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "post-description";
 
@@ -36,7 +36,7 @@ pub struct ModalDescription {
     original: Description,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -85,7 +85,7 @@ impl ModalDescription {
             new,
             original,
             queue: MessageQueue::new(),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 

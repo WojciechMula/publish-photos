@@ -22,7 +22,6 @@ use egui::Context;
 use egui::Key;
 use egui::ScrollArea;
 use egui::Ui;
-use std::cell::LazyCell;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_ARROW_DOWNWARD;
@@ -36,7 +35,7 @@ pub struct TabSpecies {
     modal_window: ModalWindow,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 pub type MessageQueue = VecDeque<Message>;
@@ -105,7 +104,7 @@ impl Default for TabSpecies {
             list: SpeciesList::default().with_width(300.0),
             queue: MessageQueue::new(),
             search_box: SearchBox::new("tab-species-search"),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
             modal_window: ModalWindow::None,
         };
 

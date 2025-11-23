@@ -32,7 +32,6 @@ use egui::ScrollArea;
 use egui::SidePanel;
 use egui::TopBottomPanel;
 use egui::Ui;
-use std::cell::LazyCell;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -53,7 +52,7 @@ pub struct ModalTags {
     frequent_tags_opened_flag: Option<bool>,
 
     pub queue: MessageQueue,
-    pub keyboard_mapping: LazyCell<KeyboardMapping>,
+    pub keyboard_mapping: KeyboardMapping,
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -132,7 +131,7 @@ impl ModalTags {
             tag_groups_opened_flag: Some(true),
             frequent_tags_opened_flag: Some(true),
             queue: MessageQueue::new(),
-            keyboard_mapping: LazyCell::new(Self::create_mapping),
+            keyboard_mapping: Self::create_mapping(),
         }
     }
 
