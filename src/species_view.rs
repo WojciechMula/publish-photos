@@ -294,11 +294,13 @@ pub fn format_pl(ui: &mut Ui, species: &Species) {
     if species.wikipedia_pl.is_empty() {
         ui.label(&species.pl);
     } else {
-        if species.pl.is_empty() {
-            ui.hyperlink_to("Wikipedia", &species.wikipedia_pl);
+        let label = if species.pl.is_empty() {
+            "Wikipedia"
         } else {
-            ui.hyperlink_to(&species.pl, &species.wikipedia_pl);
-        }
+            &species.pl
+        };
+
+        ui.hyperlink_to(label, &species.wikipedia_pl);
     }
 }
 
@@ -307,11 +309,13 @@ pub fn format_en(ui: &mut Ui, species: &Species) {
     if species.wikipedia_en.is_empty() {
         ui.label(&species.en);
     } else {
-        if species.pl.is_empty() {
-            ui.hyperlink_to("Wikipedia", &species.wikipedia_pl);
+        let label = if species.en.is_empty() {
+            "Wikipedia"
         } else {
-            ui.hyperlink_to(&species.en, &species.wikipedia_en);
-        }
+            &species.en
+        };
+
+        ui.hyperlink_to(label, &species.wikipedia_en);
     }
 }
 
