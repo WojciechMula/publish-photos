@@ -1302,23 +1302,15 @@ fn move_selection(view: &[PostId], selected: Option<PostId>, direction: isize) -
     };
 
     if let Some(position) = view.iter().position(|post_id| *post_id == selected) {
+        let position = position as isize + direction;
+
         let max = view.len() - 1;
-        let id = clamp(position as isize + direction, 0, max as isize);
+        let id = position.clamp(0, max as isize);
         let id = id as usize;
 
         Some(view[id])
     } else {
         Some(view[0])
-    }
-}
-
-fn clamp(val: isize, min: isize, max: isize) -> isize {
-    if val < min {
-        min
-    } else if val > max {
-        max
-    } else {
-        val
     }
 }
 
