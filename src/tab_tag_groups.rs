@@ -157,10 +157,14 @@ impl TabTagGroups {
         KeyboardMapping::default().ctrl(Key::N, Message::AddNew.into())
     }
 
+    pub fn modal_opened(&self) -> bool {
+        !matches!(self.modal_window, ModalWindow::None)
+    }
+
     pub fn get_keyboard_mapping(&self) -> &KeyboardMapping {
         match &self.modal_window {
-            ModalWindow::None => &self.keyboard_mapping,
             ModalWindow::ModalEdit(window) => &window.keyboard_mapping,
+            ModalWindow::None => &self.keyboard_mapping,
         }
     }
 

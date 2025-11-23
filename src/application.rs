@@ -288,7 +288,7 @@ impl Application {
                 }
             }
             Message::SoftClose => {
-                if !self.modal_window.is_empty() {
+                if self.any_modal_opened() {
                     return;
                 }
                 if self.db.is_dirty() {
@@ -374,6 +374,14 @@ impl Application {
         let db_id = self.db.rootpath.display().to_string();
 
         self.posts.load(&db_id, storage);
+    }
+
+    fn any_modal_opened(&self) -> bool {
+        if !self.modal_window.is_empty() {
+            return true;
+        }
+
+        self.posts.modal_opened() || self.tag_groups.modal_opened() || self.species.modal_opened()
     }
 }
 
