@@ -10,6 +10,7 @@ use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
+use crate::widgets::checkmark;
 use const_format::formatcp as fmt;
 use egui::vec2;
 use egui::Align;
@@ -17,15 +18,12 @@ use egui::Button;
 use egui::CentralPanel;
 use egui::Context;
 use egui::Key;
-use egui::Label;
 use egui::Layout;
-use egui::RichText;
 use egui::ScrollArea;
 use egui::SidePanel;
 use egui::TopBottomPanel;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_CHECK;
 use egui_material_icons::icons::ICON_CONTENT_COPY;
 use egui_material_icons::icons::ICON_PUBLISH;
 
@@ -241,8 +239,6 @@ impl ModalPublish {
         });
 
         CentralPanel::default().show(ctx, |ui| {
-            let background = ui.visuals().window_fill;
-
             ui.vertical_centered_justified(|ui| {
                 let mut read_only: &str = &self.entries[0].text;
                 ui.text_edit_multiline(&mut read_only);
@@ -253,17 +249,8 @@ impl ModalPublish {
                     .id_salt(fmt!("{ID_PREFIX}-buttons-scroll"))
                     .show(ui, |ui| {
                         for entry in self.entries.iter_mut() {
-                            let color = if entry.copied {
-                                style.copied_mark
-                            } else {
-                                background
-                            };
-
-                            let text = RichText::new(ICON_CHECK).color(color);
-                            let label = Label::new(text).selectable(false);
-
                             ui.horizontal(|ui| {
-                                ui.add(label);
+                                ui.add(checkmark(entry.copied, style.copied_mark));
 
                                 let button =
                                     Button::new(format!("{ICON_CONTENT_COPY} {}", entry.label))

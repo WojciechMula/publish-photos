@@ -5,6 +5,7 @@ use egui::Stroke;
 use egui::StrokeKind;
 use egui::Ui;
 use egui::Vec2;
+use egui::Widget;
 
 fn color_box_ui(ui: &mut Ui, color: Color32, width: usize) -> Response {
     let height = ui.spacing().interact_size.y;
@@ -33,6 +34,6 @@ fn color_box_ui(ui: &mut Ui, color: Color32, width: usize) -> Response {
     response
 }
 
-pub fn color_box(color: Color32, width: usize) -> impl egui::Widget + 'static {
+pub fn color_box(color: Color32, width: usize) -> impl Widget + 'static {
     move |ui: &mut egui::Ui| color_box_ui(ui, color, width)
 }

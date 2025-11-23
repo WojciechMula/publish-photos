@@ -43,6 +43,7 @@ use crate::gui::OverlayLocation;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
+use crate::widgets::checkmark;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use egui::Align;
@@ -943,11 +944,7 @@ impl TabPosts {
                 &resp,
                 OverlayLocation::TopLeft,
                 style.image.overlay.margin,
-                |ui| {
-                    let text = RichText::new(ICON_CHECK).color(style.copied_mark);
-                    let label = Label::new(text).selectable(false);
-                    ui.add(label)
-                },
+                |ui| ui.add(checkmark(true, style.copied_mark)),
             );
         }
 
