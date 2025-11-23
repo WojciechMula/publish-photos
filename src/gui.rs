@@ -130,9 +130,7 @@ pub fn add_image(
         )
     } else {
         let resp = ui.add_sized(size, Label::new(&meta.uri).truncate());
-
-        let intersect = ui.clip_rect().intersect(resp.rect);
-        if intersect.is_positive() {
+        if ui.is_rect_visible(resp.rect) {
             image_cache.request(meta.uri.clone());
         }
 
@@ -159,9 +157,7 @@ pub fn add_image_with_tint(
         )
     } else {
         let resp = ui.add_sized(Vec2::splat(size), Label::new(&meta.uri));
-
-        let intersect = ui.clip_rect().intersect(resp.rect);
-        if intersect.is_positive() {
+        if ui.is_rect_visible(resp.rect) {
             image_cache.request(meta.uri.clone());
         }
 
