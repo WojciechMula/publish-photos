@@ -15,16 +15,20 @@ pub fn identify(bytes: &[u8]) -> Option<ImageSize> {
         const CHUNK_HEADER_SIZE: usize = 2;
         const CHUNK_SIZE_LEN: usize = 2;
 
+        // 1 byte  - precision
+        // 2 bytes - height
+        // 2 bytes - width
+        // 1 byte  - components
+        const MIN_BYTES: usize = 6;
+
         if matches!(
             chunk.typ,
             ChunkType::Baseline | ChunkType::Progressive | ChunkType::ExtendedSequential
         ) {
-            const MIN_BYTES: usize = 7;
-            if bytes.len() < MIN_BYTES + CHUNK_HEADER_SIZE + CHUNK_SIZE_LEN {
+            let (_, bytes) = bytes.split_at_checked(CHUNK_HEADER_SIZE + CHUNK_SIZE_LEN)?;
+            if bytes.len() < MIN_BYTES {
                 return None;
             }
-
-            let bytes = &bytes[CHUNK_HEADER_SIZE + CHUNK_SIZE_LEN..];
 
             let img_size = ImageSize {
                 width: mk_word(bytes[3], bytes[4]),
@@ -39,12 +43,12 @@ pub fn identify(bytes: &[u8]) -> Option<ImageSize> {
         }
 
         let skip = CHUNK_HEADER_SIZE + chunk.size as usize;
-        if skip > bytes.len() {
+        let Some((_, tail)) = bytes.split_at_checked(skip) else {
             // encountered some garbage
             break;
-        }
+        };
 
-        bytes = &bytes[skip..];
+        bytes = tail;
         offset += skip;
     }
 
@@ -77,6 +81,10 @@ impl Chunk {
         let size = if typ.is_dataless() {
             0
         } else {
+            if bytes.len() < 4 {
+                return None;
+            }
+
             mk_word(bytes[2], bytes[3])
         };
 
