@@ -5,6 +5,7 @@ mod confirm;
 pub mod db;
 mod edit_details;
 mod edit_tags;
+mod graphapi;
 mod gui;
 mod help;
 mod image_cache;
@@ -26,6 +27,7 @@ mod tab_tag_translations;
 mod tag_hints;
 mod widgets;
 
+pub use graphapi::GraphApiCredentials;
 pub use image_counter::ImageCounter;
 
 // --------------------------------------------------

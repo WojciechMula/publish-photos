@@ -1,7 +1,7 @@
 mod filter;
 mod group;
 mod modal_desc;
-mod modal_publish;
+pub mod modal_publish;
 mod modal_species;
 mod modal_tags;
 mod modal_view;
@@ -29,6 +29,7 @@ use crate::db::Post;
 use crate::db::PostId;
 use crate::db::Selector;
 use crate::edit_details::EditDetails;
+use crate::graphapi::GraphApiCredentials;
 use crate::gui::add_image;
 use crate::gui::add_image_with_tint;
 use crate::gui::add_overlay;
@@ -95,6 +96,7 @@ pub struct TabPosts {
     label_width: f32,
     modal_window: ModalWindow,
     view_kind: ViewKind,
+    graph_api_credentials: Option<GraphApiCredentials>,
 
     keyboard_mapping: KeyboardMapping,
 
@@ -277,30 +279,6 @@ pub enum Field {
     English,
 }
 
-impl Default for TabPosts {
-    fn default() -> Self {
-        let mut queue = MessageQueue::new();
-        queue.push_back(Message::RefreshView);
-
-        Self {
-            view: Vec::new(),
-            hovered: None,
-            selected: None,
-            scroll_to_selected: false,
-            grid_columns: 1,
-            version: 0,
-            filter: Filter::default(),
-            queue,
-            inline_editors: BTreeMap::new(),
-            modal_window: ModalWindow::None,
-            view_kind: ViewKind::List,
-            label_width: 0.0,
-            group: None,
-            keyboard_mapping: Self::create_mapping(),
-        }
-    }
-}
-
 mod shortcut {
     use super::*;
 
@@ -330,6 +308,29 @@ mod shortcut {
 }
 
 impl TabPosts {
+    pub fn new(graph_api_credentials: Option<GraphApiCredentials>) -> Self {
+        let mut queue = MessageQueue::new();
+        queue.push_back(Message::RefreshView);
+
+        Self {
+            view: Vec::new(),
+            hovered: None,
+            selected: None,
+            scroll_to_selected: false,
+            grid_columns: 1,
+            version: 0,
+            filter: Filter::default(),
+            queue,
+            inline_editors: BTreeMap::new(),
+            modal_window: ModalWindow::None,
+            view_kind: ViewKind::List,
+            label_width: 0.0,
+            group: None,
+            keyboard_mapping: Self::create_mapping(),
+            graph_api_credentials,
+        }
+    }
+
     pub fn load(&mut self, db_id: &str, storage: &dyn eframe::Storage) {
         self.filter.load(db_id, storage);
         if let Some(value) =
@@ -480,7 +481,7 @@ impl TabPosts {
             }
             Message::Publish(id) => {
                 assert!(self.modal_window.is_none());
-                let window = ModalPublish::new(id, db);
+                let window = ModalPublish::new(id, db, self.graph_api_credentials.clone());
                 self.modal_window = ModalWindow::ModalPublish(Box::new(window));
             }
             Message::Hovered(post_id) => {
@@ -1042,6 +1043,19 @@ impl TabPosts {
 
                     self.show_species(ui, post, db, queue);
                 });
+
+                if !post.social_media.facebook_post_id.is_empty() {
+                    ui.horizontal(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.set_min_width(self.label_width);
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.label("published on");
+                            ui.hyperlink_to("Facebook", post.social_media.facebook_url());
+                        });
+                    });
+                }
             });
         });
     }

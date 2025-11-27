@@ -7,6 +7,7 @@ use crate::edit_details::EditDetails;
 use crate::jpeg::ImageSize;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -22,6 +23,8 @@ pub struct Post {
     pub species: Option<Latin>,
     #[serde(default)]
     pub is_example: bool,
+    #[serde(default)]
+    pub social_media: SocialMediaState,
 
     // runtime parameters
     #[serde(skip)]
@@ -62,4 +65,18 @@ pub struct FileMetadata {
     pub full_path: PathBuf,
     pub uri: String,
     pub image_size: Option<ImageSize>,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct SocialMediaState {
+    pub facebook_post_id: String,
+    pub facebook_photo_ids: BTreeMap<usize, String>,
+    pub instagram_post_id: String,
+    pub intagram_photo_ids: BTreeMap<usize, String>,
+}
+
+impl SocialMediaState {
+    pub fn facebook_url(&self) -> String {
+        format!("https://facebook.com/{}", self.facebook_post_id)
+    }
 }

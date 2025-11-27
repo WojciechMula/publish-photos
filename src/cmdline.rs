@@ -8,4 +8,8 @@ pub struct Options {
 
     #[arg(long)]
     pub update_db: bool,
+
+    #[arg(value_name = "TOML")]
+    #[arg(default_value = "~/.facebook")]
+    pub socmedia: PathBuf,
 }

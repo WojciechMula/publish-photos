@@ -2,6 +2,7 @@ use crate::confirm::Confirm;
 use crate::confirm::ConfirmOption;
 use crate::db::Database;
 use crate::edit_details::EditDetails;
+use crate::graphapi::GraphApiCredentials;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
@@ -187,7 +188,7 @@ impl Tab {
 }
 
 impl Application {
-    pub fn new(db: Database) -> Self {
+    pub fn new(db: Database, graph_api_credentials: Option<GraphApiCredentials>) -> Self {
         let mut queue = MessageQueue::new();
         queue.push_back(Message::MaximizeWindow);
 
@@ -196,7 +197,7 @@ impl Application {
             active_tab: Tab::Posts,
             modal_window: Vec::new(),
             species: TabSpecies::default(),
-            posts: TabPosts::default(),
+            posts: TabPosts::new(graph_api_credentials),
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
             initialized: false,

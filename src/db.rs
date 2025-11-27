@@ -11,6 +11,7 @@ pub use date::Day;
 pub use date::Month;
 pub use post::FileMetadata;
 pub use post::Post;
+pub use post::SocialMediaState;
 pub use search_parts::SearchParts;
 pub use species::Latin;
 pub use species::Species;
