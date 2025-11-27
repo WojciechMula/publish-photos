@@ -7,13 +7,12 @@ use crate::edit_details::EditDetails;
 use crate::jpeg::ImageSize;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Post {
     pub published: bool,
-    pub files: Vec<PathBuf>,
+    pub files: Vec<FileMetadata>,
     pub date: Date,
     #[serde(default)]
     pub pl: String,
@@ -29,9 +28,6 @@ pub struct Post {
     // runtime parameters
     #[serde(skip)]
     pub id: PostId,
-
-    #[serde(skip)]
-    pub files_meta: Vec<FileMetadata>,
 
     #[serde(skip)]
     pub undo: Vec<EditDetails>,
@@ -60,19 +56,24 @@ impl Post {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct FileMetadata {
-    pub full_path: PathBuf,
-    pub uri: String,
+    pub rel_path: PathBuf,
     pub image_size: Option<ImageSize>,
+    pub facebook_id: String,
+    pub instagram_id: String,
+
+    #[serde(skip)]
+    pub uri: String,
+
+    #[serde(skip)]
+    pub full_path: PathBuf,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct SocialMediaState {
     pub facebook_post_id: String,
-    pub facebook_photo_ids: BTreeMap<usize, String>,
     pub instagram_post_id: String,
-    pub intagram_photo_ids: BTreeMap<usize, String>,
 }
 
 impl SocialMediaState {

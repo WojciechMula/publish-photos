@@ -1,3 +1,6 @@
+use serde::Deserialize;
+use serde::Serialize;
+
 /// Function `identify` check whether the chunk of data looks like JPEG structure.
 /// If so, then return recognized image dimension (in pixels).
 pub fn identify(bytes: &[u8]) -> Option<ImageSize> {
@@ -55,7 +58,7 @@ pub fn identify(bytes: &[u8]) -> Option<ImageSize> {
     None
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImageSize {
     pub width: u16,
     pub height: u16,

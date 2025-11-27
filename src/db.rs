@@ -342,11 +342,11 @@ impl Database {
             let species = post.species.as_ref().unwrap();
             tmp.entry(species.clone())
                 .and_modify(|list| {
-                    for meta in &post.files_meta {
-                        list.push(meta.clone());
+                    for file in &post.files {
+                        list.push(file.clone());
                     }
                 })
-                .or_insert_with(|| post.files_meta.clone());
+                .or_insert_with(|| post.files.clone());
         }
 
         for species in self.species.iter_mut() {
@@ -478,17 +478,10 @@ impl Database {
 
         for (id, entry) in self.posts.0.iter_mut().enumerate() {
             entry.id = PostId(id);
-            entry.files_meta.clear();
-            for path in &entry.files {
-                let full_path = self.rootdir.join(path);
-                let image_size = identify(&full_path, &mut buf);
-                let uri = format!("file://{}", full_path.display());
-
-                entry.files_meta.push(FileMetadata {
-                    full_path,
-                    uri,
-                    image_size,
-                });
+            for entry in &mut entry.files {
+                entry.full_path = self.rootdir.join(&entry.rel_path);
+                entry.image_size = identify(&entry.full_path, &mut buf);
+                entry.uri = format!("file://{}", entry.full_path.display());
             }
 
             entry.refresh();

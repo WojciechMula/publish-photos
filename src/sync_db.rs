@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::db::Date;
+use crate::db::FileMetadata;
 use crate::db::Post;
 use crate::file_name;
 use log::info;
@@ -45,8 +46,13 @@ fn date_from_path(path: &Path) -> Date {
 }
 
 fn mk_post(path: &Path) -> Post {
+    let md = FileMetadata {
+        rel_path: path.to_path_buf(),
+        ..Default::default()
+    };
+
     Post {
-        files: vec![path.to_path_buf()],
+        files: vec![md],
         date: date_from_path(path),
         ..Default::default()
     }
@@ -55,8 +61,8 @@ fn mk_post(path: &Path) -> Post {
 fn collect_managed_paths(db: &Database) -> BTreeSet<PathBuf> {
     let mut result = BTreeSet::<PathBuf>::new();
     for post in db.posts.iter() {
-        for path in &post.files {
-            result.insert(path.to_path_buf());
+        for entry in &post.files {
+            result.insert(entry.rel_path.to_path_buf());
         }
     }
 

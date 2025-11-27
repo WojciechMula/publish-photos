@@ -1,9 +1,9 @@
 use crate::db::Database;
+use crate::db::FileMetadata;
 use crate::db::Latin;
 use crate::db::PostId;
 use crate::db::TagList;
 use crate::ImageCounter;
-use std::path::PathBuf;
 
 pub struct Group {
     items: Vec<PostId>,
@@ -48,7 +48,7 @@ impl Group {
         let mut pl = Vec::<String>::new();
         let mut en = Vec::<String>::new();
         let mut raw_tags = Vec::<String>::new();
-        let mut files = Vec::<PathBuf>::new();
+        let mut files = Vec::<FileMetadata>::new();
         let mut species: Option<Latin> = None;
 
         for id in &self.items {
@@ -69,8 +69,8 @@ impl Group {
                 species = post.species.clone();
             }
 
-            for path in &post.files {
-                files.push(path.to_path_buf());
+            for entry in &post.files {
+                files.push(entry.clone())
             }
         }
 

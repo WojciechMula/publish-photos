@@ -75,7 +75,7 @@ impl ModalView {
             initialized: false,
             queue: MessageQueue::new(),
             post_id: id,
-            cursor: Cursor::new(post.files_meta.len()),
+            cursor: Cursor::new(post.files.len()),
             keyboard_mapping: Self::create_mapping(post.files.len()),
         }
     }
@@ -189,7 +189,7 @@ impl ModalView {
         let post = db.post(&self.post_id);
 
         if !self.initialized {
-            for item in &post.files_meta {
+            for item in &post.files {
                 image_cache.request(item.uri.clone());
             }
             self.initialized = true;
@@ -199,13 +199,13 @@ impl ModalView {
             self.handle_message(msg, tab_queue);
         }
 
-        let n = post.files_meta.len();
+        let n = post.files.len();
 
         CentralPanel::default().show(ctx, |ui| {
             if n == 1 {
                 ui.centered_and_justified(|ui| {
                     ui.add(
-                        Image::from_uri(post.files_meta[current].uri.clone())
+                        Image::from_uri(post.files[current].uri.clone())
                             .maintain_aspect_ratio(true)
                             .fit_to_exact_size(ui.available_size())
                             .show_loading_spinner(false),
@@ -215,7 +215,7 @@ impl ModalView {
                 ui.with_layout(Layout::top_down(Align::Center), |ui| {
                     ui.label(format!("{} of {n}", current + 1));
                     ui.add(
-                        Image::from_uri(post.files_meta[current].uri.clone())
+                        Image::from_uri(post.files[current].uri.clone())
                             .maintain_aspect_ratio(true)
                             .fit_to_exact_size(ui.available_size())
                             .show_loading_spinner(false),

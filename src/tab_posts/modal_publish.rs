@@ -102,7 +102,7 @@ impl ModalPublish {
             label: "Copy text".to_owned(),
             text,
         }];
-        for item in &post.files_meta {
+        for item in &post.files {
             let full_path = item.full_path.display().to_string();
             entries.push(Entry {
                 label: full_path.clone(),
@@ -236,7 +236,7 @@ impl ModalPublish {
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
-                        for meta in &post.files_meta {
+                        for meta in &post.files {
                             add_image(
                                 ui,
                                 meta,
@@ -286,12 +286,12 @@ impl ModalPublish {
                                 }
                                 PublishEvent::PublishedPhoto { path, fb_id } => {
                                     let post = db.post_mut(&self.id);
-                                    let index = post
-                                        .files_meta
-                                        .iter()
-                                        .position(|meta| meta.full_path == path);
+
+                                    let index =
+                                        post.files.iter().position(|entry| entry.full_path == path);
+
                                     if let Some(index) = index {
-                                        post.social_media.facebook_photo_ids.insert(index, fb_id);
+                                        post.files[index].facebook_id = fb_id;
                                         db.current_version.photos += 1;
                                     } else {
                                         self.publish_error = Some(format!(

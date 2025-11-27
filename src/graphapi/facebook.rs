@@ -27,15 +27,11 @@ pub fn publish_post(credentials: Credentials, id: &PostId, db: &Database) -> Rec
     let text = render_text(post, db);
     let mut photos = Vec::<Photo>::new();
 
-    for item in &post.files_meta {
+    for entry in &post.files {
         photos.push(Photo {
-            path: item.full_path.clone(),
-            fb_id: String::new(),
+            path: entry.full_path.clone(),
+            fb_id: entry.facebook_id.clone(),
         });
-    }
-
-    for (photo_id, fb_id) in post.social_media.facebook_photo_ids.iter() {
-        photos[*photo_id].fb_id = fb_id.clone();
     }
 
     let (tx, rx) = channel::<PublishEvent>();

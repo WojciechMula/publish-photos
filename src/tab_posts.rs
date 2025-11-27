@@ -917,7 +917,7 @@ impl TabPosts {
     ) {
         let resp = add_image(
             ui,
-            &post.files_meta[0],
+            &post.files[0],
             image_cache,
             style.image.preview_width,
             style.image.radius,
@@ -984,11 +984,10 @@ impl TabPosts {
             ui.vertical(|ui| {
                 ui.with_layout(Layout::top_down_justified(Align::LEFT), |ui| {
                     ui.horizontal(|ui| {
+                        let label = format!("{}", post.files[0].rel_path.display());
                         if post.is_dirty() {
-                            let label = format!("{}", post.files[0].display());
                             ui.colored_label(style.modified, RichText::new(label).heading());
                         } else {
-                            let label = format!("{}", post.files[0].display());
                             ui.heading(label);
                         };
                     });
@@ -1088,7 +1087,7 @@ impl TabPosts {
 
         for (entry_id, id) in group.iter().enumerate() {
             let post = db.post(id);
-            for (photo_id, meta) in post.files_meta.iter().enumerate() {
+            for (photo_id, meta) in post.files.iter().enumerate() {
                 if entry_id == 0 && photo_id == 0 {
                     add_image(
                         ui,

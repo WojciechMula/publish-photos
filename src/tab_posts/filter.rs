@@ -130,7 +130,8 @@ impl Filter {
             .filter(|post| self.current.matches(&post.date))
             .filter(|post| post.search_parts.matches_all(&fragments))
         {
-            let item = (post.id, (post.date, file_stem(&post.files[0])));
+            let stem = file_stem(&post.files[0].rel_path);
+            let item = (post.id, (post.date, stem));
             tmp.push(item);
         }
 

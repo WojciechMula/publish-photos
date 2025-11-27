@@ -251,7 +251,7 @@ impl ModalTags {
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
                         let post = db.post(&self.id);
-                        for meta in &post.files_meta {
+                        for meta in &post.files {
                             add_image(
                                 ui,
                                 meta,

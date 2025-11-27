@@ -161,10 +161,10 @@ impl ModalDescription {
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
-                        for meta in &post.files_meta {
+                        for entry in &post.files {
                             add_image(
                                 ui,
-                                meta,
+                                entry,
                                 image_cache,
                                 style.image.preview_width,
                                 style.image.radius,
