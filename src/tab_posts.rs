@@ -1055,6 +1055,19 @@ impl TabPosts {
                         });
                     });
                 }
+
+                if !post.social_media.instagram_post_id.is_empty() {
+                    ui.horizontal(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.set_min_width(self.label_width);
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.label("published on");
+                            ui.hyperlink_to("Instagram", &post.social_media.instagram_permalink);
+                        });
+                    });
+                }
             });
         });
     }

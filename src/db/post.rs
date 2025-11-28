@@ -74,6 +74,8 @@ pub struct FileMetadata {
 pub struct SocialMediaState {
     pub facebook_post_id: String,
     pub instagram_post_id: String,
+    #[serde(default)]
+    pub instagram_permalink: String,
 }
 
 impl SocialMediaState {

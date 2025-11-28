@@ -7,6 +7,7 @@ pub mod facebook;
 #[derive(Deserialize, Debug, Clone)]
 pub struct GraphApiCredentials {
     pub facebook: Credentials,
+    pub instagram: Credentials,
 }
 
 impl GraphApiCredentials {
@@ -28,7 +29,7 @@ pub struct Credentials {
 
 impl Credentials {
     pub fn is_valid(&self) -> bool {
-        self.user_id.is_empty() || self.user_access_token.is_empty()
+        !self.user_id.is_empty() && !self.user_access_token.is_empty()
     }
 }
 
@@ -38,12 +39,19 @@ struct FacebookId {
 }
 
 #[derive(Deserialize)]
+struct FacebookPhotoUrl {
+    pub source: String,
+}
+
+#[derive(Deserialize)]
 struct FacebookError {
     pub error: FacebookErrorDetails,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct FacebookErrorDetails {
+    #[serde(skip)]
+    pub url: String,
     pub message: String,
     #[serde(rename(deserialize = "type"))]
     pub typ: String,
@@ -55,16 +63,20 @@ pub struct FacebookErrorDetails {
 
 impl std::fmt::Display for FacebookErrorDetails {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        f.write_str(&self.message)
+        write!(f, "{}: {}", self.url, self.message)
     }
 }
 
 impl std::error::Error for FacebookErrorDetails {}
 
+#[derive(Debug)]
 pub enum PublishEvent {
     Error(String),
-    PublishedPhoto { path: PathBuf, fb_id: String },
-    PublishedPost { fb_id: String },
+    PublishedPhotoOnFacebook { path: PathBuf, fb_id: String },
+    PublishedPostOnFacebook { fb_id: String },
+    PublishedPhotoOnInstagram { path: PathBuf, ig_id: String },
+    PublishedPostOnInstagram { ig_id: String, permalink: String },
+    Completed,
 }
 
 #[cfg(test)]
