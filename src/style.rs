@@ -20,6 +20,7 @@ pub struct Style {
     pub button: ButtonStyle,
 
     pub copied_mark: Color32,
+    pub error: Color32,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -74,6 +75,7 @@ impl Default for Style {
             image: ImageStyle::default(),
             button: ButtonStyle::default(),
             copied_mark: Color32::GREEN,
+            error: Color32::RED,
         }
     }
 }

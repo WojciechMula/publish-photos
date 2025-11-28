@@ -3,6 +3,7 @@ use crate::application::MessageQueue;
 use crate::colors;
 use crate::db::Database;
 use crate::gui::button;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
 use crate::style::Style;
@@ -44,7 +45,14 @@ impl ModalSettings {
 }
 
 impl ModalWindowTrait for ModalSettings {
-    fn update(&mut self, ui: &mut Ui, style: &Style, _db: &Database, queue: &mut MessageQueue) {
+    fn update(
+        &mut self,
+        ui: &mut Ui,
+        _image_cache: &mut ImageCache,
+        style: &Style,
+        _db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         self.show_appearence(ui);
         self.show_image(ui);
         self.show_tags(ui);

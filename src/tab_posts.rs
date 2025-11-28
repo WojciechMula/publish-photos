@@ -29,7 +29,6 @@ use crate::db::Post;
 use crate::db::PostId;
 use crate::db::Selector;
 use crate::edit_details::EditDetails;
-use crate::graphapi::GraphApiCredentials;
 use crate::gui::add_image;
 use crate::gui::add_image_with_tint;
 use crate::gui::add_overlay;
@@ -73,6 +72,7 @@ use std::collections::VecDeque;
 use egui_material_icons::icons::ICON_ADD;
 use egui_material_icons::icons::ICON_CHECK;
 use egui_material_icons::icons::ICON_CLOSE;
+use egui_material_icons::icons::ICON_CONTENT_COPY;
 use egui_material_icons::icons::ICON_DELETE;
 use egui_material_icons::icons::ICON_DIALOGS;
 use egui_material_icons::icons::ICON_EDIT;
@@ -96,7 +96,6 @@ pub struct TabPosts {
     label_width: f32,
     modal_window: ModalWindow,
     view_kind: ViewKind,
-    graph_api_credentials: Option<GraphApiCredentials>,
 
     keyboard_mapping: KeyboardMapping,
 
@@ -149,6 +148,7 @@ pub enum Message {
     View(PostId),
     Select(PostId),
     Publish(PostId),
+    StartPublishing(PostId),
     InlineEditStart {
         id: PostId,
         field: Field,
@@ -216,6 +216,7 @@ impl Message {
             Self::View(_) => unreachable!(),
             Self::Select(_) => unreachable!(),
             Self::Publish(_) => unreachable!(),
+            Self::StartPublishing(_) => unreachable!(),
             Self::InlineEditStart { .. } => unreachable!(),
             Self::InlineEditChange { .. } => unreachable!(),
             Self::InlineSaveChange { .. } => unreachable!(),
@@ -308,7 +309,7 @@ mod shortcut {
 }
 
 impl TabPosts {
-    pub fn new(graph_api_credentials: Option<GraphApiCredentials>) -> Self {
+    pub fn new() -> Self {
         let mut queue = MessageQueue::new();
         queue.push_back(Message::RefreshView);
 
@@ -327,7 +328,6 @@ impl TabPosts {
             label_width: 0.0,
             group: None,
             keyboard_mapping: Self::create_mapping(),
-            graph_api_credentials,
         }
     }
 
@@ -481,8 +481,11 @@ impl TabPosts {
             }
             Message::Publish(id) => {
                 assert!(self.modal_window.is_none());
-                let window = ModalPublish::new(id, db, self.graph_api_credentials.clone());
+                let window = ModalPublish::new(id, db);
                 self.modal_window = ModalWindow::ModalPublish(Box::new(window));
+            }
+            Message::StartPublishing(id) => {
+                main_queue.push_back(MainMessage::StartPublishing(id));
             }
             Message::Hovered(post_id) => {
                 self.hovered = post_id;
@@ -1051,7 +1054,14 @@ impl TabPosts {
 
                         ui.horizontal(|ui| {
                             ui.label("published on");
-                            ui.hyperlink_to("Facebook", post.social_media.facebook_url());
+                            let resp =
+                                ui.hyperlink_to("Facebook", post.social_media.facebook_url());
+                            resp.context_menu(|ui| {
+                                if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
+                                    queue
+                                        .push_back(Message::Copy(post.social_media.facebook_url()));
+                                }
+                            });
                         });
                     });
                 }
@@ -1064,7 +1074,15 @@ impl TabPosts {
 
                         ui.horizontal(|ui| {
                             ui.label("published on");
-                            ui.hyperlink_to("Instagram", &post.social_media.instagram_permalink);
+                            let resp = ui
+                                .hyperlink_to("Instagram", &post.social_media.instagram_permalink);
+                            resp.context_menu(|ui| {
+                                if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
+                                    queue.push_back(Message::Copy(
+                                        post.social_media.instagram_permalink.clone(),
+                                    ));
+                                }
+                            });
                         });
                     });
                 }

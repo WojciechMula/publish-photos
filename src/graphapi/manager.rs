@@ -1,0 +1,175 @@
+use crate::db::Database;
+use crate::db::FileMetadata;
+use crate::db::Post;
+use crate::db::PostId;
+use crate::graphapi::facebook::publish_post as publish_post_on_facebook;
+use crate::graphapi::facebook::Receiver;
+use crate::graphapi::GraphApiCredentials;
+use crate::graphapi::PublishEvent;
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::mpsc::TryRecvError;
+
+pub struct SocialMediaPublisher {
+    credentials: GraphApiCredentials,
+    ongoing: HashMap<PostId, Entry>,
+}
+
+struct Entry {
+    active: bool,
+    receiver: Receiver,
+    errors: Vec<String>,
+}
+
+pub type SocialMediaErrorList = Vec<(PostId, Vec<String>)>;
+
+#[derive(Default)]
+pub struct SocialMediaPublisherStats {
+    pub active: usize,
+    pub failed: usize,
+}
+
+impl SocialMediaPublisher {
+    pub fn new(credentials: GraphApiCredentials) -> Self {
+        Self {
+            credentials,
+            ongoing: HashMap::new(),
+        }
+    }
+
+    pub fn publish(&mut self, id: &PostId, db: &Database) {
+        if let Some(entry) = self.ongoing.get(id) {
+            if entry.active {
+                return;
+            }
+        }
+
+        let post = db.post(id);
+        if post.published {
+            return;
+        }
+
+        let entry = Entry {
+            active: true,
+            receiver: publish_post_on_facebook(self.credentials.clone(), id, db),
+            errors: Vec::new(),
+        };
+
+        self.ongoing.insert(*id, entry);
+    }
+
+    pub fn stats(&self) -> SocialMediaPublisherStats {
+        let mut res = SocialMediaPublisherStats::default();
+        for entry in self.ongoing.values() {
+            if entry.active {
+                res.active += 1;
+            }
+            if !entry.errors.is_empty() {
+                res.failed += 1;
+            }
+        }
+
+        res
+    }
+
+    pub fn errors(&self) -> SocialMediaErrorList {
+        let mut res = SocialMediaErrorList::new();
+
+        for (id, entry) in self.ongoing.iter() {
+            if !entry.errors.is_empty() {
+                res.push((*id, entry.errors.clone()));
+            }
+        }
+
+        res
+    }
+
+    pub fn update(&mut self, db: &mut Database) {
+        for (id, entry) in self.ongoing.iter_mut().filter(|(_, entry)| entry.active) {
+            Self::update_single(id, entry, db);
+        }
+
+        self.ongoing.retain(|_, entry| !entry.is_completed());
+    }
+
+    fn update_single(id: &PostId, entry: &mut Entry, db: &mut Database) {
+        match entry.receiver.try_recv() {
+            Ok(res) => match res {
+                PublishEvent::Error(msg) => {
+                    entry.add_error(msg);
+                    entry.active = false;
+                }
+                PublishEvent::PublishedPhotoOnFacebook { path, fb_id } => {
+                    let post = db.post_mut(id);
+
+                    if let Some(meta) = get_file_metadate_mut_by_full_path(post, &path) {
+                        meta.facebook_id = fb_id;
+                        db.current_version.photos += 1;
+                    } else {
+                        entry.add_error(format!(
+                            "internal error: path not found {}",
+                            path.display()
+                        ));
+                    }
+                }
+                PublishEvent::PublishedPhotoOnInstagram { path, ig_id } => {
+                    let post = db.post_mut(id);
+
+                    if let Some(meta) = get_file_metadate_mut_by_full_path(post, &path) {
+                        meta.instagram_id = ig_id;
+                        db.current_version.photos += 1;
+                    } else {
+                        entry.add_error(format!(
+                            "internal error: path not found {}",
+                            path.display()
+                        ));
+                    }
+                }
+                PublishEvent::PublishedPostOnFacebook { fb_id } => {
+                    let post = db.post_mut(id);
+                    post.social_media.facebook_post_id = fb_id;
+                    db.current_version.posts += 1;
+                    db.current_version.photos += 1;
+                }
+                PublishEvent::PublishedPostOnInstagram { ig_id, permalink } => {
+                    let post = db.post_mut(id);
+                    post.social_media.instagram_post_id = ig_id;
+                    post.social_media.instagram_permalink = permalink;
+                    db.current_version.posts += 1;
+                    db.current_version.photos += 1;
+                }
+                PublishEvent::Completed => {
+                    let post = db.post_mut(id);
+                    post.published = true;
+                    db.current_version.posts += 1;
+                    db.current_version.photos += 1;
+                    entry.active = false;
+                }
+            },
+            Err(TryRecvError::Empty) => (),
+            Err(TryRecvError::Disconnected) => {
+                entry.active = false;
+            }
+        }
+    }
+}
+
+impl Entry {
+    fn add_error(&mut self, msg: String) {
+        self.errors.push(msg);
+    }
+
+    fn is_completed(&self) -> bool {
+        !self.active && self.errors.is_empty()
+    }
+}
+
+#[inline]
+fn get_file_metadate_mut_by_full_path<'a>(
+    post: &'a mut Post,
+    rel_path: &Path,
+) -> Option<&'a mut FileMetadata> {
+    post.files
+        .iter_mut()
+        .find(|meta| meta.full_path == rel_path)
+}

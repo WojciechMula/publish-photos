@@ -2,6 +2,7 @@ use crate::application::Message;
 use crate::application::MessageQueue;
 use crate::db::Database;
 use crate::gui::button;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
 use crate::style::Style;
@@ -76,7 +77,14 @@ fn mk_help(mapping: &KeyboardMapping) -> KeyboardMappingHelp {
 }
 
 impl ModalWindowTrait for ModalKeyboard {
-    fn update(&mut self, ui: &mut Ui, _style: &Style, _db: &Database, queue: &mut MessageQueue) {
+    fn update(
+        &mut self,
+        ui: &mut Ui,
+        _image_cache: &mut ImageCache,
+        _style: &Style,
+        _db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         let shortcut_color = ui.visuals().strong_text_color();
         ScrollArea::vertical().show(ui, |ui| {
             for (id, mapping) in self.mappings.iter().enumerate() {

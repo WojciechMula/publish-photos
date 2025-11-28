@@ -3,6 +3,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 pub mod facebook;
+pub mod manager;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GraphApiCredentials {

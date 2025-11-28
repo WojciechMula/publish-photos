@@ -1,11 +1,14 @@
 use crate::confirm::Confirm;
 use crate::confirm::ConfirmOption;
 use crate::db::Database;
+use crate::db::PostId;
 use crate::edit_details::EditDetails;
+use crate::graphapi::manager::SocialMediaPublisher;
 use crate::graphapi::GraphApiCredentials;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
+use crate::modal_errors::ModalErrors;
 use crate::modal_keyboard::ModalKeyboard;
 use crate::modal_settings::ModalSettings;
 use crate::style::Style;
@@ -53,6 +56,7 @@ pub struct Application {
     queue: MessageQueue,
     initialized: bool,
     image_cache: ImageCache,
+    sm_manager: Option<SocialMediaPublisher>,
 
     keyboard_mapping: KeyboardMapping,
 }
@@ -66,6 +70,7 @@ pub enum Message {
     TabTagTranslations(TabTagTranslationsMessage),
     OpenModal(Box<dyn ModalWindowTrait>),
     EditDetails(EditDetails),
+    StartPublishing(PostId),
     Copy(String),
     CloseModal,
     SaveDatabase,
@@ -93,6 +98,7 @@ impl Message {
             Self::TabTagTranslations(msg) => msg.name(),
             Self::OpenModal(_) => unreachable!(),
             Self::EditDetails(_) => unreachable!(),
+            Self::StartPublishing(_) => unreachable!(),
             Self::Copy(_) => unreachable!(),
             Self::CloseModal => unreachable!(),
             Self::SaveDatabase => "save database",
@@ -122,6 +128,7 @@ impl Clone for Message {
             Self::TabTagTranslations(val) => Self::TabTagTranslations(val.clone()),
             Self::OpenModal(_) => unreachable!(),
             Self::EditDetails(val) => Self::EditDetails(val.clone()),
+            Self::StartPublishing(val) => Self::StartPublishing(*val),
             Self::Copy(val) => Self::Copy(val.clone()),
             Self::CloseModal => Self::CloseModal,
             Self::SaveDatabase => Self::SaveDatabase,
@@ -188,16 +195,18 @@ impl Tab {
 }
 
 impl Application {
-    pub fn new(db: Database, graph_api_credentials: Option<GraphApiCredentials>) -> Self {
+    pub fn new(db: Database, credentials: Option<GraphApiCredentials>) -> Self {
         let mut queue = MessageQueue::new();
         queue.push_back(Message::MaximizeWindow);
+
+        let sm_manager = credentials.map(SocialMediaPublisher::new);
 
         Self {
             db,
             active_tab: Tab::Posts,
             modal_window: Vec::new(),
             species: TabSpecies::default(),
-            posts: TabPosts::new(graph_api_credentials),
+            posts: TabPosts::new(),
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
             initialized: false,
@@ -206,6 +215,7 @@ impl Application {
             queue,
             can_close: false,
             keyboard_mapping: Self::create_mapping(),
+            sm_manager,
         }
     }
 
@@ -266,6 +276,14 @@ impl Application {
             Message::EditDetails(action) => {
                 crate::edit_details::apply(action, &mut self.db);
             }
+            Message::StartPublishing(id) => {
+                if let Some(sm_manager) = self.sm_manager.as_mut() {
+                    sm_manager.publish(&id, &self.db);
+                } else {
+                    let action = EditDetails::SetPublished(id);
+                    crate::edit_details::apply(action, &mut self.db);
+                }
+            }
             Message::CloseModal => {
                 let _ = self.modal_window.pop();
             }
@@ -291,6 +309,11 @@ impl Application {
             Message::SoftClose => {
                 if self.any_modal_opened() {
                     return;
+                }
+                if let Some(sm_manager) = self.sm_manager.as_ref() {
+                    if sm_manager.stats().active > 0 {
+                        return;
+                    }
                 }
                 if self.db.is_dirty() {
                     let opt1 = ConfirmOption::new(fmt!("{ICON_WARNING} Discard all changes!"))
@@ -399,6 +422,10 @@ impl eframe::App for Application {
             ctx.style_mut(|style| style.scroll_animation = ScrollAnimation::none());
         }
 
+        if let Some(sm_manager) = self.sm_manager.as_mut() {
+            sm_manager.update(&mut self.db);
+        }
+
         self.db.refresh_caches();
 
         self.keyboard(ctx);
@@ -424,6 +451,24 @@ impl eframe::App for Application {
                         Tab::TagGroups,
                     ] {
                         ui.selectable_value(&mut self.active_tab, tab.clone(), tab.name());
+                    }
+
+                    if let Some(sm_manager) = &self.sm_manager {
+                        let stats = sm_manager.stats();
+                        if stats.active > 0 {
+                            ui.spinner();
+                            ui.label(format!("in-progress: {}", stats.active));
+                        }
+
+                        if stats.failed > 0 {
+                            let label = format!("failed: {}", stats.failed);
+                            let button = Button::new(label).fill(self.style.error);
+                            if ui.add(button).clicked() {
+                                let window: Box<dyn ModalWindowTrait> =
+                                    Box::new(ModalErrors::new(sm_manager.errors()));
+                                self.queue.push_back(Message::OpenModal(window));
+                            }
+                        }
                     }
                 });
 
@@ -483,7 +528,13 @@ impl eframe::App for Application {
                 .default_height(ctx.content_rect().height() * 0.75);
 
             modal.show(ctx, |ui| {
-                window.update(ui, &self.style, &self.db, &mut self.queue);
+                window.update(
+                    ui,
+                    &mut self.image_cache,
+                    &self.style,
+                    &self.db,
+                    &mut self.queue,
+                );
             });
         }
 

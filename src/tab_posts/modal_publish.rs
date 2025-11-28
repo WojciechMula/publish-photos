@@ -3,10 +3,6 @@ use crate::db::Database;
 use crate::db::Post;
 use crate::db::PostId;
 use crate::edit_details::EditDetails;
-use crate::graphapi::facebook::publish_post as publish_post_on_facebook;
-use crate::graphapi::facebook::Receiver;
-use crate::graphapi::GraphApiCredentials;
-use crate::graphapi::PublishEvent;
 use crate::gui::add_image;
 use crate::gui::button;
 use crate::image_cache::ImageCache;
@@ -20,7 +16,6 @@ use egui::vec2;
 use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
-use egui::Color32;
 use egui::Context;
 use egui::Key;
 use egui::Layout;
@@ -28,7 +23,6 @@ use egui::ScrollArea;
 use egui::SidePanel;
 use egui::TopBottomPanel;
 use std::collections::VecDeque;
-use std::sync::mpsc::TryRecvError;
 
 use egui_material_icons::icons::ICON_CONTENT_COPY;
 use egui_material_icons::icons::ICON_PUBLISH;
@@ -38,15 +32,10 @@ const ID_PREFIX: &str = "publish-image";
 pub struct ModalPublish {
     id: PostId,
     entries: Vec<Entry>,
-    pub receiver: Option<Receiver>,
-    pub graph_api_credentials: Option<GraphApiCredentials>,
+    sm_available: bool,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
-    pub publish_status: Vec<(Color32, String)>,
-    pub color_error: Color32,
-    pub color_normal: Color32,
-    pub color_success: Color32,
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -77,6 +66,7 @@ impl Message {
     pub const fn name(&self) -> &str {
         match self {
             Self::Publish => "mark post as published and close window",
+            Self::PublishOnSocialMedia => unreachable!(),
             Self::Copy1 => "copy text to clipboard",
             Self::Copy2 => "copy path of 1st photo",
             Self::Copy3 => "copy path of 2nd photo",
@@ -87,17 +77,12 @@ impl Message {
             Self::Copy8 => "copy path of 7th photo",
             Self::Copy9 => "copy path of 8th photo",
             Self::Cancel => "cancel publishing",
-            Self::PublishOnSocialMedia => unreachable!(),
         }
     }
 }
 
 impl ModalPublish {
-    pub fn new(
-        id: PostId,
-        db: &Database,
-        graph_api_credentials: Option<GraphApiCredentials>,
-    ) -> Self {
+    pub fn new(id: PostId, db: &Database) -> Self {
         let post = db.post(&id);
 
         let text = render_text(post, db);
@@ -118,15 +103,9 @@ impl ModalPublish {
         Self {
             id,
             entries,
-            receiver: None,
-            publish_status: Vec::new(),
             queue: MessageQueue::new(),
             keyboard_mapping: Self::create_mapping(),
-            graph_api_credentials,
-
-            color_error: Color32::RED,
-            color_normal: Color32::WHITE,
-            color_success: Color32::GREEN,
+            sm_available: true,
         }
     }
 
@@ -150,7 +129,7 @@ impl ModalPublish {
             .ctrl(Key::P, msg(Message::Publish))
     }
 
-    fn handle_message(&mut self, msg: Message, db: &Database, tab_queue: &mut TabMessageQueue) {
+    fn handle_message(&mut self, msg: Message, tab_queue: &mut TabMessageQueue) {
         match msg {
             Message::Cancel => {
                 tab_queue.push_back(TabMessage::CloseModal);
@@ -214,11 +193,8 @@ impl ModalPublish {
                 tab_queue.push_back(TabMessage::CloseModal);
             }
             Message::PublishOnSocialMedia => {
-                if self.receiver.is_none() {
-                    if let Some(gac) = self.graph_api_credentials.as_ref() {
-                        self.receiver = Some(publish_post_on_facebook(gac.clone(), &self.id, db));
-                    }
-                }
+                tab_queue.push_back(TabMessage::StartPublishing(self.id));
+                tab_queue.push_back(TabMessage::CloseModal);
             }
         }
     }
@@ -232,7 +208,7 @@ impl ModalPublish {
         tab_queue: &mut TabMessageQueue,
     ) {
         while let Some(msg) = self.queue.pop_front() {
-            self.handle_message(msg, db, tab_queue);
+            self.handle_message(msg, tab_queue);
         }
 
         let post = db.post(&self.id);
@@ -257,11 +233,20 @@ impl ModalPublish {
 
         TopBottomPanel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ctx, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                let button = Button::new(fmt!("{ICON_PUBLISH} Mark as published"))
-                    .fill(style.button.publish);
+                if self.sm_available {
+                    let button = Button::new(fmt!("{ICON_PUBLISH} Publish on social media"))
+                        .fill(style.button.publish);
 
-                if ui.add(button).clicked() {
-                    self.queue.push_back(Message::Publish);
+                    if ui.add(button).clicked() {
+                        self.queue.push_back(Message::PublishOnSocialMedia);
+                    }
+                } else {
+                    let button = Button::new(fmt!("{ICON_PUBLISH} Mark as published"))
+                        .fill(style.button.publish);
+
+                    if ui.add(button).clicked() {
+                        self.queue.push_back(Message::Publish);
+                    }
                 }
 
                 if button::cancel(ui) {
@@ -277,163 +262,26 @@ impl ModalPublish {
 
                 ui.separator();
 
-                if let Some(creds) = &self.graph_api_credentials {
-                    let mut discard_receiver = false;
-                    if self.receiver.is_some() {
-                        ui.horizontal(|ui| {
-                            ui.spinner();
-                            ui.label("publishing post...");
-                        });
-                        discard_receiver = self.handle_events(db);
-                    } else {
-                        let fb_valid = creds.facebook.is_valid();
-                        let ig_valid = creds.instagram.is_valid();
-                        let enabled = fb_valid;
+                ScrollArea::vertical()
+                    .id_salt(fmt!("{ID_PREFIX}-buttons-scroll"))
+                    .show(ui, |ui| {
+                        for entry in self.entries.iter_mut() {
+                            ui.horizontal(|ui| {
+                                ui.add(checkmark(entry.copied, style.copied_mark));
 
-                        let label = if fb_valid && ig_valid {
-                            "Publish on Facebook and Instagram"
-                        } else if fb_valid {
-                            "Publish on Facebook"
-                        } else {
-                            "Cannot publish on Facebook"
-                        };
+                                let button =
+                                    Button::new(format!("{ICON_CONTENT_COPY} {}", entry.label))
+                                        .min_size(vec2(ui.available_width(), 0.0));
 
-                        let button = Button::new(label);
-                        if ui.add_enabled(enabled, button).clicked() {
-                            self.queue.push_back(Message::PublishOnSocialMedia);
+                                if ui.add(button).clicked() {
+                                    tab_queue.push_back(TabMessage::Copy(entry.text.clone()));
+                                    entry.copied = true;
+                                }
+                            });
                         }
-                    }
-
-                    if discard_receiver {
-                        self.receiver = None;
-                    }
-
-                    for (color, msg) in &self.publish_status {
-                        ui.colored_label(*color, msg);
-                    }
-                } else {
-                    ScrollArea::vertical()
-                        .id_salt(fmt!("{ID_PREFIX}-buttons-scroll"))
-                        .show(ui, |ui| {
-                            for entry in self.entries.iter_mut() {
-                                ui.horizontal(|ui| {
-                                    ui.add(checkmark(entry.copied, style.copied_mark));
-
-                                    let button =
-                                        Button::new(format!("{ICON_CONTENT_COPY} {}", entry.label))
-                                            .min_size(vec2(ui.available_width(), 0.0));
-
-                                    if ui.add(button).clicked() {
-                                        tab_queue.push_back(TabMessage::Copy(entry.text.clone()));
-                                        entry.copied = true;
-                                    }
-                                });
-                            }
-                        });
-                }
+                    });
             });
         });
-    }
-
-    fn handle_events(&mut self, db: &mut Database) -> bool {
-        let Some(receiver) = self.receiver.as_mut() else {
-            return false;
-        };
-
-        let mut discard_receiver = false;
-        match receiver.try_recv() {
-            Ok(res) => match res {
-                PublishEvent::Error(msg) => {
-                    self.publish_status.push((self.color_error, msg));
-                    discard_receiver = true;
-                }
-                PublishEvent::PublishedPhotoOnFacebook { path, fb_id } => {
-                    let post = db.post_mut(&self.id);
-
-                    let index = post.files.iter().position(|entry| entry.full_path == path);
-
-                    if let Some(index) = index {
-                        self.publish_status.push((
-                            self.color_normal,
-                            format!(
-                                "photo {} got published on Facebook as {fb_id}",
-                                path.display()
-                            ),
-                        ));
-
-                        post.files[index].facebook_id = fb_id;
-                        db.current_version.photos += 1;
-                    } else {
-                        self.publish_status.push((
-                            self.color_error,
-                            format!("internal error: path not found {}", path.display()),
-                        ));
-                    }
-                }
-                PublishEvent::PublishedPhotoOnInstagram { path, ig_id } => {
-                    let post = db.post_mut(&self.id);
-
-                    let index = post.files.iter().position(|entry| entry.full_path == path);
-
-                    if let Some(index) = index {
-                        self.publish_status.push((
-                            self.color_normal,
-                            format!(
-                                "photo {} got published on Instagram as {ig_id}",
-                                path.display()
-                            ),
-                        ));
-
-                        post.files[index].instagram_id = ig_id;
-                        db.current_version.photos += 1;
-                    } else {
-                        self.publish_status.push((
-                            self.color_error,
-                            format!("internal error: path not found {}", path.display()),
-                        ));
-                    }
-                }
-                PublishEvent::PublishedPostOnFacebook { fb_id } => {
-                    self.publish_status.push((
-                        self.color_normal,
-                        format!("post got published on Facebook as {fb_id}"),
-                    ));
-
-                    let post = db.post_mut(&self.id);
-                    post.social_media.facebook_post_id = fb_id;
-                    db.current_version.posts += 1;
-                    db.current_version.photos += 1;
-                }
-                PublishEvent::PublishedPostOnInstagram { ig_id, permalink } => {
-                    self.publish_status.push((
-                        self.color_normal,
-                        format!("post got published on Instagram as {ig_id}"),
-                    ));
-
-                    let post = db.post_mut(&self.id);
-                    post.social_media.instagram_post_id = ig_id;
-                    post.social_media.instagram_permalink = permalink;
-                    db.current_version.posts += 1;
-                    db.current_version.photos += 1;
-                }
-                PublishEvent::Completed => {
-                    self.publish_status
-                        .push((self.color_success, format!("everything got published")));
-
-                    let post = db.post_mut(&self.id);
-                    post.published = true;
-                    db.current_version.posts += 1;
-                    db.current_version.photos += 1;
-                    discard_receiver = true;
-                }
-            },
-            Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => {
-                discard_receiver = true;
-            }
-        }
-
-        discard_receiver
     }
 }
 

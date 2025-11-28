@@ -1,6 +1,7 @@
 use crate::application::Message;
 use crate::application::MessageQueue;
 use crate::db::Database;
+use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
 use crate::style::Style;
@@ -51,7 +52,14 @@ impl Confirm {
 }
 
 impl ModalWindowTrait for Confirm {
-    fn update(&mut self, ui: &mut Ui, _style: &Style, _db: &Database, queue: &mut MessageQueue) {
+    fn update(
+        &mut self,
+        ui: &mut Ui,
+        _image_cache: &mut ImageCache,
+        _style: &Style,
+        _db: &Database,
+        queue: &mut MessageQueue,
+    ) {
         ui.heading(&self.text);
         ui.separator();
 

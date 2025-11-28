@@ -13,6 +13,7 @@ mod image_counter;
 mod jpeg;
 mod keyboard;
 mod modal;
+mod modal_errors;
 mod modal_keyboard;
 mod modal_settings;
 mod search_box;
