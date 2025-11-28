@@ -2,10 +2,10 @@ use crate::db::Database;
 use crate::db::FileMetadata;
 use crate::db::Post;
 use crate::db::PostId;
-use crate::graphapi::facebook::publish_post as publish_post_on_facebook;
-use crate::graphapi::facebook::Receiver;
+use crate::graphapi::publish_post;
 use crate::graphapi::GraphApiCredentials;
 use crate::graphapi::PublishEvent;
+use crate::graphapi::Receiver;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::mpsc::TryRecvError;
@@ -51,7 +51,7 @@ impl SocialMediaPublisher {
 
         let entry = Entry {
             active: true,
-            receiver: publish_post_on_facebook(self.credentials.clone(), id, db),
+            receiver: publish_post(self.credentials.clone(), id, db),
             errors: Vec::new(),
         };
 

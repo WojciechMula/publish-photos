@@ -1,9 +1,106 @@
+use crate::db::Database;
+use crate::db::PostId;
+use crate::tab_posts::modal_publish::render_text;
+use reqwest::blocking::Client;
+use reqwest::blocking::Request;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::mpsc::channel;
+use std::thread;
 
 pub mod facebook;
+pub mod instagram;
 pub mod manager;
+
+pub const FB_URL: &str = "https://graph.facebook.com/v24.0";
+pub const IG_URL: &str = "https://graph.instagram.com/v24.0";
+
+pub type Receiver = std::sync::mpsc::Receiver<PublishEvent>;
+pub type Sender = std::sync::mpsc::Sender<PublishEvent>;
+pub type FnResult = Result<(), Box<dyn std::error::Error>>;
+
+pub fn publish_post(credentials: GraphApiCredentials, id: &PostId, db: &Database) -> Receiver {
+    let post = db.post(id);
+
+    let text = render_text(post, db);
+    let mut photos = Vec::<Photo>::new();
+
+    for entry in &post.files {
+        photos.push(Photo {
+            path: entry.full_path.clone(),
+            url: String::new(),
+            facebook_id: entry.facebook_id.clone(),
+            instagram_id: entry.instagram_id.clone(),
+        });
+    }
+
+    let create_fb_post = post.social_media.facebook_post_id.is_empty();
+    let create_ig_post =
+        post.social_media.instagram_post_id.is_empty() && credentials.instagram.is_valid();
+
+    let (tx, rx) = channel::<PublishEvent>();
+
+    thread::spawn(move || {
+        match publish_post_thread_fn(
+            credentials,
+            create_fb_post,
+            create_ig_post,
+            text,
+            photos,
+            tx.clone(),
+        ) {
+            Ok(_) => tx.send(PublishEvent::Completed),
+            Err(err) => tx.send(PublishEvent::Error(err.to_string())),
+        }
+    });
+
+    rx
+}
+
+pub(crate) struct Photo {
+    path: PathBuf,
+    url: String,
+    facebook_id: String,
+    instagram_id: String,
+}
+
+fn publish_post_thread_fn(
+    credentials: GraphApiCredentials,
+    create_fb_post: bool,
+    create_ig_post: bool,
+    text: String,
+    mut photos: Vec<Photo>,
+    tx: Sender,
+) -> FnResult {
+    let mut client = Client::builder().build()?;
+
+    // 1. Upload photos to Facebook, if needed
+    if create_fb_post || create_ig_post {
+        facebook::upload_photos(&mut client, &credentials.facebook, &mut photos, tx.clone())?;
+    }
+
+    // 2. create Facebook post
+    if create_fb_post {
+        facebook::publish_post(
+            &mut client,
+            &credentials.facebook,
+            &text,
+            &photos,
+            tx.clone(),
+        )?;
+    }
+
+    // 3. create Instagram post(s)
+    if create_ig_post {
+        instagram::publish(&mut client, &credentials, &text, &mut photos, tx.clone())?;
+    }
+
+    Ok(())
+}
+
+// --------------------------------------------------
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GraphApiCredentials {
@@ -20,6 +117,8 @@ impl GraphApiCredentials {
     }
 }
 
+// --------------------------------------------------
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Credentials {
     #[serde(default)]
@@ -34,15 +133,7 @@ impl Credentials {
     }
 }
 
-#[derive(Deserialize)]
-struct FacebookId {
-    pub id: String,
-}
-
-#[derive(Deserialize)]
-struct FacebookPhotoUrl {
-    pub source: String,
-}
+// --------------------------------------------------
 
 #[derive(Deserialize)]
 struct FacebookError {
@@ -54,12 +145,6 @@ pub struct FacebookErrorDetails {
     #[serde(skip)]
     pub url: String,
     pub message: String,
-    #[serde(rename(deserialize = "type"))]
-    pub typ: String,
-    pub code: u64,
-    #[serde(rename(deserialize = "error_subcode"))]
-    pub subcode: Option<u64>,
-    pub fbtrace_id: String,
 }
 
 impl std::fmt::Display for FacebookErrorDetails {
@@ -70,6 +155,8 @@ impl std::fmt::Display for FacebookErrorDetails {
 
 impl std::error::Error for FacebookErrorDetails {}
 
+// --------------------------------------------------
+
 #[derive(Debug)]
 pub enum PublishEvent {
     Error(String),
@@ -78,6 +165,31 @@ pub enum PublishEvent {
     PublishedPhotoOnInstagram { path: PathBuf, ig_id: String },
     PublishedPostOnInstagram { ig_id: String, permalink: String },
     Completed,
+}
+
+// --------------------------------------------------
+
+pub fn mk_query(client: &Client, req: Request) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut resp = client.execute(req)?;
+
+    let mut body = Vec::<u8>::new();
+    resp.copy_to(&mut body)?;
+
+    if resp.status() == StatusCode::OK {
+        return Ok(body);
+    }
+
+    if let Ok(mut msg) = serde_json::from_slice::<FacebookError>(&body) {
+        msg.error.url = resp.url().to_string();
+        Err(Box::new(msg.error))
+    } else {
+        let err = match String::from_utf8(body.clone()) {
+            Ok(s) => s,
+            Err(_) => format!("{:?}", body),
+        };
+
+        Err(err.into())
+    }
 }
 
 #[cfg(test)]
