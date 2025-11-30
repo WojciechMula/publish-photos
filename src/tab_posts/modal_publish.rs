@@ -283,6 +283,10 @@ impl ModalPublish {
             });
         });
     }
+
+    pub fn try_close(&mut self) {
+        self.queue.push_back(Message::Cancel);
+    }
 }
 
 // --------------------------------------------------

@@ -224,4 +224,8 @@ impl ModalView {
             }
         });
     }
+
+    pub fn try_close(&mut self) {
+        self.queue.push_back(Message::Close);
+    }
 }

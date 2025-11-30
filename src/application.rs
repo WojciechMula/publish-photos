@@ -41,8 +41,8 @@ use egui_material_icons::icons::ICON_SETTINGS;
 use egui_material_icons::icons::ICON_WARNING;
 
 pub struct Application {
-    pub db: Database,
-    pub active_tab: Tab,
+    db: Database,
+    active_tab: Tab,
 
     species: TabSpecies,
     posts: TabPosts,
@@ -307,9 +307,31 @@ impl Application {
                 }
             }
             Message::SoftClose => {
-                if self.any_modal_opened() {
+                if !self.modal_window.is_empty() {
                     return;
                 }
+
+                if self.posts.modal_opened() {
+                    if self.active_tab == Tab::Posts {
+                        self.posts.try_close_modal()
+                    }
+                    return;
+                }
+
+                if self.species.modal_opened() {
+                    if self.active_tab == Tab::Species {
+                        self.species.try_close_modal()
+                    }
+                    return;
+                }
+
+                if self.tag_groups.modal_opened() {
+                    if self.active_tab == Tab::TagGroups {
+                        self.tag_groups.try_close_modal()
+                    }
+                    return;
+                }
+
                 if let Some(sm_manager) = self.sm_manager.as_ref() {
                     if sm_manager.stats().active > 0 {
                         return;
@@ -398,14 +420,6 @@ impl Application {
         let db_id = self.db.rootpath.display().to_string();
 
         self.posts.load(&db_id, storage);
-    }
-
-    fn any_modal_opened(&self) -> bool {
-        if !self.modal_window.is_empty() {
-            return true;
-        }
-
-        self.posts.modal_opened() || self.tag_groups.modal_opened() || self.species.modal_opened()
     }
 }
 

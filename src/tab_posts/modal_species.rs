@@ -513,4 +513,8 @@ impl ModalSpecies {
     fn is_modified(&self) -> bool {
         self.new != self.original
     }
+
+    pub fn try_close(&mut self) {
+        self.queue.push_back(Message::SoftClose);
+    }
 }

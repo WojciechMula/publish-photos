@@ -395,6 +395,10 @@ impl ModalEdit {
             && self.new.en.is_empty()
             && self.new.wikipedia_en.is_empty()
     }
+
+    pub fn try_close(&mut self) {
+        self.queue.push_back(Message::SoftClose);
+    }
 }
 
 fn edit(ui: &mut Ui, curr: &String) -> Option<String> {

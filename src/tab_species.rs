@@ -158,6 +158,13 @@ impl TabSpecies {
         !matches!(self.modal_window, ModalWindow::None)
     }
 
+    pub fn try_close_modal(&mut self) {
+        match &mut self.modal_window {
+            ModalWindow::None => (),
+            ModalWindow::ModalEdit(window) => window.try_close(),
+        }
+    }
+
     pub fn get_keyboard_mapping(&self) -> &KeyboardMapping {
         match &self.modal_window {
             ModalWindow::None => &self.keyboard_mapping,

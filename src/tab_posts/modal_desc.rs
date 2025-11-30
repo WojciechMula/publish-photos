@@ -208,4 +208,8 @@ impl ModalDescription {
             });
         });
     }
+
+    pub fn try_close(&mut self) {
+        self.queue.push_back(Message::SoftClose);
+    }
 }

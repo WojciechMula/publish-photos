@@ -705,6 +705,17 @@ impl TabPosts {
         !matches!(self.modal_window, ModalWindow::None)
     }
 
+    pub fn try_close_modal(&mut self) {
+        match &mut self.modal_window {
+            ModalWindow::ModalSpecies(window) => window.try_close(),
+            ModalWindow::ModalTags(window) => window.try_close(),
+            ModalWindow::ModalPublish(window) => window.try_close(),
+            ModalWindow::ModalView(window) => window.try_close(),
+            ModalWindow::ModalDescription(window) => window.try_close(),
+            ModalWindow::None => (),
+        }
+    }
+
     pub fn get_keyboard_mapping(&self) -> &KeyboardMapping {
         match &self.modal_window {
             ModalWindow::ModalSpecies(window) => &window.keyboard_mapping,

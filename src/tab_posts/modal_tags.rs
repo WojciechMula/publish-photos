@@ -370,6 +370,10 @@ impl ModalTags {
     fn is_modified(&self) -> bool {
         self.select_tags.tags != self.original
     }
+
+    pub fn try_close(&mut self) {
+        self.queue.push_back(Message::SoftClose);
+    }
 }
 
 fn mk_hints(tag: &String, db: &Database, existing: &TagList) -> Vec<TranslatedTag> {

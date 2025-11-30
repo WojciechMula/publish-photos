@@ -161,6 +161,13 @@ impl TabTagGroups {
         !matches!(self.modal_window, ModalWindow::None)
     }
 
+    pub fn try_close_modal(&mut self) {
+        match &mut self.modal_window {
+            ModalWindow::ModalEdit(window) => window.try_close(),
+            ModalWindow::None => (),
+        }
+    }
+
     pub fn get_keyboard_mapping(&self) -> &KeyboardMapping {
         match &self.modal_window {
             ModalWindow::ModalEdit(window) => &window.keyboard_mapping,

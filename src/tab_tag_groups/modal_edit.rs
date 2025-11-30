@@ -347,4 +347,8 @@ impl ModalEdit {
             !self.name.is_empty() || !self.select_tags.tags.is_empty()
         }
     }
+
+    pub fn try_close(&mut self) {
+        self.queue.push_back(Message::SoftClose);
+    }
 }
