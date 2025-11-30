@@ -1,6 +1,7 @@
 use crate::graphapi::mk_query;
 use crate::graphapi::Credentials;
 use crate::graphapi::ErrorType;
+use crate::graphapi::FacebookErrorDetails;
 use crate::graphapi::FnResult;
 use crate::graphapi::Photo;
 use crate::graphapi::PublishEvent;
@@ -9,6 +10,7 @@ use crate::GraphApiCredentials;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::graphapi::FB_URL;
 use crate::graphapi::IG_URL;
@@ -187,6 +189,41 @@ fn create_carousel_container(
 }
 
 fn create_post(client: &mut Client, instagram: &Credentials, id: String, tx: Sender) -> FnResult {
+    const MAX_RETRIES: usize = 3;
+    const SLEEP_TIME: Duration = Duration::from_secs(5);
+
+    for i in 0..MAX_RETRIES {
+        let ret = create_post_aux(client, instagram, id.clone(), tx.clone());
+
+        if ret.is_ok() || i + 1 == MAX_RETRIES {
+            return ret;
+        }
+
+        let Err(err) = ret else { unreachable!() };
+
+        match err.downcast::<FacebookErrorDetails>() {
+            Ok(fb_err) => {
+                if fb_err.message == "Media ID is not available" {
+                    std::thread::sleep(SLEEP_TIME);
+                } else {
+                    return Err(fb_err);
+                }
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn create_post_aux(
+    client: &mut Client,
+    instagram: &Credentials,
+    id: String,
+    tx: Sender,
+) -> FnResult {
     let query = [
         ("access_token", instagram.user_access_token.clone()),
         ("creation_id", id),
