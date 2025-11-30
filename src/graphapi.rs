@@ -19,7 +19,8 @@ pub const IG_URL: &str = "https://graph.instagram.com/v24.0";
 
 pub type Receiver = std::sync::mpsc::Receiver<PublishEvent>;
 pub type Sender = std::sync::mpsc::Sender<PublishEvent>;
-pub type FnResult = Result<(), Box<dyn std::error::Error>>;
+pub type ErrorType = Box<dyn std::error::Error>;
+pub type FnResult = Result<(), ErrorType>;
 
 pub fn publish_post(credentials: GraphApiCredentials, id: &PostId, db: &Database) -> Receiver {
     let post = db.post(id);
@@ -94,7 +95,23 @@ fn publish_post_thread_fn(
 
     // 3. create Instagram post(s)
     if create_ig_post {
-        instagram::publish(&mut client, &credentials, &text, &mut photos, tx.clone())?;
+        if photos.len() == 1 {
+            instagram::publish_single_image(
+                &mut client,
+                &credentials,
+                text,
+                &mut photos,
+                tx.clone(),
+            )?;
+        } else {
+            instagram::publish_multiple_images(
+                &mut client,
+                &credentials,
+                text,
+                &mut photos,
+                tx.clone(),
+            )?;
+        }
     }
 
     Ok(())
@@ -164,7 +181,21 @@ pub enum PublishEvent {
     PublishedPostOnFacebook { fb_id: String },
     PublishedPhotoOnInstagram { path: PathBuf, ig_id: String },
     PublishedPostOnInstagram { ig_id: String, permalink: String },
+    PublishedCarouselOnInstagram { ig_id: String },
     Completed,
+}
+
+// --------------------------------------------------
+
+#[derive(Default)]
+pub struct Query {
+    pub entries: Vec<(String, String)>,
+}
+
+impl Query {
+    pub fn add(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.entries.push((key.into(), value.into()));
+    }
 }
 
 // --------------------------------------------------

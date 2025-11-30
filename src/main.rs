@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     };
 
     Ok(eframe::run_native(
-        "Publish photos",
+        &format!("Publish photos: {}", path.display()),
         native_options,
         Box::new(|_cc| Ok(Box::new(Application::new(db, graph_api_credentials)))),
     )?)

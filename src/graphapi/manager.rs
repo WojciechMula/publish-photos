@@ -6,6 +6,7 @@ use crate::graphapi::publish_post;
 use crate::graphapi::GraphApiCredentials;
 use crate::graphapi::PublishEvent;
 use crate::graphapi::Receiver;
+use crate::Local;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::mpsc::TryRecvError;
@@ -128,6 +129,7 @@ impl SocialMediaPublisher {
                 PublishEvent::PublishedPostOnFacebook { fb_id } => {
                     let post = db.post_mut(id);
                     post.social_media.facebook_post_id = fb_id;
+                    post.social_media.facebook_added_at = Some(Local::now());
                     db.current_version.posts += 1;
                     db.current_version.photos += 1;
                 }
@@ -135,6 +137,15 @@ impl SocialMediaPublisher {
                     let post = db.post_mut(id);
                     post.social_media.instagram_post_id = ig_id;
                     post.social_media.instagram_permalink = permalink;
+                    post.social_media.instagram_added_at = Some(Local::now());
+
+                    db.current_version.posts += 1;
+                    db.current_version.photos += 1;
+                }
+                PublishEvent::PublishedCarouselOnInstagram { ig_id } => {
+                    let post = db.post_mut(id);
+                    post.social_media.instagram_carousel_id = ig_id;
+
                     db.current_version.posts += 1;
                     db.current_version.photos += 1;
                 }

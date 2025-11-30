@@ -33,6 +33,15 @@ pub use image_counter::ImageCounter;
 
 // --------------------------------------------------
 
+use chrono::DateTime;
+use chrono::Local;
+use chrono::Utc;
+
+pub type LocalDateTime = DateTime<Local>;
+pub type UtcDateTime = DateTime<Utc>;
+
+// --------------------------------------------------
+
 use std::path::Path;
 
 pub fn file_name(path: &Path) -> String {

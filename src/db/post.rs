@@ -5,6 +5,7 @@ use super::SearchParts;
 use super::TagList;
 use crate::edit_details::EditDetails;
 use crate::jpeg::ImageSize;
+use crate::LocalDateTime;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -74,6 +75,13 @@ pub struct FileMetadata {
 pub struct SocialMediaState {
     pub facebook_post_id: String,
     pub instagram_post_id: String,
+
+    #[serde(default)]
+    pub instagram_carousel_id: String,
+    #[serde(default)]
+    pub facebook_added_at: Option<LocalDateTime>,
+    #[serde(default)]
+    pub instagram_added_at: Option<LocalDateTime>,
     #[serde(default)]
     pub instagram_permalink: String,
 }

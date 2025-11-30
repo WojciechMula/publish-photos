@@ -216,7 +216,7 @@ impl Message {
             Self::View(_) => unreachable!(),
             Self::Select(_) => unreachable!(),
             Self::Publish(_) => unreachable!(),
-            Self::StartPublishing(_) => unreachable!(),
+            Self::StartPublishing(..) => unreachable!(),
             Self::InlineEditStart { .. } => unreachable!(),
             Self::InlineEditChange { .. } => unreachable!(),
             Self::InlineSaveChange { .. } => unreachable!(),

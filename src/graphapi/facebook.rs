@@ -3,6 +3,7 @@ use crate::graphapi::Credentials;
 use crate::graphapi::FnResult;
 use crate::graphapi::Photo;
 use crate::graphapi::PublishEvent;
+use crate::graphapi::Query;
 use crate::graphapi::Sender;
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -16,22 +17,19 @@ pub fn publish_post(
     photos: &[Photo],
     tx: Sender,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut query = Vec::<(String, String)>::new();
-    query.push((
-        "access_token".to_string(),
-        facebook.user_access_token.clone(),
-    ));
-    query.push(("message".to_string(), text.to_owned()));
+    let mut query = Query::default();
+    query.add("access_token", facebook.user_access_token.clone());
+    query.add("message", text);
 
     for (num, photo) in photos.iter().enumerate() {
         let field = format!("attached_media[{num}]");
         let value = format!(r#"{{"media_fbid":"{}"}}"#, photo.facebook_id);
-        query.push((field, value));
+        query.add(field, value);
     }
 
     let req = client
         .post(format!("{FB_URL}/{}/feed", facebook.user_id))
-        .query(&query)
+        .query(&query.entries)
         .build()?;
 
     let buf = mk_query(client, req)?;
