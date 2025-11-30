@@ -480,8 +480,11 @@ impl Database {
             entry.id = PostId(id);
             for entry in &mut entry.files {
                 entry.full_path = self.rootdir.join(&entry.rel_path);
-                entry.image_size = identify(&entry.full_path, &mut buf);
                 entry.uri = format!("file://{}", entry.full_path.display());
+
+                if entry.image_size.is_none() {
+                    entry.image_size = identify(&entry.full_path, &mut buf);
+                }
             }
 
             entry.refresh();
