@@ -842,6 +842,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
+name = "db"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "jpeg",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "dispatch"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1588,6 +1598,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "graphapi"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "h2"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2027,6 +2049,13 @@ checksum = "9afb3de4395d6b3e67a780b6de64b51c978ecf11cb9a462c66be7d4ca9039d33"
 dependencies = [
  "getrandom 0.3.4",
  "libc",
+]
+
+[[package]]
+name = "jpeg"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -2824,11 +2853,13 @@ dependencies = [
  "chrono",
  "clap",
  "const_format",
+ "db",
  "eframe",
  "egui",
  "egui_extras",
  "egui_material_icons",
  "env_logger",
+ "graphapi",
  "image",
  "log",
  "reqwest",

@@ -1,0 +1,10 @@
+[package]
+name = "db"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { version = "0.4.42", features = ["serde"] }
+jpeg = { version = "0.1.0", path = "../jpeg" }
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "0.9.8"
