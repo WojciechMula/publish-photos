@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
     let mut graph_api_credentials: Option<GraphApiCredentials> = None;
     let socmedia = expand_homedir(&opts.socmedia);
-    if socmedia.exists() {
+    if !opts.disable_socmedia && socmedia.exists() {
         let gac = GraphApiCredentials::from_file(&socmedia)?;
         graph_api_credentials = Some(gac);
     }

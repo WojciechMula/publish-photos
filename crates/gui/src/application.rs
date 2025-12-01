@@ -199,6 +199,7 @@ impl Application {
         let mut queue = MessageQueue::new();
         queue.push_back(Message::MaximizeWindow);
 
+        let sm_available = credentials.is_some();
         let sm_manager = credentials.map(SocialMediaPublisher::new);
 
         Self {
@@ -206,7 +207,7 @@ impl Application {
             active_tab: Tab::Posts,
             modal_window: Vec::new(),
             species: TabSpecies::default(),
-            posts: TabPosts::new(),
+            posts: TabPosts::new(sm_available),
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
             initialized: false,

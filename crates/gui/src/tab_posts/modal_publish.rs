@@ -82,7 +82,7 @@ impl Message {
 }
 
 impl ModalPublish {
-    pub fn new(id: PostId, db: &Database) -> Self {
+    pub fn new(sm_available: bool, id: PostId, db: &Database) -> Self {
         let post = db.post(&id);
 
         let text = render_text(post, db);
@@ -105,7 +105,7 @@ impl ModalPublish {
             entries,
             queue: MessageQueue::new(),
             keyboard_mapping: Self::create_mapping(),
-            sm_available: true,
+            sm_available,
         }
     }
 

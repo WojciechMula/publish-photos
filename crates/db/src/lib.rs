@@ -15,6 +15,7 @@ pub use date::Month;
 pub use post::FileMetadata;
 pub use post::Post;
 pub use post::SocialMediaState;
+pub use post::render_text;
 pub use search_parts::SearchParts;
 pub use species::Latin;
 pub use species::Species;
@@ -25,7 +26,6 @@ pub use tag_list::TagList;
 pub use tag_translations::TagTranslations;
 pub use tag_translations::TranslatedTag;
 pub use tag_translations::Translation;
-pub use post::render_text;
 
 use crate::tag_hints::Builder;
 use crate::tag_hints::TagHints;
