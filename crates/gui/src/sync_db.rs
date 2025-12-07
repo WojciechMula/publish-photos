@@ -20,12 +20,28 @@ pub fn perform(
     for path in all_files {
         if !managed_files.remove(&path) {
             info!("importing {}", path.display());
-            db.posts.push(mk_post(&path));
+            let mut post = mk_post(&path);
+            post.published = is_published(&rootdir, &path);
+            db.posts.push(post);
             count += 1;
         }
     }
 
     Ok(count)
+}
+
+fn is_published(rootdir: &Path, path: &Path) -> bool {
+    let full_path = rootdir.join(path);
+    is_published_aux(&full_path).unwrap_or_default()
+}
+
+fn is_published_aux(path: &Path) -> Option<bool> {
+    let parent = path.parent()?;
+
+    let name = path.file_name()?;
+    let link = parent.join("facebook").join("published").join(name);
+
+    Some(link.exists())
 }
 
 fn date_from_path(path: &Path) -> Date {

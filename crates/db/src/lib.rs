@@ -125,6 +125,10 @@ impl PostList {
         self.0.iter()
     }
 
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Post> {
+        self.0.iter_mut()
+    }
+
     pub fn push(&mut self, item: Post) {
         self.0.push(item)
     }

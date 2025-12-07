@@ -4,6 +4,7 @@ use env_logger::Builder;
 use graphapi::GraphApiCredentials;
 use log::error;
 use log::info;
+use log::LevelFilter;
 use photos::application::Application;
 use photos::cmdline::Options;
 use std::env::home_dir;
@@ -12,7 +13,7 @@ use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let mut builder = Builder::from_default_env();
-    builder.init();
+    builder.filter_level(LevelFilter::Info).init();
 
     let opts = Options::parse();
 
@@ -37,6 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
             error!("No photos matching the program criteria was found");
             return Ok(());
         }
+
+        info!("Imported {count} image(s)");
 
         db.refresh_all_records();
         db.current_version.posts += 1;
