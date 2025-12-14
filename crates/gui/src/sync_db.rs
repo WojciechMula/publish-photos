@@ -21,7 +21,7 @@ pub fn perform(
         if !managed_files.remove(&path) {
             info!("importing {}", path.display());
             let mut post = mk_post(&path);
-            post.published = is_published(&rootdir, &path);
+            post.published = is_published(rootdir, &path);
             db.posts.push(post);
             count += 1;
         }

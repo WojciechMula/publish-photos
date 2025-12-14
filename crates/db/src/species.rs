@@ -3,6 +3,9 @@ use super::SearchParts;
 use super::SpeciesId;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fmt::Display;
+use std::fmt::Error;
+use std::fmt::Formatter;
 
 #[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Latin(String);
@@ -42,6 +45,12 @@ impl<'a> From<&'a Latin> for &'a String {
 impl From<String> for Latin {
     fn from(val: String) -> Self {
         Self(val)
+    }
+}
+
+impl Display for Latin {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        f.write_str(&self.0)
     }
 }
 

@@ -160,6 +160,7 @@ impl Database {
         };
 
         result.refresh_all_records();
+        result.refresh_caches();
 
         Ok(result)
     }
@@ -225,7 +226,7 @@ impl Database {
         id
     }
 
-    pub fn is_dirty(&mut self) -> bool {
+    pub fn is_dirty(&self) -> bool {
         const fn mktuple(v: &Version) -> (u64, u64, u64, u64) {
             (v.photos, v.species, v.tag_groups, v.tag_translations)
         }

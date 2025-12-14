@@ -39,10 +39,10 @@ impl SocialMediaPublisher {
     }
 
     pub fn publish(&mut self, id: &PostId, db: &Database) {
-        if let Some(entry) = self.ongoing.get(id) {
-            if entry.active {
-                return;
-            }
+        if let Some(entry) = self.ongoing.get(id)
+            && entry.active
+        {
+            return;
         }
 
         let post = db.post(id);

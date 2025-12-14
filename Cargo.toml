@@ -2,5 +2,5 @@
 resolver = "3"
 members = [
     "crates/gui",
-    "crates/graphapi", "crates/db", "crates/jpeg",
+    "crates/graphapi", "crates/db", "crates/jpeg", "crates/sync",
 ]
