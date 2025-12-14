@@ -1,3 +1,5 @@
+use crate::clipboard::Clipboard;
+use crate::clipboard::ClipboardKind;
 use crate::confirm::Confirm;
 use crate::confirm::ConfirmOption;
 use crate::image_cache::ImageCache;
@@ -57,6 +59,7 @@ pub struct Application {
     initialized: bool,
     image_cache: ImageCache,
     sm_manager: Option<SocialMediaPublisher>,
+    clipboard: Clipboard,
 
     keyboard_mapping: KeyboardMapping,
 }
@@ -71,7 +74,7 @@ pub enum Message {
     OpenModal(Box<dyn ModalWindowTrait>),
     EditDetails(EditDetails),
     StartPublishing(PostId),
-    Copy(String),
+    Copy(ClipboardKind, String),
     CloseModal,
     SaveDatabase,
     SetStyle(Style),
@@ -99,7 +102,7 @@ impl Message {
             Self::OpenModal(_) => unreachable!(),
             Self::EditDetails(_) => unreachable!(),
             Self::StartPublishing(_) => unreachable!(),
-            Self::Copy(_) => unreachable!(),
+            Self::Copy(..) => unreachable!(),
             Self::CloseModal => unreachable!(),
             Self::SaveDatabase => "save database",
             Self::SetStyle(_) => unreachable!(),
@@ -129,7 +132,7 @@ impl Clone for Message {
             Self::OpenModal(_) => unreachable!(),
             Self::EditDetails(val) => Self::EditDetails(val.clone()),
             Self::StartPublishing(val) => Self::StartPublishing(*val),
-            Self::Copy(val) => Self::Copy(val.clone()),
+            Self::Copy(kind, val) => Self::Copy(*kind, val.clone()),
             Self::CloseModal => Self::CloseModal,
             Self::SaveDatabase => Self::SaveDatabase,
             Self::SetStyle(val) => Self::SetStyle(val.clone()),
@@ -216,6 +219,7 @@ impl Application {
             queue,
             can_close: false,
             keyboard_mapping: Self::create_mapping(),
+            clipboard: Clipboard::default(),
             sm_manager,
         }
     }
@@ -363,7 +367,8 @@ impl Application {
             Message::MaximizeWindow => {
                 ctx.send_viewport_cmd(ViewportCommand::Maximized(true));
             }
-            Message::Copy(text) => {
+            Message::Copy(kind, text) => {
+                self.clipboard.copy(kind, text.clone());
                 ctx.copy_text(text);
             }
             Message::OpenModal(window) => {
@@ -520,6 +525,7 @@ impl eframe::App for Application {
                 &self.style,
                 &mut self.db,
                 &mut self.queue,
+                &self.clipboard,
             ),
             Tab::Species => self.species.update(
                 ctx,

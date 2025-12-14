@@ -21,6 +21,8 @@ use modal_view::ModalView;
 
 use crate::application::Message as MainMessage;
 use crate::application::MessageQueue as MainMessageQueue;
+use crate::clipboard::Clipboard;
+use crate::clipboard::ClipboardKind;
 use crate::confirm::Confirm;
 use crate::gui::add_image;
 use crate::gui::add_image_with_tint;
@@ -46,6 +48,7 @@ use db::Month;
 use db::Post;
 use db::PostId;
 use db::Selector;
+use db::TagList;
 use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
@@ -168,6 +171,7 @@ pub enum Message {
         field: Field,
     },
     EditDetails(EditDetails),
+    PasteTags(PostId, String),
     StartGrouping(PostId),
     AbortGrouping,
     AddToGroup(PostId),
@@ -182,7 +186,7 @@ pub enum Message {
     CloseModal,
     Confirm(Confirm),
 
-    Copy(String),
+    Copy(ClipboardKind, String),
 
     RefreshView,
     Hovered(Option<PostId>),
@@ -223,6 +227,7 @@ impl Message {
             Self::InlineSaveChange { .. } => unreachable!(),
             Self::InlineDiscardChanges { .. } => unreachable!(),
             Self::EditDetails(_) => unreachable!(),
+            Self::PasteTags(..) => unreachable!(),
             Self::StartGrouping(_) => unreachable!(),
             Self::AbortGrouping => unreachable!(),
             Self::AddToGroup(_) => unreachable!(),
@@ -235,7 +240,7 @@ impl Message {
             Self::ModalPublish(msg) => msg.name(),
             Self::CloseModal => unreachable!(),
             Self::Confirm(_) => unreachable!(),
-            Self::Copy(_) => unreachable!(),
+            Self::Copy(..) => unreachable!(),
             Self::RefreshView => unreachable!(),
             Self::Hovered(_) => unreachable!(),
             Self::StartGroupingCurrent => "start grouping photos in the highlighted post",
@@ -358,6 +363,7 @@ impl TabPosts {
         style: &Style,
         db: &mut Database,
         main_queue: &mut MainMessageQueue,
+        clipboard: &Clipboard,
     ) {
         db.refresh_caches();
         if self.version != db.current_version.posts {
@@ -378,7 +384,7 @@ impl TabPosts {
 
         match &mut self.modal_window {
             ModalWindow::None => {
-                self.draw(ctx, image_cache, style, db, &mut queue);
+                self.draw(ctx, image_cache, style, db, &mut queue, clipboard);
             }
             ModalWindow::ModalTags(window) => {
                 window.update(ctx, image_cache, style, db, &mut queue);
@@ -414,6 +420,15 @@ impl TabPosts {
     ) {
         match message {
             Message::EditDetails(edit_details) => {
+                main_queue.push_back(edit_details.into());
+            }
+            Message::PasteTags(post_id, tags_string) => {
+                let mut tags = TagList::default();
+                for tag in tags_string.split_whitespace() {
+                    tags.add(tag.to_owned());
+                }
+                let edit_details = EditDetails::SetTags(post_id, tags);
+
                 main_queue.push_back(edit_details.into());
             }
             Message::RefreshView => {
@@ -492,8 +507,8 @@ impl TabPosts {
             Message::Hovered(post_id) => {
                 self.hovered = post_id;
             }
-            Message::Copy(text) => {
-                main_queue.push_back(MainMessage::Copy(text));
+            Message::Copy(kind, text) => {
+                main_queue.push_back(MainMessage::Copy(kind, text));
             }
             Message::StartGrouping(id) => {
                 if self.group.is_none() {
@@ -736,6 +751,7 @@ impl TabPosts {
         style: &Style,
         db: &Database,
         queue: &mut MessageQueue,
+        clipboard: &Clipboard,
     ) {
         TopBottomPanel::top(fmt!("{ID_PREFIX}-filter")).show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -786,7 +802,7 @@ impl TabPosts {
 
         CentralPanel::default().show(ctx, |ui| {
             match self.view_kind {
-                ViewKind::List => self.draw_main_list(ui, image_cache, style, db, queue),
+                ViewKind::List => self.draw_main_list(ui, image_cache, style, db, queue, clipboard),
                 ViewKind::Grid => self.draw_grid(ui, image_cache, style, db, queue),
             };
         });
@@ -799,6 +815,7 @@ impl TabPosts {
         style: &Style,
         db: &Database,
         queue: &mut MessageQueue,
+        clipboard: &Clipboard,
     ) {
         ScrollArea::both()
             .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
@@ -812,7 +829,7 @@ impl TabPosts {
                     }
 
                     let post = db.post(id);
-                    if self.draw_post(ui, image_cache, style, post, db, queue) {
+                    if self.draw_post(ui, image_cache, style, post, db, queue, clipboard) {
                         hovered = Some(*id);
                     }
                 }
@@ -831,11 +848,12 @@ impl TabPosts {
         post: &Post,
         db: &Database,
         queue: &mut MessageQueue,
+        clipboard: &Clipboard,
     ) -> bool {
         let fill = self.fill(post, style);
 
         let resp = frame(ui, fill, |ui| {
-            self.draw_post_inner(ui, image_cache, style, post, db, queue);
+            self.draw_post_inner(ui, image_cache, style, post, db, queue, clipboard);
         });
 
         if self.scroll_to_selected && self.selected == Some(post.id) {
@@ -993,6 +1011,7 @@ impl TabPosts {
         post: &Post,
         db: &Database,
         queue: &mut MessageQueue,
+        clipboard: &Clipboard,
     ) {
         ui.horizontal(|ui| {
             self.draw_image(ui, image_cache, style, post, queue);
@@ -1047,7 +1066,7 @@ impl TabPosts {
                         ui.label("tags");
                     });
 
-                    self.show_tags(ui, style, post, queue);
+                    self.show_tags(ui, style, post, queue, clipboard);
                 });
 
                 ui.horizontal(|ui| {
@@ -1071,8 +1090,10 @@ impl TabPosts {
                                 ui.hyperlink_to("Facebook", post.social_media.facebook_url());
                             resp.context_menu(|ui| {
                                 if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
-                                    queue
-                                        .push_back(Message::Copy(post.social_media.facebook_url()));
+                                    queue.push_back(Message::Copy(
+                                        ClipboardKind::Generic,
+                                        post.social_media.facebook_url(),
+                                    ));
                                 }
                             });
                         });
@@ -1092,6 +1113,7 @@ impl TabPosts {
                             resp.context_menu(|ui| {
                                 if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
                                     queue.push_back(Message::Copy(
+                                        ClipboardKind::Generic,
                                         post.social_media.instagram_permalink.clone(),
                                     ));
                                 }
@@ -1103,14 +1125,42 @@ impl TabPosts {
         });
     }
 
-    fn show_tags(&self, ui: &mut Ui, style: &Style, post: &Post, queue: &mut MessageQueue) {
+    fn show_tags(
+        &self,
+        ui: &mut Ui,
+        style: &Style,
+        post: &Post,
+        queue: &mut MessageQueue,
+        clipboard: &Clipboard,
+    ) {
         ui.horizontal_wrapped(|ui| {
             if button::edit(ui) {
                 queue.push_back(Message::EditTags(post.id));
             }
-            if button::copy(ui, !post.tags.is_empty()) {
-                queue.push_back(Message::Copy(post.tags_string.clone()));
+
+            let empty = post.tags.is_empty();
+            if button::copy(ui, !empty) {
+                queue.push_back(Message::Copy(ClipboardKind::Tags, post.tags_string.clone()));
             }
+
+            if empty && clipboard.available(ClipboardKind::Tags) {
+                let entries = clipboard.get(ClipboardKind::Tags);
+
+                let resp = button::paste(ui, true);
+                if resp.clicked() {
+                    queue.push_back(Message::PasteTags(post.id, entries.last().unwrap().clone()));
+                }
+
+                resp.context_menu(|ui| {
+                    for entry in entries.iter().rev() {
+                        let button = Button::new(entry).truncate();
+                        if ui.add(button).clicked() {
+                            queue.push_back(Message::PasteTags(post.id, entry.clone()));
+                        }
+                    }
+                });
+            }
+
             for string in post.tags.iter() {
                 ui.add(tag(string, style));
             }
@@ -1185,7 +1235,7 @@ impl TabPosts {
             }
             if button::copy(ui, post.species.is_some()) {
                 let latin = post.species.as_ref().unwrap().clone();
-                queue.push_back(Message::Copy(latin.into()));
+                queue.push_back(Message::Copy(ClipboardKind::Species, latin.into()));
             }
             if let Some(latin) = &post.species {
                 let species = db.species_by_latin(latin).unwrap();
@@ -1323,7 +1373,11 @@ fn inline_edit(
             result = Some(Message::InlineEditStart { id, field });
         }
         if button::copy(ui, !current.is_empty()) {
-            result = Some(Message::Copy(current.to_owned()));
+            let kind = match field {
+                Field::Polish => ClipboardKind::Polish,
+                Field::English => ClipboardKind::English,
+            };
+            result = Some(Message::Copy(kind, current.to_owned()));
         }
 
         let mut label = if current.is_empty() {

@@ -22,6 +22,7 @@ use egui::Widget;
 use egui_material_icons::icons::ICON_CANCEL;
 use egui_material_icons::icons::ICON_CHECK;
 use egui_material_icons::icons::ICON_CONTENT_COPY;
+use egui_material_icons::icons::ICON_CONTENT_PASTE;
 use egui_material_icons::icons::ICON_EDIT;
 
 // --------------------------------------------------
@@ -267,6 +268,10 @@ pub mod button {
     pub fn copy(ui: &mut Ui, enabled: bool) -> bool {
         ui.add_enabled(enabled, Button::new(ICON_CONTENT_COPY))
             .clicked()
+    }
+
+    pub fn paste(ui: &mut Ui, enabled: bool) -> Response {
+        ui.add_enabled(enabled, Button::new(ICON_CONTENT_PASTE))
     }
 
     pub fn edit(ui: &mut Ui) -> bool {

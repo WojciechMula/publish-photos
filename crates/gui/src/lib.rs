@@ -1,4 +1,5 @@
 pub mod application;
+mod clipboard;
 pub mod cmdline;
 mod colors;
 mod confirm;

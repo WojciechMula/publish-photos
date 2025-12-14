@@ -1,5 +1,6 @@
 use crate::application::Message;
 use crate::application::MessageQueue;
+use crate::clipboard::ClipboardKind;
 use crate::gui::add_image;
 use crate::gui::button;
 use crate::image_cache::ImageCache;
@@ -66,7 +67,10 @@ impl ModalWindowTrait for ModalErrors {
                         for msg in errors {
                             ui.horizontal(|ui| {
                                 if button::copy(ui, true) {
-                                    queue.push_back(Message::Copy(msg.clone()));
+                                    queue.push_back(Message::Copy(
+                                        ClipboardKind::Generic,
+                                        msg.clone(),
+                                    ));
                                 }
                                 let label = Label::new(msg).wrap();
                                 ui.add(label);
