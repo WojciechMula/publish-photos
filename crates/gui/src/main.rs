@@ -8,6 +8,7 @@ use log::LevelFilter;
 use photos::application::Application;
 use photos::cmdline::Options;
 use std::env::home_dir;
+use std::path::absolute;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -16,6 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     builder.filter_level(LevelFilter::Info).init();
 
     let opts = Options::parse();
+    let rootdir = match absolute(&opts.rootdir) {
+        Ok(path) => path,
+        Err(_) => opts.rootdir.to_path_buf(),
+    };
 
     let mut graph_api_credentials: Option<GraphApiCredentials> = None;
     let socmedia = expand_homedir(&opts.socmedia);
@@ -24,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         graph_api_credentials = Some(gac);
     }
 
-    let path = opts.rootdir.join("db.toml");
+    let path = rootdir.join("db.toml");
     let mut db = if path.is_file() {
         Database::from_file(&path)?
     } else {
@@ -33,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
             path.display()
         );
         let mut db = Database::new(&path);
-        let count = photos::sync_db::perform(&opts.rootdir, &mut db)?;
+        let count = photos::sync_db::perform(&rootdir, &mut db)?;
         if count == 0 {
             error!("No photos matching the program criteria was found");
             return Ok(());
@@ -48,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     };
 
     if opts.update_db {
-        photos::sync_db::perform(&opts.rootdir, &mut db)?;
+        photos::sync_db::perform(&rootdir, &mut db)?;
         db.refresh_all_records();
         db.current_version.posts += 1;
     }
