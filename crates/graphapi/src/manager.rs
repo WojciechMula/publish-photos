@@ -1,6 +1,7 @@
 use crate::GraphApiCredentials;
 use crate::PublishEvent;
 use crate::Receiver;
+use crate::SocialMediaError;
 use crate::publish_post;
 use chrono::Local;
 use db::Database;
@@ -19,10 +20,10 @@ pub struct SocialMediaPublisher {
 struct Entry {
     active: bool,
     receiver: Receiver,
-    errors: Vec<String>,
+    errors: Vec<SocialMediaError>,
 }
 
-pub type SocialMediaErrorList = Vec<(PostId, Vec<String>)>;
+pub type SocialMediaErrorList = Vec<(PostId, Vec<SocialMediaError>)>;
 
 #[derive(Default)]
 pub struct SocialMediaPublisherStats {
@@ -96,8 +97,8 @@ impl SocialMediaPublisher {
     fn update_single(id: &PostId, entry: &mut Entry, db: &mut Database) {
         match entry.receiver.try_recv() {
             Ok(res) => match res {
-                PublishEvent::Error(msg) => {
-                    entry.add_error(msg);
+                PublishEvent::Error(err) => {
+                    entry.add_error(err);
                     entry.active = false;
                 }
                 PublishEvent::PublishedPhotoOnFacebook { path, fb_id } => {
@@ -107,10 +108,8 @@ impl SocialMediaPublisher {
                         meta.facebook_id = fb_id;
                         db.current_version.photos += 1;
                     } else {
-                        entry.add_error(format!(
-                            "internal error: path not found {}",
-                            path.display()
-                        ));
+                        let msg = format!("internal error: path not found {}", path.display());
+                        entry.add_error(SocialMediaError::String(msg));
                     }
                 }
                 PublishEvent::PublishedPhotoOnInstagram { path, ig_id } => {
@@ -120,10 +119,8 @@ impl SocialMediaPublisher {
                         meta.instagram_id = ig_id;
                         db.current_version.photos += 1;
                     } else {
-                        entry.add_error(format!(
-                            "internal error: path not found {}",
-                            path.display()
-                        ));
+                        let msg = format!("internal error: path not found {}", path.display());
+                        entry.add_error(SocialMediaError::String(msg));
                     }
                 }
                 PublishEvent::PublishedPostOnFacebook { fb_id } => {
@@ -166,8 +163,8 @@ impl SocialMediaPublisher {
 }
 
 impl Entry {
-    fn add_error(&mut self, msg: String) {
-        self.errors.push(msg);
+    fn add_error(&mut self, err: SocialMediaError) {
+        self.errors.push(err);
     }
 
     fn is_completed(&self) -> bool {

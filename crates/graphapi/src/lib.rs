@@ -50,7 +50,14 @@ pub fn publish_post(credentials: GraphApiCredentials, id: &PostId, db: &Database
             tx.clone(),
         ) {
             Ok(_) => tx.send(PublishEvent::Completed),
-            Err(err) => tx.send(PublishEvent::Error(err.to_string())),
+            Err(err) => {
+                let err = match err.downcast::<FacebookErrorDetails>() {
+                    Ok(err) => SocialMediaError::FacebookError(*err),
+                    Err(err) => SocialMediaError::String(err.to_string()),
+                };
+
+                tx.send(PublishEvent::Error(err))
+            }
         }
     });
 
@@ -153,16 +160,29 @@ struct FacebookError {
     pub error: FacebookErrorDetails,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct FacebookErrorDetails {
     #[serde(skip)]
     pub url: String,
     pub message: String,
+    pub error_user_title: Option<String>,
+    pub error_user_msg: Option<String>,
 }
 
 impl std::fmt::Display for FacebookErrorDetails {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}: {}", self.url, self.message)
+        write!(f, "{}: {}", self.url, self.message)?;
+        if let Some(title) = &self.error_user_title {
+            if let Some(msg) = &self.error_user_msg {
+                write!(f, "({title}: {msg})")?;
+            } else {
+                write!(f, "({title})")?;
+            }
+        } else if let Some(msg) = &self.error_user_msg {
+            write!(f, "({msg})")?;
+        }
+
+        Ok(())
     }
 }
 
@@ -170,9 +190,14 @@ impl std::error::Error for FacebookErrorDetails {}
 
 // --------------------------------------------------
 
-#[derive(Debug)]
+#[derive(Clone)]
+pub enum SocialMediaError {
+    String(String),
+    FacebookError(FacebookErrorDetails),
+}
+
 pub enum PublishEvent {
-    Error(String),
+    Error(SocialMediaError),
     PublishedPhotoOnFacebook { path: PathBuf, fb_id: String },
     PublishedPostOnFacebook { fb_id: String },
     PublishedPhotoOnInstagram { path: PathBuf, ig_id: String },
@@ -240,6 +265,13 @@ mod test {
     #[test]
     fn parse_error_response_case2() {
         let sample = br#"{"error":{"message":"(#200) Unpublished posts must be posted to a page as the page itself.","type":"OAuthException","code":200,"fbtrace_id":"Az_F0sqqSW4zxSe7NQrv7Wo"}}"#;
+
+        serde_json::from_slice::<FacebookError>(sample).unwrap();
+    }
+
+    #[test]
+    fn parse_error_response_case3() {
+        let sample = br#"{"error": { "message": "The image size is too large.", "type": "OAuthException", "code": 36000, "error_subcode": 2207004, "is_transient": false, "error_user_title": "Image size too large", "error_user_msg": "The image is too large to download. It should be less than 8 MiB.", "fbtrace_id": "A6LJylpZRKw2xKLFsAP-cJh" } }"#;
 
         serde_json::from_slice::<FacebookError>(sample).unwrap();
     }
