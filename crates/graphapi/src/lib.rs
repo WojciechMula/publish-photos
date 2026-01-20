@@ -14,9 +14,6 @@ pub mod facebook;
 pub mod instagram;
 pub mod manager;
 
-pub const FB_URL: &str = "https://graph.facebook.com/v24.0";
-pub const IG_URL: &str = "https://graph.instagram.com/v24.0";
-
 pub type Receiver = std::sync::mpsc::Receiver<PublishEvent>;
 pub type Sender = std::sync::mpsc::Sender<PublishEvent>;
 pub type ErrorType = Box<dyn std::error::Error>;
@@ -138,10 +135,9 @@ impl GraphApiCredentials {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Credentials {
-    #[serde(default)]
     pub user_id: String,
-    #[serde(default)]
     pub user_access_token: String,
+    pub endpoint: String,
 }
 
 impl Credentials {
@@ -228,14 +224,21 @@ mod test {
     use super::*;
 
     #[test]
-    fn case1() {
+    fn load_config() {
+        let path = Path::new("tests/sm.toml");
+
+        _ = GraphApiCredentials::from_file(&path).unwrap();
+    }
+
+    #[test]
+    fn parse_error_response_case1() {
         let sample = br#"{"error":{"message":"Error validating access token: Session has expired on Tuesday, 25-Nov-25 15:00:00 PST. The current time is Wednesday, 26-Nov-25 14:19:00 PST.","type":"OAuthException","code":190,"error_subcode":463,"fbtrace_id":"AaX18KXfIMJ8i9bHfPJVjZq"}}"#;
 
         serde_json::from_slice::<FacebookError>(sample).unwrap();
     }
 
     #[test]
-    fn case2() {
+    fn parse_error_response_case2() {
         let sample = br#"{"error":{"message":"(#200) Unpublished posts must be posted to a page as the page itself.","type":"OAuthException","code":200,"fbtrace_id":"Az_F0sqqSW4zxSe7NQrv7Wo"}}"#;
 
         serde_json::from_slice::<FacebookError>(sample).unwrap();

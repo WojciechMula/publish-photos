@@ -8,8 +8,6 @@ use crate::mk_query;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 
-use crate::FB_URL;
-
 pub(crate) fn publish_post(
     client: &mut Client,
     facebook: &Credentials,
@@ -28,7 +26,7 @@ pub(crate) fn publish_post(
     }
 
     let req = client
-        .post(format!("{FB_URL}/{}/feed", facebook.user_id))
+        .post(format!("{}/{}/feed", facebook.endpoint, facebook.user_id))
         .query(&query.entries)
         .build()?;
 
@@ -57,7 +55,7 @@ pub(crate) fn upload_photos(
 
         let query = [("access_token", facebook.user_access_token.as_str())];
 
-        let url = format!("{FB_URL}/{}/photos", facebook.user_id);
+        let url = format!("{}/{}/photos", facebook.endpoint, facebook.user_id);
         let req = client.post(url).query(&query).multipart(form).build()?;
 
         let buf = mk_query(client, req)?;

@@ -1,0 +1,14 @@
+[facebook]
+endpoint="https://graph.facebook.com/v24.0"
+
+# Facebook credentials
+user_id="123456789"
+user_access_token="facebook-user-access-token"
+
+[instagram]
+endpoint="https://graph.instagram.com/v24.0"
+
+# Instagram credentials
+user_id="987654321"
+user_access_token="instagram-user-access-token"
+

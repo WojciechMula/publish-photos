@@ -12,9 +12,6 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::FB_URL;
-use crate::IG_URL;
-
 pub(crate) fn publish_single_image(
     client: &mut Client,
     credentials: &GraphApiCredentials,
@@ -77,7 +74,7 @@ fn collect_photo_urls(
     ];
 
     for photo in photos.iter_mut() {
-        let url = format!("{FB_URL}/{}", photo.facebook_id);
+        let url = format!("{}/{}", facebook.endpoint, photo.facebook_id);
         let req = client.get(url).query(&query).build()?;
         let buf = mk_query(client, req)?;
 
@@ -105,7 +102,7 @@ fn create_photo_container(
         ("image_url", photo.url.clone()),
     ];
 
-    let url = format!("{IG_URL}/{}/media", instagram.user_id);
+    let url = format!("{}/{}/media", instagram.endpoint, instagram.user_id);
     let req = client.post(url).query(&query).build()?;
     let buf = mk_query(client, req)?;
 
@@ -136,7 +133,7 @@ fn create_photo_containers(
     {
         query.insert("image_url".into(), photo.url.clone());
 
-        let url = format!("{IG_URL}/{}/media", instagram.user_id);
+        let url = format!("{}/{}/media", instagram.endpoint, instagram.user_id);
         let req = client.post(url).query(&query).build()?;
         let buf = mk_query(client, req)?;
 
@@ -175,7 +172,7 @@ fn create_carousel_container(
         ("caption", text),
     ];
 
-    let url = format!("{IG_URL}/{}/media", instagram.user_id);
+    let url = format!("{}/{}/media", instagram.endpoint, instagram.user_id);
     let req = client.post(url).query(&query).build()?;
     let buf = mk_query(client, req)?;
 
@@ -230,7 +227,7 @@ fn create_post_aux(
         ("fields", "permalink".to_owned()),
     ];
 
-    let url = format!("{IG_URL}/{}/media_publish", instagram.user_id);
+    let url = format!("{}/{}/media_publish", instagram.endpoint, instagram.user_id);
     let req = client.post(url).query(&query).build()?;
     let buf = mk_query(client, req)?;
 
