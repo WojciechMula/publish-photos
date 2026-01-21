@@ -1,3 +1,5 @@
+max_tags=30
+
 [facebook]
 endpoint="https://graph.facebook.com/v24.0"
 

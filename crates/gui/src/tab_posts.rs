@@ -21,6 +21,7 @@ use modal_view::ModalView;
 
 use crate::application::Message as MainMessage;
 use crate::application::MessageQueue as MainMessageQueue;
+use crate::application::SocialMedia;
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardKind;
 use crate::confirm::Confirm;
@@ -99,7 +100,7 @@ pub struct TabPosts {
     label_width: f32,
     modal_window: ModalWindow,
     view_kind: ViewKind,
-    sm_available: bool,
+    sm: SocialMedia,
 
     keyboard_mapping: KeyboardMapping,
 
@@ -317,7 +318,7 @@ mod shortcut {
 }
 
 impl TabPosts {
-    pub fn new(sm_available: bool) -> Self {
+    pub fn new(sm: SocialMedia) -> Self {
         let mut queue = MessageQueue::new();
         queue.push_back(Message::RefreshView);
 
@@ -335,7 +336,7 @@ impl TabPosts {
             view_kind: ViewKind::List,
             label_width: 0.0,
             group: None,
-            sm_available,
+            sm,
             keyboard_mapping: Self::create_mapping(),
         }
     }
@@ -500,7 +501,7 @@ impl TabPosts {
             }
             Message::Publish(id) => {
                 assert!(self.modal_window.is_none());
-                let window = ModalPublish::new(self.sm_available, id, db);
+                let window = ModalPublish::new(&self.sm, id, db);
                 self.modal_window = ModalWindow::ModalPublish(Box::new(window));
             }
             Message::StartPublishing(id) => {

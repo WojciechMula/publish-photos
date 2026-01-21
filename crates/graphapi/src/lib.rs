@@ -125,6 +125,7 @@ fn publish_post_thread_fn(
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct GraphApiCredentials {
+    pub max_tags: usize,
     pub facebook: Credentials,
     pub instagram: Credentials,
 }

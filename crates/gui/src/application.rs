@@ -202,7 +202,11 @@ impl Application {
         let mut queue = MessageQueue::new();
         queue.push_back(Message::MaximizeWindow);
 
-        let sm_available = credentials.is_some();
+        let sm = match &credentials {
+            Some(creds) => SocialMedia::from_credentials(creds),
+            None => SocialMedia::default(),
+        };
+
         let sm_manager = credentials.map(SocialMediaPublisher::new);
 
         Self {
@@ -210,7 +214,7 @@ impl Application {
             active_tab: Tab::Posts,
             modal_window: Vec::new(),
             species: TabSpecies::default(),
-            posts: TabPosts::new(sm_available),
+            posts: TabPosts::new(sm),
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
             initialized: false,
@@ -577,5 +581,20 @@ fn keyboard_action(ctx: &Context, keyboard_mapping: &KeyboardMapping) -> Option<
         ctx.input_mut(|input_mut| keyboard_mapping.lookup_only_combined(input_mut))
     } else {
         ctx.input_mut(|input_mut| keyboard_mapping.lookup(input_mut))
+    }
+}
+
+#[derive(Default, Clone, Copy)]
+pub struct SocialMedia {
+    pub enabled: bool,
+    pub max_tags: usize,
+}
+
+impl SocialMedia {
+    fn from_credentials(credentials: &GraphApiCredentials) -> Self {
+        Self {
+            enabled: true,
+            max_tags: credentials.max_tags,
+        }
     }
 }
