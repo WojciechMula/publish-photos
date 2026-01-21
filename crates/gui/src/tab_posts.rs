@@ -1101,19 +1101,7 @@ impl TabPosts {
                             ui.set_min_width(self.label_width);
                         });
 
-                        ui.horizontal(|ui| {
-                            ui.label("published on");
-                            let resp =
-                                ui.hyperlink_to("Facebook", post.social_media.facebook_url());
-                            resp.context_menu(|ui| {
-                                if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
-                                    queue.push_back(Message::Copy(
-                                        ClipboardKind::Generic,
-                                        post.social_media.facebook_url(),
-                                    ));
-                                }
-                            });
-                        });
+                        Self::link(ui, "Facebook", &post.social_media.facebook_url(), queue);
                     });
                 }
 
@@ -1123,20 +1111,25 @@ impl TabPosts {
                             ui.set_min_width(self.label_width);
                         });
 
-                        ui.horizontal(|ui| {
-                            ui.label("published on");
-                            let resp = ui
-                                .hyperlink_to("Instagram", &post.social_media.instagram_permalink);
-                            resp.context_menu(|ui| {
-                                if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
-                                    queue.push_back(Message::Copy(
-                                        ClipboardKind::Generic,
-                                        post.social_media.instagram_permalink.clone(),
-                                    ));
-                                }
-                            });
-                        });
+                        Self::link(
+                            ui,
+                            "Instagram",
+                            &post.social_media.instagram_permalink,
+                            queue,
+                        );
                     });
+                }
+            });
+        });
+    }
+
+    fn link(ui: &mut Ui, title: &str, url: &str, queue: &mut MessageQueue) {
+        ui.horizontal(|ui| {
+            ui.label("published on");
+            let resp = ui.hyperlink_to(title, url).on_hover_text(url);
+            resp.context_menu(|ui| {
+                if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
+                    queue.push_back(Message::Copy(ClipboardKind::Generic, url.to_string()));
                 }
             });
         });
