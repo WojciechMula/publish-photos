@@ -6,8 +6,10 @@ use db::FileMetadata;
 use egui::Align;
 use egui::Button;
 use egui::Color32;
+use egui::Context;
 use egui::FontId;
 use egui::Frame;
+use egui::Id;
 use egui::Image;
 use egui::ImageSource;
 use egui::Label;
@@ -277,4 +279,10 @@ pub mod button {
     pub fn edit(ui: &mut Ui) -> bool {
         ui.button(ICON_EDIT).clicked()
     }
+}
+
+// --------------------------------------------------
+
+pub fn request_focus(ctx: &Context, id: Id) {
+    ctx.memory_mut(|mem| mem.request_focus(id));
 }

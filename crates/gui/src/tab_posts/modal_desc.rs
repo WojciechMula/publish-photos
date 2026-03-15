@@ -5,6 +5,7 @@ use crate::gui::add_image;
 use crate::gui::button;
 use crate::gui::icon_en;
 use crate::gui::icon_pl;
+use crate::gui::request_focus;
 use crate::help;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
@@ -18,6 +19,7 @@ use db::PostId;
 use egui::Align;
 use egui::CentralPanel;
 use egui::Context;
+use egui::Id;
 use egui::Key;
 use egui::Layout;
 use egui::ScrollArea;
@@ -35,6 +37,9 @@ pub struct ModalDescription {
     new: Description,
     original: Description,
 
+    pl_text_edit_id: Id,
+    en_text_edit_id: Id,
+
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
 }
@@ -49,6 +54,8 @@ struct Description {
 
 #[derive(Clone)]
 pub enum Message {
+    FocusPolish,
+    FocusEnglish,
     SoftClose,
     SaveAndExit,
     CancelAndExit,
@@ -57,6 +64,8 @@ pub enum Message {
 impl Message {
     pub const fn name(&self) -> &str {
         match self {
+            Self::FocusPolish => unreachable!(),
+            Self::FocusEnglish => unreachable!(),
             Self::SoftClose => help::SOFT_CLOSE,
             Self::SaveAndExit => help::SAVE_AND_EXIT,
             Self::CancelAndExit => unreachable!(),
@@ -80,12 +89,21 @@ impl ModalDescription {
         };
         let new = original.clone();
 
+        let mut queue = MessageQueue::new();
+        if original.en.is_empty() {
+            queue.push_back(Message::FocusEnglish);
+        } else {
+            queue.push_back(Message::FocusPolish);
+        }
+
         Self {
             id,
             new,
             original,
-            queue: MessageQueue::new(),
+            queue,
             keyboard_mapping: Self::create_mapping(),
+            pl_text_edit_id: Id::new((ID_PREFIX, "pl_text_edit_id")),
+            en_text_edit_id: Id::new((ID_PREFIX, "en_text_edit_id")),
         }
     }
 
@@ -97,7 +115,13 @@ impl ModalDescription {
         KeyboardMapping::default().key(Key::Escape, msg(Message::SoftClose))
     }
 
-    fn handle_message(&mut self, msg: Message, style: &Style, tab_queue: &mut TabMessageQueue) {
+    fn handle_message(
+        &mut self,
+        ctx: &Context,
+        msg: Message,
+        style: &Style,
+        tab_queue: &mut TabMessageQueue,
+    ) {
         match msg {
             Message::SoftClose => {
                 if self.is_modified() {
@@ -134,6 +158,12 @@ impl ModalDescription {
                     tab_queue.push_back(msg.into());
                 }
             }
+            Message::FocusPolish => {
+                request_focus(ctx, self.pl_text_edit_id);
+            }
+            Message::FocusEnglish => {
+                request_focus(ctx, self.en_text_edit_id);
+            }
         }
     }
 
@@ -150,7 +180,7 @@ impl ModalDescription {
         tab_queue: &mut TabMessageQueue,
     ) {
         while let Some(msg) = self.queue.pop_front() {
-            self.handle_message(msg, style, tab_queue);
+            self.handle_message(ctx, msg, style, tab_queue);
         }
 
         let post = db.post(&self.id);
@@ -190,6 +220,7 @@ impl ModalDescription {
                     icon_pl(ui);
 
                     let edit = TextEdit::multiline(&mut self.new.pl)
+                        .id(self.pl_text_edit_id)
                         .hint_text("polski opis")
                         .desired_width(f32::INFINITY);
 
@@ -200,6 +231,7 @@ impl ModalDescription {
                     icon_en(ui);
 
                     let edit = TextEdit::multiline(&mut self.new.en)
+                        .id(self.en_text_edit_id)
                         .hint_text("English description")
                         .desired_width(f32::INFINITY);
 
