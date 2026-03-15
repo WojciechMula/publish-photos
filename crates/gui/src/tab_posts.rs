@@ -166,6 +166,7 @@ pub enum Message {
     InlineSaveChange {
         id: PostId,
         field: Field,
+        by_keyboard: bool,
     },
     InlineDiscardChanges {
         id: PostId,
@@ -449,7 +450,7 @@ impl TabPosts {
                 self.modal_window = ModalWindow::ModalSpecies(Box::new(window));
             }
             Message::InlineEditStart { id, field } => {
-                let post = db.post_mut(&id);
+                let post = db.post(&id);
                 let key = (post.id, field);
                 let id = Id::new(("inline-editor", id, field));
 
@@ -469,7 +470,11 @@ impl TabPosts {
 
                 editor.text = value;
             }
-            Message::InlineSaveChange { id, field } => {
+            Message::InlineSaveChange {
+                id,
+                field,
+                by_keyboard,
+            } => {
                 let editor = self.inline_editors.remove(&(id, field)).unwrap();
 
                 match field {
@@ -484,6 +489,28 @@ impl TabPosts {
 
                         let msg = EditDetails::SetEnglish(id, val);
                         main_queue.push_back(msg.into());
+                    }
+                }
+
+                if by_keyboard {
+                    let post = db.post(&id);
+                    match field {
+                        Field::Polish => {
+                            if post.en.is_empty() {
+                                queue.push_back(Message::InlineEditStart {
+                                    id,
+                                    field: Field::English,
+                                });
+                            }
+                        }
+                        Field::English => {
+                            if post.pl.is_empty() {
+                                queue.push_back(Message::InlineEditStart {
+                                    id,
+                                    field: Field::Polish,
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -1366,14 +1393,22 @@ fn inline_edit(
 
         if resp.lost_focus() {
             if ui.input(|input| input.key_pressed(Key::Enter)) {
-                result = Some(Message::InlineSaveChange { id, field });
+                result = Some(Message::InlineSaveChange {
+                    id,
+                    field,
+                    by_keyboard: true,
+                });
             } else if !changed {
                 result = Some(Message::InlineDiscardChanges { id, field });
             }
         }
 
         if ui.button(ICON_CHECK).clicked() {
-            result = Some(Message::InlineSaveChange { id, field });
+            result = Some(Message::InlineSaveChange {
+                id,
+                field,
+                by_keyboard: false,
+            });
         }
         if ui.button(ICON_CLOSE).clicked() {
             result = Some(Message::InlineDiscardChanges { id, field });
