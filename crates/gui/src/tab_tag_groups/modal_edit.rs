@@ -19,6 +19,7 @@ use db::TagGroup;
 use egui::Align;
 use egui::CentralPanel;
 use egui::Context;
+use egui::Id;
 use egui::Key;
 use egui::Layout;
 use egui::TopBottomPanel;
@@ -94,7 +95,7 @@ impl Default for ModalEdit {
     fn default() -> Self {
         Self {
             title: String::new(),
-            select_tags: SelectTags::new(),
+            select_tags: SelectTags::new(Id::new(ID_PREFIX)),
             name: String::new(),
             original: None,
             queue: MessageQueue::new(),
@@ -116,7 +117,7 @@ impl ModalEdit {
     pub fn edit(group: &TagGroup) -> Self {
         Self {
             title: "Editing group".to_owned(),
-            select_tags: SelectTags::edit(&group.tags),
+            select_tags: SelectTags::edit(Id::new(ID_PREFIX), &group.tags),
             name: group.name.clone(),
             original: Some(group.clone()),
             ..Default::default()

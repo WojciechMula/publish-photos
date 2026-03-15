@@ -8,6 +8,7 @@ use db::TranslatedTag;
 use db::TranslatedTagsView;
 use egui::Align;
 use egui::Button;
+use egui::Id;
 use egui::Key;
 use egui::Layout;
 use egui::Popup;
@@ -16,12 +17,12 @@ use egui::PopupCloseBehavior;
 use egui::RichText;
 use egui::Sense;
 use egui::SetOpenCommand;
+use egui::TextEdit;
 use egui::Ui;
 
 use egui_material_icons::icons::ICON_ADD;
 use egui_material_icons::icons::ICON_BACKSPACE;
 
-#[derive(Default)]
 pub struct SelectTags {
     new_tag: String,
     show_pl: bool,
@@ -30,6 +31,7 @@ pub struct SelectTags {
     filtered: Vec<TranslatedTagGroup>,
     autocompletion: Vec<TranslatedTag>,
     undo: Vec<Action>,
+    pub text_edit_id: Id,
 }
 
 pub struct TranslatedTagGroup {
@@ -54,14 +56,23 @@ impl From<Action> for SelectTagsAction {
 }
 
 impl SelectTags {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(id: Id) -> Self {
+        Self {
+            new_tag: String::new(),
+            show_pl: true,
+            tags: TagList::default(),
+            available: Vec::new(),
+            filtered: Vec::new(),
+            autocompletion: Vec::new(),
+            undo: Vec::new(),
+            text_edit_id: Id::new((id, "select-tag")),
+        }
     }
 
-    pub fn edit(tags: &TagList) -> Self {
+    pub fn edit(id: Id, tags: &TagList) -> Self {
         Self {
             tags: tags.clone(),
-            ..Default::default()
+            ..Self::new(id)
         }
     }
 
@@ -106,7 +117,8 @@ impl SelectTags {
                 col1.horizontal(|ui| {
                     let mut tag = self.new_tag.clone();
 
-                    let resp = ui.text_edit_singleline(&mut tag);
+                    let edit = TextEdit::singleline(&mut tag).id(self.text_edit_id);
+                    let resp = ui.add(edit);
                     if resp.lost_focus() {
                         if ui.input(|input| input.key_pressed(Key::Enter)) {
                             result = Some(SelectTagsAction::AddNew);

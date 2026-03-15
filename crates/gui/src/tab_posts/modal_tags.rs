@@ -3,6 +3,7 @@ use crate::confirm::Confirm;
 use crate::confirm::ConfirmOption;
 use crate::gui::add_image;
 use crate::gui::button;
+use crate::gui::request_focus;
 use crate::help;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
@@ -25,6 +26,7 @@ use db::TranslatedTagsView;
 use egui::CentralPanel;
 use egui::CollapsingHeader;
 use egui::Context;
+use egui::Id;
 use egui::Key;
 use egui::Label;
 use egui::Layout;
@@ -66,6 +68,7 @@ pub enum Message {
     CancelAndExit,
     ToggleTagGroups,
     ToggleFrequentTags,
+    FocusEditBox,
 }
 
 impl Message {
@@ -78,6 +81,7 @@ impl Message {
             Self::CancelAndExit => unreachable!(),
             Self::ToggleTagGroups => "show/hide list of tag groups",
             Self::ToggleFrequentTags => "show/hide list frequent tags",
+            Self::FocusEditBox => unreachable!(),
         }
     }
 }
@@ -105,7 +109,7 @@ impl ModalTags {
         let post = db.post(&id);
         let original = post.tags.clone();
 
-        let mut select_tags = SelectTags::edit(&post.tags);
+        let mut select_tags = SelectTags::edit(Id::new(ID_PREFIX), &post.tags);
 
         let by_date = db.get_tags_view(&Selector::ByDate(post.date)).clone();
         let by_month = &db.get_tags_view(&Selector::ByMonth(post.date.month)).0;
@@ -121,6 +125,9 @@ impl ModalTags {
             TranslatedTagGroup::from_tags_view("All", TranslatedTagsView(all)),
         ];
 
+        let mut queue = MessageQueue::new();
+        queue.push_back(Message::FocusEditBox);
+
         Self {
             id,
             original,
@@ -130,7 +137,7 @@ impl ModalTags {
             frequent_tags_opened: true,
             tag_groups_opened_flag: Some(true),
             frequent_tags_opened_flag: Some(true),
-            queue: MessageQueue::new(),
+            queue,
             keyboard_mapping: Self::create_mapping(),
         }
     }
@@ -144,11 +151,8 @@ impl ModalTags {
         tab_queue: &mut TabMessageQueue,
     ) {
         while let Some(message) = self.queue.pop_front() {
-            self.handle_message(style, db, message, tab_queue);
+            self.handle_message(ctx, style, db, message, tab_queue);
         }
-
-        //self.show_pl =
-        //    ctx.data_mut(|data| data.get_persisted(self.show_pl_id).unwrap_or(self.show_pl));
 
         let mut queue = MessageQueue::new();
 
@@ -178,6 +182,7 @@ impl ModalTags {
 
     fn handle_message(
         &mut self,
+        ctx: &Context,
         style: &Style,
         db: &Database,
         message: Message,
@@ -231,6 +236,9 @@ impl ModalTags {
             Message::ToggleFrequentTags => {
                 self.frequent_tags_opened = !self.frequent_tags_opened;
                 self.frequent_tags_opened_flag = Some(self.frequent_tags_opened);
+            }
+            Message::FocusEditBox => {
+                request_focus(ctx, self.select_tags.text_edit_id);
             }
         }
     }
