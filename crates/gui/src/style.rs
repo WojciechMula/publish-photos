@@ -15,6 +15,8 @@ pub struct Style {
     pub tag_hovered_bg: Color32,
     pub tag_hovered_fg: Color32,
     pub tag_highlight_fg: Color32,
+    pub tag_disabled_bg: Color32,
+    pub tag_disabled_fg: Color32,
 
     pub image: ImageStyle,
     pub button: ButtonStyle,
@@ -69,6 +71,8 @@ impl Default for Style {
             tag_hovered_bg: crate::colors::LIGHT_STEEL_BLUE,
             tag_hovered_fg: Color32::BLACK,
             tag_highlight_fg: crate::colors::RED1,
+            tag_disabled_bg: crate::colors::GRAY50,
+            tag_disabled_fg: crate::colors::GRAY30,
             hovered_frame: crate::colors::DARK_SLATE_GRAY,
             selected_post: crate::colors::DARK_SLATE_BLUE,
             published_post: crate::colors::GRAY30,

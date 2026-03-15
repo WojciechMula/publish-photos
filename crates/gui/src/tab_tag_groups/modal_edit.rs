@@ -34,6 +34,7 @@ pub struct ModalEdit {
     title: String,
 
     name: String,
+    enabled: bool,
     select_tags: SelectTags,
     original: Option<TagGroup>,
 
@@ -55,6 +56,7 @@ enum ModalState {
 pub enum Message {
     TagAction(SelectTagsAction),
     SetName(String),
+    SetEnabled(bool),
     SaveAndExit,
     SoftClose,
     Undo,
@@ -97,6 +99,7 @@ impl Default for ModalEdit {
             title: String::new(),
             select_tags: SelectTags::new(Id::new(ID_PREFIX)),
             name: String::new(),
+            enabled: true,
             original: None,
             queue: MessageQueue::new(),
             state: ModalState::NoChanges,
@@ -119,6 +122,7 @@ impl ModalEdit {
             title: "Editing group".to_owned(),
             select_tags: SelectTags::edit(Id::new(ID_PREFIX), &group.tags),
             name: group.name.clone(),
+            enabled: group.enabled,
             original: Some(group.clone()),
             ..Default::default()
         }
@@ -183,6 +187,10 @@ impl ModalEdit {
                     self.validate(db);
                 }
             }
+            Message::SetEnabled(flag) => {
+                self.enabled = flag;
+                self.validate(db);
+            }
             Message::SaveAndExit => {
                 assert!(matches!(self.state, ModalState::Modified));
                 if self.original.is_some() {
@@ -232,6 +240,7 @@ impl ModalEdit {
                 .unwrap_or_default(),
             name: self.name.clone(),
             tags: self.select_tags.tags.clone(),
+            enabled: self.enabled,
         }
     }
 
@@ -316,6 +325,18 @@ impl ModalEdit {
             }
         });
 
+        ui.horizontal(|ui| {
+            ui.horizontal(|ui| {
+                ui.set_min_width(self.label_width);
+                ui.label("");
+            });
+
+            let mut flag = self.enabled;
+            if ui.checkbox(&mut flag, "enabled").changed() {
+                queue.push_back(Message::SetEnabled(flag));
+            }
+        });
+
         ui.horizontal_wrapped(|ui| {
             ui.horizontal(|ui| {
                 ui.set_min_width(self.label_width);
@@ -346,7 +367,9 @@ impl ModalEdit {
 
     fn is_modified(&self) -> bool {
         if let Some(original) = &self.original {
-            self.name != original.name || self.select_tags.tags != original.tags
+            self.name != original.name
+                || self.select_tags.tags != original.tags
+                || self.enabled != original.enabled
         } else {
             !self.name.is_empty() || !self.select_tags.tags.is_empty()
         }

@@ -1,6 +1,7 @@
 use crate::application::Message as MainMessage;
 use crate::application::MessageQueue as MainMessageQueue;
 use crate::confirm::Confirm;
+use crate::gui::disabled_tag;
 use crate::gui::tag;
 use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
@@ -237,11 +238,19 @@ impl TabTagGroups {
             if ui.add_enabled(!is_last, button).clicked() {
                 queue.push_back(Message::MoveDown(group.id));
             }
+
+            if !group.enabled {
+                ui.label("disabled");
+            }
         });
 
         ui.horizontal_wrapped(|ui| {
             for string in group.tags.iter() {
-                ui.add(tag(string, style));
+                if group.enabled {
+                    ui.add(tag(string, style));
+                } else {
+                    ui.add(disabled_tag(string, style));
+                }
             }
         });
     }

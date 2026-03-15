@@ -348,7 +348,7 @@ impl ModalTags {
             .default_open(true)
             .open(self.tag_groups_opened_flag)
             .show(ui, |ui| {
-                for group in db.tag_groups.iter() {
+                for group in db.tag_groups.iter().filter(|group| group.enabled) {
                     ui.separator();
                     ui.horizontal(|ui| {
                         ui.heading(&group.name);

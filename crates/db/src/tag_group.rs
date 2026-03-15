@@ -80,6 +80,7 @@ impl TagGroupList {
 pub struct TagGroup {
     pub id: TagGroupId,
     pub name: String,
+    pub enabled: bool,
     pub tags: TagList,
 }
 
@@ -87,9 +88,10 @@ impl TagGroup {
     pub fn update(&mut self, other: Self) -> bool {
         assert_eq!(self.id, other.id);
 
-        if self.name != other.name || self.tags != other.tags {
+        if self.name != other.name || self.tags != other.tags || self.enabled != other.enabled {
             self.name = other.name;
             self.tags = other.tags;
+            self.enabled = other.enabled;
 
             true
         } else {

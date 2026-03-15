@@ -207,6 +207,16 @@ pub fn tag(tag: &str, style: &Style) -> impl Widget {
     widget
 }
 
+pub fn disabled_tag(tag: &str, style: &Style) -> impl Widget {
+    let mut widget = CustomLabel::new(tag.to_owned());
+    widget.padding = 3.0;
+    widget.rounding = 6.0;
+    widget.color = style.tag_disabled_fg;
+    widget.background = style.tag_disabled_bg;
+
+    widget
+}
+
 // --------------------------------------------------
 
 pub fn text_size(s: &str, ui: &mut Ui) -> Vec2 {
