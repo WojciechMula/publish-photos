@@ -142,8 +142,10 @@ impl ModalEdit {
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        self.select_tags.init(ctx);
+
         while let Some(msg) = self.queue.pop_front() {
-            self.handle_message(style, db, msg, tab_queue);
+            self.handle_message(ctx, style, db, msg, tab_queue);
         }
 
         db.refresh_caches();
@@ -164,6 +166,7 @@ impl ModalEdit {
 
     fn handle_message(
         &mut self,
+        ctx: &Context,
         style: &Style,
         db: &mut Database,
         msg: Message,
@@ -171,7 +174,7 @@ impl ModalEdit {
     ) {
         match msg {
             Message::TagAction(action) => {
-                self.select_tags.update(action, db);
+                self.select_tags.update(ctx, action, db);
                 self.validate(db);
             }
             Message::SetName(string) => {

@@ -150,6 +150,8 @@ impl ModalTags {
         db: &Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        self.select_tags.init(ctx);
+
         while let Some(message) = self.queue.pop_front() {
             self.handle_message(ctx, style, db, message, tab_queue);
         }
@@ -190,7 +192,7 @@ impl ModalTags {
     ) {
         match message {
             Message::TagAction(action) => {
-                self.select_tags.update(action, db);
+                self.select_tags.update(ctx, action, db);
             }
             Message::Undo => {
                 self.queue.push_back(SelectTagsAction::Undo.into());

@@ -8,6 +8,7 @@ use db::TranslatedTag;
 use db::TranslatedTagsView;
 use egui::Align;
 use egui::Button;
+use egui::Context;
 use egui::Id;
 use egui::Key;
 use egui::Layout;
@@ -32,6 +33,8 @@ pub struct SelectTags {
     autocompletion: Vec<TranslatedTag>,
     undo: Vec<Action>,
     pub text_edit_id: Id,
+    show_pl_translations: Id,
+    first_run: bool,
 }
 
 pub struct TranslatedTagGroup {
@@ -57,15 +60,19 @@ impl From<Action> for SelectTagsAction {
 
 impl SelectTags {
     pub fn new(id: Id) -> Self {
+        let show_pl_translations = Id::new("show-pl-translations");
+
         Self {
             new_tag: String::new(),
-            show_pl: true,
+            show_pl: false,
             tags: TagList::default(),
             available: Vec::new(),
             filtered: Vec::new(),
             autocompletion: Vec::new(),
             undo: Vec::new(),
             text_edit_id: Id::new((id, "select-tag")),
+            show_pl_translations,
+            first_run: true,
         }
     }
 
@@ -76,7 +83,20 @@ impl SelectTags {
         }
     }
 
-    pub fn update(&mut self, action: SelectTagsAction, db: &Database) {
+    pub fn init(&mut self, ctx: &Context) {
+        if !self.first_run {
+            return;
+        }
+
+        self.show_pl = ctx.data_mut(|data| {
+            data.get_persisted(self.show_pl_translations)
+                .unwrap_or(self.show_pl)
+        });
+
+        self.first_run = false;
+    }
+
+    pub fn update(&mut self, ctx: &Context, action: SelectTagsAction, db: &Database) {
         match action {
             SelectTagsAction::Action(action) => {
                 if let Some(action) = action.apply(&mut self.tags, db) {
@@ -105,7 +125,7 @@ impl SelectTags {
             SelectTagsAction::ShowPolishTranslations(flag) => {
                 self.show_pl = flag;
                 self.update_filters();
-                //ctx.data_mut(|data| data.insert_persisted(self.show_pl_id, self.show_pl));
+                ctx.data_mut(|data| data.insert_persisted(self.show_pl_translations, flag));
             }
         }
     }
