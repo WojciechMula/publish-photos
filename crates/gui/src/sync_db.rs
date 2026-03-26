@@ -3,6 +3,7 @@ use db::Database;
 use db::Date;
 use db::FileMetadata;
 use db::Post;
+use db::PublishedState;
 use log::info;
 use std::collections::BTreeSet;
 use std::fs::read_dir;
@@ -16,18 +17,54 @@ pub fn perform(
     let all_files = collect_paths(rootdir)?;
     let mut managed_files = collect_managed_paths(db);
 
+    mark_as_published(rootdir, &all_files, db)?;
     let mut count = 0;
+
     for path in all_files {
         if !managed_files.remove(&path) {
             info!("importing {}", path.display());
             let mut post = mk_post(&path);
-            post.published = is_published(rootdir, &path);
+            if is_published(rootdir, &path) {
+                post.published = PublishedState::Published;
+            }
             db.posts.push(post);
             count += 1;
         }
     }
 
     Ok(count)
+}
+
+fn mark_as_published(
+    rootdir: &Path,
+    all_files: &BTreeSet<PathBuf>,
+    db: &mut Database,
+) -> Result<(), Box<dyn std::error::Error + 'static>> {
+    let mut marked_as_published = BTreeSet::<PathBuf>::new();
+    for path in all_files {
+        if is_published(rootdir, path) {
+            marked_as_published.insert(path.to_path_buf());
+        }
+    }
+
+    for post in db
+        .posts
+        .iter_mut()
+        .filter(|post| !post.published.as_bool())
+        .filter(|post| post.files.len() == 1)
+    {
+        let metadata = &post.files[0];
+        if marked_as_published.remove(&metadata.rel_path) {
+            log::info!(
+                "{} is marked as published, fixing",
+                metadata.rel_path.display()
+            );
+            post.published = PublishedState::Published;
+            db.current_version.photos += 1;
+        }
+    }
+
+    Ok(())
 }
 
 fn is_published(rootdir: &Path, path: &Path) -> bool {
