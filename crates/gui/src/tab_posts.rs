@@ -963,7 +963,7 @@ impl TabPosts {
             queue.push_back(EditDetails::Undo(post.id).into());
         }
 
-        let enabled = !post.published;
+        let enabled = !post.published.as_bool();
         let button = Button::new(fmt!("{ICON_DIALOGS} Publish post"))
             .shortcut_text(format_shortcut(shortcut::PUBLISH));
         if ui.add_enabled(enabled, button).clicked() {
@@ -1017,7 +1017,7 @@ impl TabPosts {
             );
         }
 
-        if post.published {
+        if post.published.as_bool() {
             add_overlay(
                 ui,
                 &resp,
@@ -1366,7 +1366,7 @@ impl TabPosts {
             Some(style.selected_post)
         } else if self.hovered == Some(post.id) {
             Some(style.hovered_frame)
-        } else if post.published {
+        } else if post.published.as_bool() {
             Some(style.published_post)
         } else {
             None

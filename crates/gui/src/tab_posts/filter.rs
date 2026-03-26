@@ -197,8 +197,8 @@ impl ImageState {
     fn matches(&self, post: &Post) -> bool {
         match self {
             Self::Any => true,
-            Self::Published => post.published,
-            Self::Unpublished => !post.published,
+            Self::Published => post.published.as_bool(),
+            Self::Unpublished => !post.published.as_bool(),
         }
     }
 }

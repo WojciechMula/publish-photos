@@ -21,6 +21,7 @@ use const_format::formatcp as fmt;
 use db::edit_details::EditDetails;
 use db::Database;
 use db::PostId;
+use db::PublishedState;
 use eframe::egui::Context;
 use egui::style::ScrollAnimation;
 use egui::Align;
@@ -289,7 +290,7 @@ impl Application {
                 if let Some(sm_manager) = self.sm_manager.as_mut() {
                     sm_manager.publish(&id, &self.db);
                 } else {
-                    let action = EditDetails::SetPublished(id);
+                    let action = EditDetails::SetPublished(id, PublishedState::timestamp_now());
                     db::edit_details::apply(action, &mut self.db);
                 }
             }

@@ -3,11 +3,11 @@ use crate::Latin;
 use crate::Post;
 use crate::PostId;
 use crate::TagList;
+use crate::post::PublishedState;
 
 #[derive(Clone)]
 pub enum EditDetails {
-    SetPublished(PostId),
-    UnsetPublished(PostId),
+    SetPublished(PostId, PublishedState),
     Example(PostId, bool),
     SetPolish(PostId, String),
     SetEnglish(PostId, String),
@@ -19,8 +19,7 @@ pub enum EditDetails {
 impl EditDetails {
     const fn id(&self) -> PostId {
         match self {
-            Self::SetPublished(id)
-            | Self::UnsetPublished(id)
+            Self::SetPublished(id, _)
             | Self::Example(id, _)
             | Self::SetPolish(id, _)
             | Self::SetEnglish(id, _)
@@ -60,20 +59,12 @@ pub fn apply(action: EditDetails, db: &mut Database) {
 pub fn apply_aux(action: EditDetails, post: &mut Post) -> Option<EditDetails> {
     match action {
         EditDetails::Undo(_) => unreachable!(),
-        EditDetails::SetPublished(id) => {
-            if !post.published {
-                post.published = true;
+        EditDetails::SetPublished(id, new_state) => {
+            if post.published != new_state {
+                let prev = post.published.clone();
+                post.published = new_state;
 
-                Some(EditDetails::UnsetPublished(id))
-            } else {
-                None
-            }
-        }
-        EditDetails::UnsetPublished(id) => {
-            if post.published {
-                post.published = false;
-
-                Some(EditDetails::SetPublished(id))
+                Some(EditDetails::SetPublished(id, prev))
             } else {
                 None
             }

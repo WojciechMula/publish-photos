@@ -8,6 +8,7 @@ use db::Database;
 use db::FileMetadata;
 use db::Post;
 use db::PostId;
+use db::PublishedState;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::mpsc::TryRecvError;
@@ -47,7 +48,7 @@ impl SocialMediaPublisher {
         }
 
         let post = db.post(id);
-        if post.published {
+        if post.published.as_bool() {
             return;
         }
 
@@ -148,7 +149,7 @@ impl SocialMediaPublisher {
                 }
                 PublishEvent::Completed => {
                     let post = db.post_mut(id);
-                    post.published = true;
+                    post.published = PublishedState::timestamp_now();
                     db.current_version.posts += 1;
                     db.current_version.photos += 1;
                     entry.active = false;

@@ -14,6 +14,7 @@ pub use date::Day;
 pub use date::Month;
 pub use post::FileMetadata;
 pub use post::Post;
+pub use post::PublishedState;
 pub use post::SocialMediaState;
 pub use post::render_text;
 pub use search_parts::SearchParts;
@@ -567,7 +568,7 @@ pub struct PictureView {
 fn update_view(view: &mut PictureView, picture: &Post) {
     view.all.push(picture.id);
 
-    if picture.published {
+    if picture.published.as_bool() {
         view.published.push(picture.id);
     } else {
         view.unpublished.push(picture.id);

@@ -6,6 +6,7 @@ use crate::PostId;
 use crate::SearchParts;
 use crate::TagList;
 use crate::edit_details::EditDetails;
+use chrono::Local;
 use jpeg::ImageSize;
 use serde::Deserialize;
 use serde::Serialize;
@@ -13,7 +14,7 @@ use std::path::PathBuf;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Post {
-    pub published: bool,
+    pub published: PublishedState,
     pub files: Vec<FileMetadata>,
     pub date: Date,
     #[serde(default)]
@@ -194,5 +195,23 @@ impl Builder {
 
     fn is_empty(&self) -> bool {
         self.buf.is_empty()
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PublishedState {
+    #[default]
+    None,
+    Published,
+    Timestamp(LocalDateTime),
+}
+
+impl PublishedState {
+    pub fn timestamp_now() -> Self {
+        Self::Timestamp(Local::now())
+    }
+
+    pub const fn as_bool(&self) -> bool {
+        matches!(self, Self::Published | Self::Timestamp(_))
     }
 }

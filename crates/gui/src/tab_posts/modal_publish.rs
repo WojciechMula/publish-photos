@@ -14,6 +14,7 @@ use db::edit_details::EditDetails;
 use db::Database;
 use db::Post;
 use db::PostId;
+use db::PublishedState;
 use egui::vec2;
 use egui::Align;
 use egui::Button;
@@ -218,7 +219,9 @@ impl ModalPublish {
                 }
             }
             Message::Publish => {
-                tab_queue.push_back(EditDetails::SetPublished(self.id).into());
+                tab_queue.push_back(
+                    EditDetails::SetPublished(self.id, PublishedState::timestamp_now()).into(),
+                );
                 tab_queue.push_back(TabMessage::CloseModal);
             }
             Message::PublishOnSocialMedia => {
