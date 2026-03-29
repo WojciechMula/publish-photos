@@ -174,6 +174,7 @@ pub enum Message {
     },
     EditDetails(EditDetails),
     PasteTags(PostId, String),
+    PasteSpecies(PostId, String),
     StartGrouping(PostId),
     AbortGrouping,
     AddToGroup(PostId),
@@ -231,6 +232,7 @@ impl Message {
             Self::InlineDiscardChanges { .. } => unreachable!(),
             Self::EditDetails(_) => unreachable!(),
             Self::PasteTags(..) => unreachable!(),
+            Self::PasteSpecies(..) => unreachable!(),
             Self::StartGrouping(_) => unreachable!(),
             Self::AbortGrouping => unreachable!(),
             Self::AddToGroup(_) => unreachable!(),
@@ -432,6 +434,11 @@ impl TabPosts {
                     tags.add(tag.to_owned());
                 }
                 let edit_details = EditDetails::SetTags(post_id, tags);
+
+                main_queue.push_back(edit_details.into());
+            }
+            Message::PasteSpecies(post_id, latin) => {
+                let edit_details = EditDetails::SetSpecies(post_id, Some(latin.into()));
 
                 main_queue.push_back(edit_details.into());
             }
@@ -1119,7 +1126,7 @@ impl TabPosts {
                         ui.label("species");
                     });
 
-                    self.show_species(ui, post, db, queue);
+                    self.show_species(ui, post, db, queue, clipboard);
                 });
 
                 if !post.social_media.facebook_post_id.is_empty() {
@@ -1265,7 +1272,14 @@ impl TabPosts {
         }
     }
 
-    fn show_species(&self, ui: &mut Ui, post: &Post, db: &Database, queue: &mut MessageQueue) {
+    fn show_species(
+        &self,
+        ui: &mut Ui,
+        post: &Post,
+        db: &Database,
+        queue: &mut MessageQueue,
+        clipboard: &Clipboard,
+    ) {
         ui.horizontal(|ui| {
             if ui.button(ICON_EDIT).clicked() {
                 queue.push_back(Message::EditSpecies(post.id));
@@ -1290,7 +1304,29 @@ impl TabPosts {
                     }
                 }
             } else {
-                ui.label("—");
+                if clipboard.available(ClipboardKind::Species) {
+                    let entries = clipboard.get(ClipboardKind::Species);
+                    let resp = button::paste(ui, true);
+                    if resp.clicked() {
+                        queue.push_back(Message::PasteSpecies(
+                            post.id,
+                            entries.last().unwrap().clone(),
+                        ));
+                    }
+
+                    if entries.len() > 1 {
+                        resp.context_menu(|ui| {
+                            for entry in entries.iter().rev() {
+                                let button = Button::new(entry).truncate();
+                                if ui.add(button).clicked() {
+                                    queue.push_back(Message::PasteSpecies(post.id, entry.clone()));
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    ui.label("—");
+                }
             }
         });
     }
