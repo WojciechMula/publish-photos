@@ -1,5 +1,4 @@
 use crate::application::Message as MainMessage;
-use crate::application::SocialMedia;
 use crate::clipboard::ClipboardKind;
 use crate::gui::add_image;
 use crate::gui::button;
@@ -35,16 +34,9 @@ const ID_PREFIX: &str = "publish-image";
 pub struct ModalPublish {
     id: PostId,
     entries: Vec<Entry>,
-    mode: Mode,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
-}
-
-enum Mode {
-    MarkAsPublished,
-    PublishOnSocialMedia,
-    TooManyTags(String),
 }
 
 type MessageQueue = VecDeque<Message>;
@@ -91,7 +83,7 @@ impl Message {
 }
 
 impl ModalPublish {
-    pub fn new(sm: &SocialMedia, id: PostId, db: &Database) -> Self {
+    pub fn new(id: PostId, db: &Database) -> Self {
         let post = db.post(&id);
 
         let text = render_text(post, db);
@@ -109,24 +101,11 @@ impl ModalPublish {
             });
         }
 
-        let mode = if sm.enabled {
-            let cnt = post.tags.len();
-            let max = sm.max_tags;
-            if cnt > max {
-                Mode::TooManyTags(format!("The number of tags {cnt} exceedes maximum {max}"))
-            } else {
-                Mode::PublishOnSocialMedia
-            }
-        } else {
-            Mode::MarkAsPublished
-        };
-
         Self {
             id,
             entries,
             queue: MessageQueue::new(),
             keyboard_mapping: Self::create_mapping(),
-            mode,
         }
     }
 
@@ -265,27 +244,11 @@ impl ModalPublish {
 
         TopBottomPanel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ctx, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                match &self.mode {
-                    Mode::MarkAsPublished => {
-                        let button = Button::new(fmt!("{ICON_PUBLISH} Mark as published"))
-                            .fill(style.button.publish);
+                let button = Button::new(fmt!("{ICON_PUBLISH} Mark as published"))
+                    .fill(style.button.publish);
 
-                        if ui.add(button).clicked() {
-                            self.queue.push_back(Message::Publish);
-                        }
-                    }
-                    Mode::PublishOnSocialMedia => {
-                        let button = Button::new(fmt!("{ICON_PUBLISH} Publish on social media"))
-                            .fill(style.button.publish);
-
-                        if ui.add(button).clicked() {
-                            self.queue.push_back(Message::PublishOnSocialMedia);
-                        }
-                    }
-                    Mode::TooManyTags(msg) => {
-                        let color = ui.visuals().error_fg_color;
-                        ui.colored_label(color, msg);
-                    }
+                if ui.add(button).clicked() {
+                    self.queue.push_back(Message::Publish);
                 }
 
                 if button::cancel(ui) {

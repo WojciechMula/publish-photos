@@ -9,7 +9,6 @@ mod image_cache;
 mod image_counter;
 mod keyboard;
 mod modal;
-mod modal_errors;
 mod modal_keyboard;
 mod modal_settings;
 mod search_box;
