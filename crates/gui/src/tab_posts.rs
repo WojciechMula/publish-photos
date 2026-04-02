@@ -1076,6 +1076,10 @@ impl TabPosts {
                         } else {
                             ui.heading(label);
                         };
+                        if button::copy(ui, true) {
+                            let path = post.files[0].full_path.display().to_string();
+                            queue.push_back(Message::Copy(ClipboardKind::Generic, path));
+                        }
                     });
                 });
 
