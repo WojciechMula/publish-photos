@@ -326,6 +326,10 @@ impl ModalEdit {
                     if let Some(val) = edit(ui, &self.new.wikipedia_pl) {
                         queue.push_back(Message::ChangeWikipediaPl(val));
                     }
+
+                    if is_hyperlink(&self.new.wikipedia_pl) {
+                        ui.hyperlink_to("visit", &self.new.wikipedia_pl);
+                    }
                 });
             });
             ui.end_row();
@@ -340,6 +344,10 @@ impl ModalEdit {
                 ui.horizontal(|ui| {
                     if let Some(val) = edit(ui, &self.new.wikipedia_en) {
                         queue.push_back(Message::ChangeWikipediaEn(val));
+                    }
+
+                    if is_hyperlink(&self.new.wikipedia_en) {
+                        ui.hyperlink_to("visit", &self.new.wikipedia_en);
                     }
                 });
             });
@@ -418,4 +426,16 @@ fn edit(ui: &mut Ui, curr: &String) -> Option<String> {
     } else {
         None
     }
+}
+
+fn is_hyperlink(url: &str) -> bool {
+    if let Some(rest) = url.strip_prefix("http://") {
+        return !rest.is_empty();
+    }
+
+    if let Some(rest) = url.strip_prefix("https://") {
+        return !rest.is_empty();
+    }
+
+    false
 }
