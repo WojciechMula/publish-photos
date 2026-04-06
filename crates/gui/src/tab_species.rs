@@ -278,7 +278,7 @@ impl TabSpecies {
 
             ui.separator();
 
-            if ui.button("➕AddNew new").clicked() {
+            if ui.button("➕Add new").clicked() {
                 queue.push_back(Message::AddNew);
             }
 

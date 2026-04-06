@@ -1307,7 +1307,9 @@ impl TabPosts {
             } else {
                 if clipboard.available(ClipboardKind::Species) {
                     let entries = clipboard.get(ClipboardKind::Species);
-                    let resp = button::paste(ui, true);
+                    let resp = button::paste(ui, true).on_hover_ui(|ui| {
+                        ui.label(entries.last().unwrap());
+                    });
                     if resp.clicked() {
                         queue.push_back(Message::PasteSpecies(
                             post.id,
