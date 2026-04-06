@@ -13,7 +13,14 @@ pub enum EditDetails {
     SetEnglish(PostId, String),
     SetTags(PostId, TagList),
     SetSpecies(PostId, Option<Latin>),
+    SetSocialMediaLink(PostId, String, SocialMediaLink),
     Undo(PostId),
+}
+
+#[derive(Clone)]
+pub enum SocialMediaLink {
+    Facebook,
+    Instagram,
 }
 
 impl EditDetails {
@@ -25,6 +32,7 @@ impl EditDetails {
             | Self::SetEnglish(id, _)
             | Self::SetTags(id, _)
             | Self::SetSpecies(id, _)
+            | Self::SetSocialMediaLink(id, _, _)
             | Self::Undo(id) => *id,
         }
     }
@@ -115,6 +123,24 @@ pub fn apply_aux(action: EditDetails, post: &mut Post) -> Option<EditDetails> {
                 post.tags = tags;
 
                 Some(EditDetails::SetTags(id, prev))
+            } else {
+                None
+            }
+        }
+        EditDetails::SetSocialMediaLink(id, url, sml) => {
+            let prev = match sml {
+                SocialMediaLink::Facebook => &post.social_media.facebook_url,
+                SocialMediaLink::Instagram => &post.social_media.instagram_url,
+            };
+
+            if url != *prev {
+                let prev = prev.clone();
+                match sml {
+                    SocialMediaLink::Facebook => post.social_media.facebook_url = url,
+                    SocialMediaLink::Instagram => post.social_media.instagram_url = url,
+                };
+
+                Some(EditDetails::SetSocialMediaLink(id, prev, sml))
             } else {
                 None
             }

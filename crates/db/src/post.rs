@@ -63,8 +63,6 @@ impl Post {
 pub struct FileMetadata {
     pub rel_path: PathBuf,
     pub image_size: Option<ImageSize>,
-    pub facebook_id: String,
-    pub instagram_id: String,
 
     #[serde(skip)]
     pub uri: String,
@@ -75,23 +73,8 @@ pub struct FileMetadata {
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct SocialMediaState {
-    pub facebook_post_id: String,
-    pub instagram_post_id: String,
-
-    #[serde(default)]
-    pub instagram_carousel_id: String,
-    #[serde(default)]
-    pub facebook_added_at: Option<LocalDateTime>,
-    #[serde(default)]
-    pub instagram_added_at: Option<LocalDateTime>,
-    #[serde(default)]
-    pub instagram_permalink: String,
-}
-
-impl SocialMediaState {
-    pub fn facebook_url(&self) -> String {
-        format!("https://facebook.com/{}", self.facebook_post_id)
-    }
+    pub facebook_url: String,
+    pub instagram_url: String,
 }
 
 // --------------------------------------------------

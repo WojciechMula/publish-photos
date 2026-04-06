@@ -14,6 +14,7 @@ use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
 use const_format::formatcp as fmt;
 use db::edit_details::EditDetails;
+use db::edit_details::SocialMediaLink;
 use db::Database;
 use db::PostId;
 use egui::Align;
@@ -50,6 +51,8 @@ type MessageQueue = VecDeque<Message>;
 struct Description {
     pl: String,
     en: String,
+    facebook_url: String,
+    instagram_url: String,
 }
 
 #[derive(Clone)]
@@ -86,6 +89,8 @@ impl ModalDescription {
         let original = Description {
             pl: post.pl.clone(),
             en: post.en.clone(),
+            facebook_url: post.social_media.facebook_url.clone(),
+            instagram_url: post.social_media.instagram_url.clone(),
         };
         let new = original.clone();
 
@@ -155,6 +160,22 @@ impl ModalDescription {
                 }
                 if self.new.en != self.original.en {
                     let msg = EditDetails::SetEnglish(self.id, self.new.en.clone());
+                    tab_queue.push_back(msg.into());
+                }
+                if self.new.facebook_url != self.original.facebook_url {
+                    let msg = EditDetails::SetSocialMediaLink(
+                        self.id,
+                        self.new.facebook_url.clone(),
+                        SocialMediaLink::Facebook,
+                    );
+                    tab_queue.push_back(msg.into());
+                }
+                if self.new.instagram_url != self.original.instagram_url {
+                    let msg = EditDetails::SetSocialMediaLink(
+                        self.id,
+                        self.new.instagram_url.clone(),
+                        SocialMediaLink::Instagram,
+                    );
                     tab_queue.push_back(msg.into());
                 }
             }
@@ -236,6 +257,32 @@ impl ModalDescription {
                         .desired_width(f32::INFINITY);
 
                     ui.add(edit);
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("Facebook");
+
+                    let edit = TextEdit::singleline(&mut self.new.facebook_url).hint_text("URL");
+
+                    ui.add(edit);
+
+                    let url = &self.new.facebook_url;
+                    if !url.is_empty() {
+                        ui.hyperlink_to("visit", url).on_hover_text(url);
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("Instagram");
+
+                    let edit = TextEdit::singleline(&mut self.new.instagram_url).hint_text("URL");
+
+                    ui.add(edit);
+
+                    let url = &self.new.instagram_url;
+                    if !url.is_empty() {
+                        ui.hyperlink_to("visit", url).on_hover_text(url);
+                    }
                 });
             });
         });

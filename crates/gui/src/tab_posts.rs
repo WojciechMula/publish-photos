@@ -1140,28 +1140,23 @@ impl TabPosts {
                     self.show_species(ui, post, db, queue, clipboard);
                 });
 
-                if !post.social_media.facebook_post_id.is_empty() {
+                if !post.social_media.facebook_url.is_empty() {
                     ui.horizontal(|ui| {
                         ui.horizontal(|ui| {
                             ui.set_min_width(self.label_width);
                         });
 
-                        Self::link(ui, "Facebook", &post.social_media.facebook_url(), queue);
+                        Self::link(ui, "Facebook", &post.social_media.facebook_url, queue);
                     });
                 }
 
-                if !post.social_media.instagram_post_id.is_empty() {
+                if !post.social_media.instagram_url.is_empty() {
                     ui.horizontal(|ui| {
                         ui.horizontal(|ui| {
                             ui.set_min_width(self.label_width);
                         });
 
-                        Self::link(
-                            ui,
-                            "Instagram",
-                            &post.social_media.instagram_permalink,
-                            queue,
-                        );
+                        Self::link(ui, "Instagram", &post.social_media.instagram_url, queue);
                     });
                 }
             });
