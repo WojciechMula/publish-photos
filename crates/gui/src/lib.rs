@@ -24,6 +24,9 @@ mod widgets;
 
 pub use image_counter::ImageCounter;
 
+pub type Error = Box<dyn std::error::Error>;
+pub type Result<T> = std::result::Result<T, Error>;
+
 // --------------------------------------------------
 
 use chrono::DateTime;

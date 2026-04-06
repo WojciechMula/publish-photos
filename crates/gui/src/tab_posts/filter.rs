@@ -1,8 +1,10 @@
+use super::post_filter::PostFilter;
 use super::Message;
 use super::ID_PREFIX;
 use crate::file_stem;
 use crate::gui::text_size;
 use crate::search_box::SearchBox;
+use crate::style::Style;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use db::Database;
@@ -27,6 +29,7 @@ pub struct Filter {
     pub current: Selector,
     count: ImageCounter,
     pub search_box: SearchBox,
+    pub post_filter: crate::Result<PostFilter>,
 
     icon_width: f32,
 }
@@ -38,6 +41,7 @@ impl Default for Filter {
             current: Selector::All,
             count: ImageCounter(0),
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
+            post_filter: Ok(PostFilter::default()),
             icon_width: 0.0,
         }
     }
@@ -59,7 +63,13 @@ impl Filter {
         eframe::set_value(storage, &key, &self.current);
     }
 
-    pub fn view(&mut self, ui: &mut Ui, db: &Database, queue: &mut VecDeque<Message>) {
+    pub fn view(
+        &mut self,
+        ui: &mut Ui,
+        style: &Style,
+        db: &Database,
+        queue: &mut VecDeque<Message>,
+    ) {
         if self.icon_width == 0.0 {
             self.icon_width = text_size(ICON_CALENDAR_MONTH, ui).x;
         }
@@ -118,28 +128,39 @@ impl Filter {
         }
 
         if !self.search_box.phrase(ui.ctx()).is_empty() {
-            ui.label(self.count.to_string());
-            let resp = ui.button(ICON_MENU);
-            resp.context_menu(|ui| {
-                if ui
-                    .button(fmt!("{ICON_CONTENT_COPY} Copy all paths"))
-                    .clicked()
-                {
-                    queue.push_back(Message::CopyPaths);
+            match &self.post_filter {
+                Ok(_) => {
+                    ui.label(self.count.to_string());
+                    let resp = ui.button(ICON_MENU);
+                    resp.context_menu(|ui| {
+                        if ui
+                            .button(fmt!("{ICON_CONTENT_COPY} Copy all paths"))
+                            .clicked()
+                        {
+                            queue.push_back(Message::CopyPaths);
+                        }
+                    });
                 }
-            });
+                Err(err) => {
+                    ui.colored_label(style.error, err.to_string());
+                }
+            }
         }
     }
 
     pub fn make_view(&mut self, phrase: &str, db: &Database) -> Vec<PostId> {
+        self.post_filter = PostFilter::new(phrase);
+        let Ok(post_filter) = &self.post_filter else {
+            return vec![];
+        };
+
         let mut tmp = Vec::<(PostId, (Date, String))>::new();
-        let fragments: Vec<&str> = phrase.split_whitespace().collect();
         for post in db
             .posts
             .iter()
             .filter(|post| self.image_state.matches(post))
             .filter(|post| self.current.matches(&post.date))
-            .filter(|post| post.search_parts.matches_all(&fragments))
+            .filter(|post| post_filter.matches(post))
         {
             let stem = file_stem(&post.files[0].rel_path);
             let item = (post.id, (post.date, stem));

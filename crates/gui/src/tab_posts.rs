@@ -5,6 +5,7 @@ pub mod modal_publish;
 mod modal_species;
 mod modal_tags;
 mod modal_view;
+mod post_filter;
 
 use filter::Filter;
 use group::Group;
@@ -812,7 +813,7 @@ impl TabPosts {
     ) {
         TopBottomPanel::top(fmt!("{ID_PREFIX}-filter")).show(ctx, |ui| {
             ui.horizontal(|ui| {
-                self.filter.view(ui, db, queue);
+                self.filter.view(ui, style, db, queue);
 
                 ui.separator();
 
