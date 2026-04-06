@@ -38,6 +38,7 @@ use crate::gui::OverlayLocation;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
+use crate::tab_species::Message as TabSpeciesMessage;
 use crate::widgets::checkmark;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
@@ -48,6 +49,7 @@ use db::Month;
 use db::Post;
 use db::PostId;
 use db::Selector;
+use db::SpeciesId;
 use db::TagList;
 use egui::Align;
 use egui::Button;
@@ -212,6 +214,8 @@ pub enum Message {
     SetViewKind(ViewKind),
     SetGridColumns(isize),
     CopyPaths,
+
+    EditSpeciesDetails(SpeciesId),
 }
 
 impl Message {
@@ -268,6 +272,7 @@ impl Message {
             Self::SetViewKind(_) => unreachable!(),
             Self::SetGridColumns(_) => unreachable!(),
             Self::CopyPaths => unreachable!(),
+            Self::EditSpeciesDetails(_) => unreachable!(),
         }
     }
 }
@@ -718,6 +723,10 @@ impl TabPosts {
                 let kind = ClipboardKind::Generic;
 
                 main_queue.push_back(MainMessage::Copy(kind, text));
+            }
+            Message::EditSpeciesDetails(id) => {
+                main_queue.push_back(MainMessage::SelectTabSpecies);
+                main_queue.push_back(TabSpeciesMessage::OpenModalEdit(id).into());
             }
         }
     }
@@ -1303,6 +1312,10 @@ impl TabPosts {
                         let msg = EditDetails::Example(post.id, true);
                         queue.push_back(msg.into());
                     }
+                }
+
+                if ui.button("Edit species").clicked() {
+                    queue.push_back(Message::EditSpeciesDetails(species.id));
                 }
             } else {
                 if clipboard.available(ClipboardKind::Species) {
