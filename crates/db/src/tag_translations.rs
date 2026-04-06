@@ -73,7 +73,7 @@ impl Eq for TranslatedTag {}
 
 // --------------------------------------------------
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Translation {
     pub en: String,
     pub pl: String,
