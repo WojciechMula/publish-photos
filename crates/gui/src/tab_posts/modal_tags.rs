@@ -112,10 +112,12 @@ impl ModalTags {
         let mut select_tags = SelectTags::edit(Id::new(ID_PREFIX), &post.tags);
 
         let by_date = db.get_tags_view(&Selector::ByDate(post.date)).clone();
-        let by_month = &db.get_tags_view(&Selector::ByMonth(post.date.month)).0;
+        let by_month = &db
+            .get_tags_view(&Selector::ByMonth(post.date.year, post.date.month))
+            .0;
         let by_month: BTreeSet<_> = by_month.difference(&by_date.0).cloned().collect();
 
-        let all = &db.get_tags_view(&Selector::All).0;
+        let all = &db.get_tags_view(&Selector::ByYear(post.date.year)).0;
         let all: BTreeSet<_> = all.difference(&by_date.0).cloned().collect();
         let all: BTreeSet<_> = all.difference(&by_month).cloned().collect();
 

@@ -52,6 +52,7 @@ use db::PostId;
 use db::Selector;
 use db::SpeciesId;
 use db::TagList;
+use db::Year;
 use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
@@ -211,7 +212,7 @@ pub enum Message {
     Undo,
     FocusSearch,
     FilterByDate(Date),
-    FilterByMonth(Month),
+    FilterByMonth(Year, Month),
     SetViewKind(ViewKind),
     SetGridColumns(isize),
     CopyPaths,
@@ -269,7 +270,7 @@ impl Message {
             Self::FocusSearch => "focus search bar",
             Self::FocusItem(_) => unreachable!(),
             Self::FilterByDate(_) => unreachable!(),
-            Self::FilterByMonth(_) => unreachable!(),
+            Self::FilterByMonth(_, _) => unreachable!(),
             Self::SetViewKind(_) => unreachable!(),
             Self::SetGridColumns(_) => unreachable!(),
             Self::CopyPaths => unreachable!(),
@@ -698,8 +699,8 @@ impl TabPosts {
                 self.scroll_to_selected = true;
                 queue.push_back(Message::RefreshView);
             }
-            Message::FilterByMonth(month) => {
-                self.filter.current = Selector::ByMonth(month);
+            Message::FilterByMonth(year, month) => {
+                self.filter.current = Selector::ByMonth(year, month);
                 self.scroll_to_selected = true;
                 queue.push_back(Message::RefreshView);
             }
@@ -942,12 +943,12 @@ impl TabPosts {
         }
 
         let enabled = match &self.filter.current {
-            Selector::ByMonth(month) => *month != post.date.month,
+            Selector::ByMonth(year, month) => *year != post.date.year || *month != post.date.month,
             _ => true,
         };
         let button = Button::new(format!("Show posts from {}", post.date.month));
         if ui.add_enabled(enabled, button).clicked() {
-            queue.push_back(Message::FilterByMonth(post.date.month));
+            queue.push_back(Message::FilterByMonth(post.date.year, post.date.month));
         }
 
         ui.separator();

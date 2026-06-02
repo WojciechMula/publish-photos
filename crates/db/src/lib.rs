@@ -12,6 +12,7 @@ mod tag_translations;
 pub use date::Date;
 pub use date::Day;
 pub use date::Month;
+pub use date::Year;
 pub use post::FileMetadata;
 pub use post::Post;
 pub use post::PublishedState;
@@ -30,11 +31,13 @@ pub use tag_translations::Translation;
 
 use crate::tag_hints::Builder;
 use crate::tag_hints::TagHints;
+use chrono::DateTime;
+use chrono::Local;
+use chrono::Utc;
 use jpeg::ImageSize;
 use jpeg::identify as identify_jpeg;
 use serde::Deserialize;
 use serde::Serialize;
-use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
@@ -43,9 +46,14 @@ use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
-use chrono::DateTime;
-use chrono::Local;
-use chrono::Utc;
+mod picture_views;
+pub use picture_views::PictureViews;
+use picture_views::PictureViewsBuilder;
+
+mod selector;
+pub use selector::Selector;
+
+// --------------------------------------------------
 
 pub type LocalDateTime = DateTime<Local>;
 pub type UtcDateTime = DateTime<Utc>;
@@ -64,7 +72,7 @@ pub struct Database {
     pub rootdir: PathBuf,
 
     #[serde(skip)]
-    picture_views: BTreeMap<Selector, PictureView>,
+    pub picture_views: PictureViews,
 
     #[serde(skip)]
     tags_views: BTreeMap<Selector, TranslatedTagsView>,
@@ -260,10 +268,6 @@ impl Database {
         self.posts.0.get_mut(id.0).unwrap()
     }
 
-    pub fn all_selectors(&self) -> impl DoubleEndedIterator<Item = &Selector> {
-        self.picture_views.keys()
-    }
-
     pub fn species_by_latin(&self, key: &Latin) -> Option<&Species> {
         let id = self.latin2id.get(key)?;
         self.species.get(id.0)
@@ -313,10 +317,6 @@ impl Database {
         }
     }
 
-    pub fn get_picture_view(&self, selector: &Selector) -> Option<&PictureView> {
-        self.picture_views.get(selector)
-    }
-
     pub fn get_tags_view(&self, selector: &Selector) -> &TranslatedTagsView {
         self.tags_views.get(selector).unwrap()
     }
@@ -327,19 +327,14 @@ impl Database {
         }
 
         self.cache_versions.picture_views = self.current_version.posts;
-        self.picture_views.clear();
+
+        let mut builder = PictureViewsBuilder::default();
 
         for post in self.posts.iter() {
-            let all = Selector::All;
-            let month = Selector::ByMonth(post.date.month);
-            let date = Selector::ByDate(post.date);
-
-            for key in [all, month, date] {
-                let view = self.picture_views.entry(key).or_default();
-
-                update_view(view, post);
-            }
+            builder.add(post);
         }
+
+        self.picture_views = builder.capture();
     }
 
     fn refresh_species_examples(&mut self) {
@@ -424,18 +419,6 @@ impl Database {
 
         self.tags_views.clear();
 
-        let all = Selector::All;
-        let mut view_all = TranslatedTagsView::default();
-        for trans in self.tag_translations.0.iter() {
-            view_all.0.insert(TranslatedTag::Translation(trans.clone()));
-        }
-
-        for group in self.tag_groups.iter() {
-            for tag in group.tags.iter() {
-                view_all.0.insert(self.tag_translations.as_tag(tag));
-            }
-        }
-
         let mut tmp = Vec::<TranslatedTag>::new();
         for picture in self.posts.iter() {
             tmp.clear();
@@ -444,23 +427,19 @@ impl Database {
                 tmp.push(self.tag_translations.as_tag(tag));
             }
 
-            let date = Selector::ByDate(picture.date);
-            let view = self.tags_views.entry(date).or_default();
+            let selectors = [
+                Selector::ByDate(picture.date),
+                Selector::ByMonth(picture.date.year, picture.date.month),
+                Selector::ByYear(picture.date.year),
+            ];
 
-            for tag in &tmp {
-                view.0.insert(tag.clone());
-            }
-
-            let month = Selector::ByMonth(picture.date.month);
-            let view = self.tags_views.entry(month).or_default();
-
-            for tag in &tmp {
-                view.0.insert(tag.clone());
-                view_all.0.insert(tag.clone());
+            for selector in selectors {
+                let view = self.tags_views.entry(selector).or_default();
+                for tag in &tmp {
+                    view.0.insert(tag.clone());
+                }
             }
         }
-
-        self.tags_views.insert(all, view_all);
     }
 
     pub fn refresh_tag_hints(&mut self) {
@@ -514,64 +493,6 @@ impl Database {
         }
 
         self.refresh_species_examples();
-    }
-}
-
-// --------------------------------------------------
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
-pub enum Selector {
-    ByDate(Date),
-    ByMonth(Month),
-    All,
-}
-
-impl Selector {
-    pub fn matches(&self, v: &Date) -> bool {
-        match self {
-            Self::ByDate(date) => date == v,
-            Self::ByMonth(month) => *month == v.month,
-            Self::All => true,
-        }
-    }
-
-    fn key(&self) -> (u8, u8) {
-        match self {
-            Self::All => (0, 0),
-            Self::ByMonth(month) => (month.as_u8(), 0),
-            Self::ByDate(date) => (date.month.as_u8(), date.day.as_u8()),
-        }
-    }
-}
-
-impl Ord for Selector {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.key().cmp(&other.key())
-    }
-}
-
-impl PartialOrd for Selector {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-// --------------------------------------------------
-
-#[derive(Default)]
-pub struct PictureView {
-    pub all: Vec<PostId>,
-    pub published: Vec<PostId>,
-    pub unpublished: Vec<PostId>,
-}
-
-fn update_view(view: &mut PictureView, picture: &Post) {
-    view.all.push(picture.id);
-
-    if picture.published.as_bool() {
-        view.published.push(picture.id);
-    } else {
-        view.unpublished.push(picture.id);
     }
 }
 

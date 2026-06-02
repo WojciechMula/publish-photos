@@ -9,7 +9,6 @@ use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use db::Database;
 use db::Date;
-use db::PictureView;
 use db::Post;
 use db::PostId;
 use db::Selector;
@@ -38,7 +37,7 @@ impl Default for Filter {
     fn default() -> Self {
         Self {
             image_state: ImageState::Unpublished,
-            current: Selector::All,
+            current: Selector::ByYear(0),
             count: ImageCounter(0),
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
             post_filter: Ok(PostFilter::default()),
@@ -74,6 +73,15 @@ impl Filter {
             self.icon_width = text_size(ICON_CALENDAR_MONTH, ui).x;
         }
 
+        if db.picture_views.is_empty() {
+            ui.label("no data");
+            return;
+        }
+
+        if db.picture_views.get(self.current).is_none() {
+            self.current = *db.picture_views.selectors.first().unwrap();
+        }
+
         let options = [
             ImageState::Any,
             ImageState::Unpublished,
@@ -89,23 +97,23 @@ impl Filter {
             }
         }
 
-        let (selected_text, mut current) = if let Some(view) = db.get_picture_view(&self.current) {
-            let selected_text =
-                format_selector(&self.current, count_pictures(view, &self.image_state));
+        let selected_text = {
+            let view = db.picture_views.views.get(&self.current).unwrap();
 
-            (selected_text, self.current)
-        } else {
-            ("".to_owned(), Selector::All)
+            format_selector(&self.current, count_pictures(view, db, &self.image_state))
         };
 
         ComboBox::from_id_salt("tab-images-filter-combo-box")
             .selected_text(selected_text)
             .show_ui(ui, |ui| {
-                for selector in db.all_selectors().rev() {
-                    let Some(view) = db.get_picture_view(selector) else {
+                let mut current = self.current;
+
+                for selector in &db.picture_views.selectors {
+                    let Some(view) = db.picture_views.views.get(selector) else {
                         continue;
                     };
-                    let label = format_selector(selector, count_pictures(view, &self.image_state));
+                    let label =
+                        format_selector(selector, count_pictures(view, db, &self.image_state));
 
                     ui.horizontal(|ui| {
                         if matches!(selector, Selector::ByDate(_)) {
@@ -177,8 +185,8 @@ impl Filter {
 
 fn format_selector(selector: &Selector, count: usize) -> String {
     let label = match selector {
-        Selector::All => format!("{ICON_PUBLIC} All images"),
-        Selector::ByMonth(month) => format!("{ICON_CALENDAR_MONTH} {month}"),
+        Selector::ByYear(year) => format!("{ICON_PUBLIC} {year}"),
+        Selector::ByMonth(year, month) => format!("{ICON_CALENDAR_MONTH} {month} {year}"),
         Selector::ByDate(date) => format!("{:02}-{:02}", date.month.as_u8(), date.day.as_u8()),
     };
 
@@ -189,11 +197,17 @@ fn format_selector(selector: &Selector, count: usize) -> String {
     }
 }
 
-fn count_pictures(view: &PictureView, image_state: &ImageState) -> usize {
+fn count_pictures(view: &[PostId], db: &Database, image_state: &ImageState) -> usize {
     match image_state {
-        ImageState::Any => view.all.len(),
-        ImageState::Unpublished => view.unpublished.len(),
-        ImageState::Published => view.published.len(),
+        ImageState::Any => view.len(),
+        ImageState::Unpublished => view
+            .iter()
+            .filter(|post_id| db.post(post_id).is_unpublished())
+            .count(),
+        ImageState::Published => view
+            .iter()
+            .filter(|post_id| db.post(post_id).is_published())
+            .count(),
     }
 }
 

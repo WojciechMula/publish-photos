@@ -57,6 +57,14 @@ impl Post {
             self.search_parts.add(&format!("#{tag}"));
         }
     }
+
+    pub fn is_unpublished(&self) -> bool {
+        !self.published.as_bool()
+    }
+
+    pub fn is_published(&self) -> bool {
+        self.published.as_bool()
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq)]

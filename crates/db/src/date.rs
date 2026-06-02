@@ -6,10 +6,12 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Date {
-    pub year: u16,
+    pub year: Year,
     pub month: Month,
     pub day: Day,
 }
+
+pub type Year = u16;
 
 impl FromStr for Date {
     type Err = &'static str;

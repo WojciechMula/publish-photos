@@ -155,9 +155,13 @@ impl ModalEdit {
         db.refresh_caches();
 
         if self.select_tags.available.is_empty() {
-            let view = db.get_tags_view(&Selector::All);
-            let group = TranslatedTagGroup::from_tags_view("", view.clone());
-            self.select_tags.available.push(group);
+            for selector in db.picture_views.selectors.iter() {
+                if matches!(selector, Selector::ByYear(_)) {
+                    let view = db.get_tags_view(selector);
+                    let group = TranslatedTagGroup::from_tags_view("", view.clone());
+                    self.select_tags.available.push(group);
+                }
+            }
         }
 
         let mut queue = MessageQueue::new();
