@@ -355,12 +355,18 @@ pub fn render_text(post: &Post, db: &Database) -> String {
         f.newline()
     }
 
-    for (id, tag) in post.tags.iter().enumerate() {
-        if id > 0 {
-            f.write(format!(" #{tag}"));
-        } else {
-            f.write(format!("#{tag}"));
+    let mut first = true;
+    for tag in post.tags.iter() {
+        if db.ignored_tags.contains(tag) {
+            continue;
         }
+
+        if !first {
+            f.put_char(' ');
+        }
+
+        first = false;
+        f.write(format!("#{tag}"));
     }
 
     f.buf
@@ -387,6 +393,10 @@ impl Builder {
 
     fn write(&mut self, s: String) {
         self.buf.push_str(&s);
+    }
+
+    fn put_char(&mut self, c: char) {
+        self.buf.push(c);
     }
 
     fn newline(&mut self) {

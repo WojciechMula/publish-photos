@@ -16,6 +16,7 @@ mod select_tags;
 mod species_view;
 mod style;
 pub mod sync_db;
+mod tab_ignored_tags;
 mod tab_posts;
 mod tab_species;
 mod tab_tag_groups;

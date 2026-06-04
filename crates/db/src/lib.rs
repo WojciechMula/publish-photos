@@ -64,6 +64,7 @@ pub struct Database {
     pub tag_translations: TagTranslations,
     pub species: Vec<Species>,
     pub tag_groups: TagGroupList,
+    pub ignored_tags: BTreeSet<String>,
 
     #[serde(skip)]
     pub rootpath: PathBuf,
@@ -100,6 +101,7 @@ pub struct Version {
     pub species: u64,
     pub tag_groups: u64,
     pub tag_translations: u64,
+    pub ignored_tags: u64,
 }
 
 struct CacheVersion {
@@ -235,9 +237,25 @@ impl Database {
         id
     }
 
+    pub fn new_ignored_tag(&mut self, raw_tag: String) {
+        self.ignored_tags.insert(raw_tag);
+        self.current_version.ignored_tags += 1;
+    }
+
+    pub fn remove_ignored_tag(&mut self, raw_tag: &String) {
+        self.ignored_tags.remove(raw_tag);
+        self.current_version.ignored_tags += 1;
+    }
+
     pub fn is_dirty(&self) -> bool {
-        const fn mktuple(v: &Version) -> (u64, u64, u64, u64) {
-            (v.photos, v.species, v.tag_groups, v.tag_translations)
+        const fn mktuple(v: &Version) -> (u64, u64, u64, u64, u64) {
+            (
+                v.photos,
+                v.species,
+                v.tag_groups,
+                v.tag_translations,
+                v.ignored_tags,
+            )
         }
 
         if mktuple(&self.current_version) != mktuple(&self.saved_version) {
