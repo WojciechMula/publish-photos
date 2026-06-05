@@ -87,8 +87,6 @@ pub enum Message {
     SelectTabTagTranslations,
     SelectTabTagGroup,
     SelectTabIgnoredTags,
-    SelectNextTab,
-    SelectPrevTab,
     OpenHelp,
 }
 
@@ -116,8 +114,6 @@ impl Message {
             Self::SelectTabTagGroup => "select tab tag groups",
             Self::SelectTabIgnoredTags => "select tab igonored tags",
             Self::OpenHelp => "keyboard shortcuts help",
-            Self::SelectNextTab => "select next tab",
-            Self::SelectPrevTab => "select previous tab",
             Self::ConfirmResult(_) => unreachable!(),
         }
     }
@@ -147,8 +143,6 @@ impl Clone for Message {
             Self::SelectTabTagGroup => Self::SelectTabTagGroup,
             Self::SelectTabIgnoredTags => Self::SelectTabIgnoredTags,
             Self::OpenHelp => Self::OpenHelp,
-            Self::SelectNextTab => Self::SelectNextTab,
-            Self::SelectPrevTab => Self::SelectPrevTab,
             Self::ConfirmResult(val) => {
                 Self::ConfirmResult(val.as_ref().map(|boxed| Box::new(*boxed.clone())))
             }
@@ -179,26 +173,6 @@ impl Tab {
             Self::TagTranslations => "Tag translations",
             Self::TagGroups => "Tag groups",
             Self::IgnoredTags => "Igonored tags",
-        }
-    }
-
-    const fn next(&self) -> Self {
-        match self {
-            Self::Posts => Self::Species,
-            Self::Species => Self::TagTranslations,
-            Self::TagTranslations => Self::TagGroups,
-            Self::TagGroups => Self::IgnoredTags,
-            Self::IgnoredTags => Self::Posts,
-        }
-    }
-
-    const fn prev(&self) -> Self {
-        match self {
-            Self::Posts => Self::IgnoredTags,
-            Self::Species => Self::Posts,
-            Self::TagTranslations => Self::Species,
-            Self::TagGroups => Self::TagTranslations,
-            Self::IgnoredTags => Self::Posts,
         }
     }
 }
@@ -236,8 +210,6 @@ impl Application {
             .key(Key::F5, Message::SelectTabTagGroup)
             .key(Key::F6, Message::SelectTabIgnoredTags)
             .ctrl(Key::S, Message::SaveDatabase)
-            .ctrl(Key::ArrowRight, Message::SelectNextTab)
-            .ctrl(Key::ArrowLeft, Message::SelectPrevTab)
     }
 
     fn keyboard(&mut self, ctx: &Context) {
@@ -387,12 +359,6 @@ impl Application {
             }
             Message::SelectTabIgnoredTags => {
                 self.active_tab = Tab::IgnoredTags;
-            }
-            Message::SelectNextTab => {
-                self.active_tab = self.active_tab.next();
-            }
-            Message::SelectPrevTab => {
-                self.active_tab = self.active_tab.prev();
             }
             Message::OpenHelp => {
                 let window = ModalKeyboard::default()
