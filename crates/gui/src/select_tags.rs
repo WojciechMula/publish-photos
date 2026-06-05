@@ -35,6 +35,7 @@ pub struct SelectTags {
     pub text_edit_id: Id,
     show_pl_translations: Id,
     first_run: bool,
+    pub show_popup: bool,
 }
 
 pub struct TranslatedTagGroup {
@@ -73,6 +74,7 @@ impl SelectTags {
             text_edit_id: Id::new((id, "select-tag")),
             show_pl_translations,
             first_run: true,
+            show_popup: true,
         }
     }
 
@@ -147,7 +149,9 @@ impl SelectTags {
                         result = Some(SelectTagsAction::UpdateNewTag(tag.clone()));
                     }
 
-                    let show_popup = !self.new_tag.is_empty() && !self.autocompletion.is_empty();
+                    let show_popup = self.show_popup
+                        && !self.new_tag.is_empty()
+                        && !self.autocompletion.is_empty();
 
                     Popup::from_response(&resp)
                         .open_memory(Some(SetOpenCommand::Bool(show_popup)))
@@ -213,6 +217,11 @@ impl SelectTags {
         let mut result: Option<SelectTagsAction> = None;
 
         for group in groups {
+            let empty_list = !group.tags.iter().any(|tag| self.tag_matches_filter(tag));
+            if empty_list {
+                continue;
+            }
+
             if !group.name.is_empty() {
                 ui.horizontal(|ui| {
                     let enabled = !group.is_empty();

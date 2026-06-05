@@ -21,7 +21,6 @@ use db::Database;
 use db::PostId;
 use db::Selector;
 use db::TagList;
-use db::TranslatedTag;
 use db::TranslatedTagsView;
 use egui::CentralPanel;
 use egui::CollapsingHeader;
@@ -35,7 +34,6 @@ use egui::SidePanel;
 use egui::TopBottomPanel;
 use egui::Ui;
 use std::collections::BTreeSet;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_ADD;
@@ -47,7 +45,6 @@ pub struct ModalTags {
     id: PostId,
     select_tags: SelectTags,
     original: TagList,
-    context_menu_opened: bool,
     tag_groups_opened: bool,
     frequent_tags_opened: bool,
     tag_groups_opened_flag: Option<bool>,
@@ -126,6 +123,7 @@ impl ModalTags {
             TranslatedTagGroup::from_tags_view("From this month", TranslatedTagsView(by_month)),
             TranslatedTagGroup::from_tags_view("All", TranslatedTagsView(all)),
         ];
+        select_tags.show_popup = false;
 
         let mut queue = MessageQueue::new();
         queue.push_back(Message::FocusEditBox);
@@ -134,7 +132,6 @@ impl ModalTags {
             id,
             original,
             select_tags,
-            context_menu_opened: false,
             tag_groups_opened: true,
             frequent_tags_opened: true,
             tag_groups_opened_flag: Some(true),
@@ -166,7 +163,6 @@ impl ModalTags {
             self.queue.push_back(msg);
         }
 
-        self.context_menu_opened = ctx.is_popup_open();
         self.tag_groups_opened_flag = None;
         self.frequent_tags_opened_flag = None;
     }
@@ -200,27 +196,24 @@ impl ModalTags {
                 self.queue.push_back(SelectTagsAction::Undo.into());
             }
             Message::SoftClose => {
-                if !self.context_menu_opened {
-                    if self.is_modified() {
-                        let msg: TabMessage = Message::SaveAndExit.into();
-                        let save = ConfirmOption::new("Save and exit")
-                            .with_message(msg.into())
-                            .with_color(style.button.save);
+                if self.is_modified() {
+                    let msg: TabMessage = Message::SaveAndExit.into();
+                    let save = ConfirmOption::new("Save and exit")
+                        .with_message(msg.into())
+                        .with_color(style.button.save);
 
-                        let msg: TabMessage = Message::CancelAndExit.into();
-                        let abort = ConfirmOption::new(fmt!("{ICON_WARNING} Abandon changes"))
-                            .with_message(msg.into())
-                            .with_color(style.button.discard);
+                    let msg: TabMessage = Message::CancelAndExit.into();
+                    let abort = ConfirmOption::new(fmt!("{ICON_WARNING} Abandon changes"))
+                        .with_message(msg.into())
+                        .with_color(style.button.discard);
 
-                        let cont = ConfirmOption::new("Continue").with_key(Key::Escape);
+                    let cont = ConfirmOption::new("Continue").with_key(Key::Escape);
 
-                        let confirm =
-                            Confirm::new("The tags got changed.", vec![abort, save, cont]);
+                    let confirm = Confirm::new("The tags got changed.", vec![abort, save, cont]);
 
-                        tab_queue.push_back(TabMessage::Confirm(confirm));
-                    } else {
-                        tab_queue.push_back(TabMessage::CloseModal);
-                    }
+                    tab_queue.push_back(TabMessage::Confirm(confirm));
+                } else {
+                    tab_queue.push_back(TabMessage::CloseModal);
                 }
             }
             Message::CancelAndExit => {
@@ -288,7 +281,7 @@ impl ModalTags {
 
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered_justified(|ui| {
-                self.view_selected_tags(ui, db, style, queue);
+                self.view_selected_tags(ui, style, queue);
 
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-tags-scroll"))
@@ -303,13 +296,7 @@ impl ModalTags {
         });
     }
 
-    fn view_selected_tags(
-        &self,
-        ui: &mut Ui,
-        db: &Database,
-        style: &Style,
-        queue: &mut MessageQueue,
-    ) {
+    fn view_selected_tags(&self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
         ui.horizontal_wrapped(|ui| {
             for tag in self.select_tags.tags.iter() {
                 if ui.add(tag_button(tag, "", style)).clicked() {
