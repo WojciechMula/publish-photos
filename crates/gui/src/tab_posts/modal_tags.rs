@@ -312,21 +312,7 @@ impl ModalTags {
     ) {
         ui.horizontal_wrapped(|ui| {
             for tag in self.select_tags.tags.iter() {
-                let resp = ui.add(tag_button(tag, "", style));
-
-                let hints = mk_hints(tag, db, &self.select_tags.tags);
-                if !hints.is_empty() {
-                    resp.context_menu(|ui| {
-                        for tag in hints {
-                            if ui.add(tag_button(tag.base(), "", style)).clicked() {
-                                let action = Action::AddTag(tag);
-                                queue.push_back(action.into());
-                            }
-                        }
-                    });
-                }
-
-                if resp.clicked() {
+                if ui.add(tag_button(tag, "", style)).clicked() {
                     let action = Action::RemoveTag(tag.clone());
                     queue.push_back(action.into());
                 }
@@ -386,38 +372,4 @@ impl ModalTags {
     pub fn try_close(&mut self) {
         self.queue.push_back(Message::SoftClose);
     }
-}
-
-fn mk_hints(tag: &String, db: &Database, existing: &TagList) -> Vec<TranslatedTag> {
-    let Some(hints) = db.tag_hints.lookup(tag) else {
-        return Vec::new();
-    };
-
-    let mut result = Vec::<TranslatedTag>::new();
-
-    let mut seen = HashSet::<String>::new();
-    for tag in existing.iter() {
-        seen.insert(tag.clone());
-    }
-
-    for tag in hints.iter() {
-        if seen.contains(tag) {
-            continue;
-        }
-
-        let trans = db.tag_translations.as_tag(tag);
-        match &trans {
-            TranslatedTag::Translation(trans) => {
-                seen.insert(trans.pl.clone());
-                seen.insert(trans.en.clone());
-            }
-            TranslatedTag::Untranslated(tag) => {
-                seen.insert(tag.clone());
-            }
-        }
-
-        result.push(trans);
-    }
-
-    result
 }
