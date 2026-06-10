@@ -122,7 +122,9 @@ impl Species {
 
         self.search_parts.clear();
         for item in items {
-            self.search_parts.add(item);
+            for part in item.split_whitespace() {
+                self.search_parts.add(part);
+            }
         }
 
         if let Some(category) = &self.category {

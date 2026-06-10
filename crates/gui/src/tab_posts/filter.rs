@@ -168,7 +168,21 @@ impl Filter {
             .iter()
             .filter(|post| self.image_state.matches(post))
             .filter(|post| self.current.matches(&post.date))
-            .filter(|post| post_filter.matches(post))
+            .filter(|post| {
+                if post_filter.matches_post(post) {
+                    return true;
+                }
+
+                let Some(latin) = &post.species else {
+                    return false;
+                };
+
+                if let Some(species) = db.species_by_latin(latin) {
+                    post_filter.matches_species(species)
+                } else {
+                    false
+                }
+            })
         {
             let stem = file_stem(&post.files[0].rel_path);
             let item = (post.id, (post.date, stem));

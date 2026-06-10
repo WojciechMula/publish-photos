@@ -1,4 +1,5 @@
 use db::Post;
+use db::Species;
 
 #[derive(Default)]
 pub struct PostFilter {
@@ -26,12 +27,19 @@ impl PostPredicate {
         }
     }
 
-    pub fn matches(&self, post: &Post) -> bool {
+    pub fn matches_post(&self, post: &Post) -> bool {
         match self {
             Self::Fragment(frag) => post.search_parts.matches(frag),
             Self::NoTags => post.tags.is_empty(),
             Self::NoPlDescription => post.pl.is_empty(),
             Self::NoEnDescription => post.en.is_empty(),
+        }
+    }
+
+    pub fn matches_species(&self, species: &Species) -> bool {
+        match self {
+            Self::Fragment(frag) => species.search_parts.matches(frag),
+            Self::NoTags | Self::NoPlDescription | Self::NoEnDescription => false,
         }
     }
 }
@@ -47,11 +55,19 @@ impl PostFilter {
         Ok(result)
     }
 
-    pub fn matches(&self, post: &Post) -> bool {
+    pub fn matches_post(&self, post: &Post) -> bool {
         if self.pred.is_empty() {
             return true;
         }
 
-        self.pred.iter().all(|pred| pred.matches(post))
+        self.pred.iter().all(|pred| pred.matches_post(post))
+    }
+
+    pub fn matches_species(&self, species: &Species) -> bool {
+        if self.pred.is_empty() {
+            return true;
+        }
+
+        self.pred.iter().all(|pred| pred.matches_species(species))
     }
 }
