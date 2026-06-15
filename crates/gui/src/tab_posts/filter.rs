@@ -1,10 +1,8 @@
-use super::post_filter::PostFilter;
 use super::Message;
 use super::ID_PREFIX;
 use crate::file_stem;
 use crate::gui::text_size;
 use crate::search_box::SearchBox;
-use crate::style::Style;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use db::Database;
@@ -12,6 +10,7 @@ use db::Date;
 use db::Post;
 use db::PostId;
 use db::Selector;
+use db::Species;
 use egui::ComboBox;
 use egui::Ui;
 use serde::Deserialize;
@@ -20,55 +19,62 @@ use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_CALENDAR_MONTH;
 use egui_material_icons::icons::ICON_CONTENT_COPY;
+use egui_material_icons::icons::ICON_FILTER_ALT;
 use egui_material_icons::icons::ICON_MENU;
 use egui_material_icons::icons::ICON_PUBLIC;
 
 pub struct Filter {
-    image_state: ImageState,
-    pub current: Selector,
-    count: ImageCounter,
     pub search_box: SearchBox,
-    pub post_filter: crate::Result<PostFilter>,
+    pub filter: FilterState,
 
     icon_width: f32,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FilterState {
+    image_state: ImageState,
+    pub extra: bool,
+    no_tags: bool,
+    pub current: Selector,
+    phrase: String,
+
+    #[serde(skip)]
+    count: ImageCounter,
 }
 
 impl Default for Filter {
     fn default() -> Self {
         Self {
-            image_state: ImageState::Unpublished,
-            current: Selector::ByYear(0),
-            count: ImageCounter(0),
+            filter: FilterState::default(),
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
-            post_filter: Ok(PostFilter::default()),
             icon_width: 0.0,
         }
     }
 }
 
 impl Filter {
-    pub fn load(&mut self, db_id: &str, storage: &dyn eframe::Storage) {
-        self.image_state =
-            eframe::get_value(storage, fmt!("{ID_PREFIX}-image-state")).unwrap_or(self.image_state);
-
-        let key = format!("{db_id}-{ID_PREFIX}-current");
-        self.current = eframe::get_value(storage, &key).unwrap_or(self.current);
+    pub fn load(&mut self, storage: &dyn eframe::Storage) {
+        self.filter =
+            eframe::get_value(storage, fmt!("{ID_PREFIX}-filter")).unwrap_or(self.filter.clone());
     }
 
-    pub fn save(&self, db_id: &str, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, fmt!("{ID_PREFIX}-image-state"), &self.image_state);
-
-        let key = format!("{db_id}-{ID_PREFIX}-current");
-        eframe::set_value(storage, &key, &self.current);
+    pub fn save(&self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, fmt!("{ID_PREFIX}-filter"), &self.filter);
     }
 
-    pub fn view(
-        &mut self,
-        ui: &mut Ui,
-        style: &Style,
-        db: &Database,
-        queue: &mut VecDeque<Message>,
-    ) {
+    pub fn set_current(&mut self, selector: Selector) {
+        self.filter.current = selector;
+    }
+
+    pub fn get_current(&self) -> Selector {
+        self.filter.current
+    }
+
+    pub fn is_extra_filter_enabled(&self) -> bool {
+        self.filter.extra
+    }
+
+    pub fn view(&mut self, ui: &mut Ui, db: &Database, queue: &mut VecDeque<Message>) {
         if self.icon_width == 0.0 {
             self.icon_width = text_size(ICON_CALENDAR_MONTH, ui).x;
         }
@@ -78,8 +84,8 @@ impl Filter {
             return;
         }
 
-        if db.picture_views.get(self.current).is_none() {
-            self.current = *db.picture_views.selectors.first().unwrap();
+        if db.picture_views.get(self.filter.current).is_none() {
+            self.filter.current = *db.picture_views.selectors.first().unwrap();
         }
 
         let options = [
@@ -90,7 +96,7 @@ impl Filter {
 
         for option in options {
             if ui
-                .radio_value(&mut self.image_state, option, option.name())
+                .radio_value(&mut self.filter.image_state, option, option.name())
                 .changed()
             {
                 queue.push_back(Message::RefreshView);
@@ -98,22 +104,27 @@ impl Filter {
         }
 
         let selected_text = {
-            let view = db.picture_views.views.get(&self.current).unwrap();
+            let view = db.picture_views.views.get(&self.filter.current).unwrap();
 
-            format_selector(&self.current, count_pictures(view, db, &self.image_state))
+            format_selector(
+                &self.filter.current,
+                count_pictures(view, db, &self.filter.image_state),
+            )
         };
 
         ComboBox::from_id_salt("tab-images-filter-combo-box")
             .selected_text(selected_text)
             .show_ui(ui, |ui| {
-                let mut current = self.current;
+                let mut current = self.filter.current;
 
                 for selector in &db.picture_views.selectors {
                     let Some(view) = db.picture_views.views.get(selector) else {
                         continue;
                     };
-                    let label =
-                        format_selector(selector, count_pictures(view, db, &self.image_state));
+                    let label = format_selector(
+                        selector,
+                        count_pictures(view, db, &self.filter.image_state),
+                    );
 
                     ui.horizontal(|ui| {
                         if matches!(selector, Selector::ByDate(_)) {
@@ -123,11 +134,18 @@ impl Filter {
                     });
                 }
 
-                if current != self.current {
-                    self.current = current;
+                if current != self.filter.current {
+                    self.filter.current = current;
                     queue.push_back(Message::RefreshView);
                 }
             });
+
+        if ui
+            .toggle_value(&mut self.filter.extra, ICON_FILTER_ALT)
+            .changed()
+        {
+            queue.push_back(Message::RefreshView);
+        }
 
         ui.separator();
 
@@ -135,41 +153,39 @@ impl Filter {
             queue.push_back(Message::RefreshView);
         }
 
-        if !self.search_box.phrase(ui.ctx()).is_empty() {
-            match &self.post_filter {
-                Ok(_) => {
-                    ui.label(self.count.to_string());
-                    let resp = ui.button(ICON_MENU);
-                    resp.context_menu(|ui| {
-                        if ui
-                            .button(fmt!("{ICON_CONTENT_COPY} Copy all paths"))
-                            .clicked()
-                        {
-                            queue.push_back(Message::CopyPaths);
-                        }
-                    });
+        self.filter.phrase = self.search_box.phrase(ui.ctx());
+
+        if self.filter.is_enabled() {
+            ui.label(self.filter.count.to_string());
+            let resp = ui.button(ICON_MENU);
+            resp.context_menu(|ui| {
+                if ui
+                    .button(fmt!("{ICON_CONTENT_COPY} Copy all paths"))
+                    .clicked()
+                {
+                    queue.push_back(Message::CopyPaths);
                 }
-                Err(err) => {
-                    ui.colored_label(style.error, err.to_string());
-                }
-            }
+            });
         }
     }
 
-    pub fn make_view(&mut self, phrase: &str, db: &Database) -> Vec<PostId> {
-        self.post_filter = PostFilter::new(phrase);
-        let Ok(post_filter) = &self.post_filter else {
-            return vec![];
-        };
+    pub fn view_extra(&mut self, ui: &mut Ui, queue: &mut VecDeque<Message>) {
+        if ui
+            .checkbox(&mut self.filter.no_tags, "having no tags")
+            .changed()
+        {
+            queue.push_back(Message::RefreshView);
+        }
+    }
 
+    pub fn make_view(&mut self, db: &Database) -> Vec<PostId> {
         let mut tmp = Vec::<(PostId, (Date, String))>::new();
         for post in db
             .posts
             .iter()
-            .filter(|post| self.image_state.matches(post))
-            .filter(|post| self.current.matches(&post.date))
+            .filter(|post| self.filter.matches(post))
             .filter(|post| {
-                if post_filter.matches_post(post) {
+                if self.filter.post_matches_qs(post) {
                     return true;
                 }
 
@@ -178,7 +194,7 @@ impl Filter {
                 };
 
                 if let Some(species) = db.species_by_latin(latin) {
-                    post_filter.matches_species(species)
+                    self.filter.species_matches_qs(species)
                 } else {
                     false
                 }
@@ -189,7 +205,7 @@ impl Filter {
             tmp.push(item);
         }
 
-        self.count = ImageCounter(tmp.len());
+        self.filter.count = ImageCounter(tmp.len());
 
         tmp.sort_by_key(|(_id, (date, stem))| (*date, stem.clone()));
 
@@ -249,5 +265,53 @@ impl ImageState {
             Self::Published => post.published.as_bool(),
             Self::Unpublished => !post.published.as_bool(),
         }
+    }
+}
+
+// --------------------------------------------------
+
+impl Default for FilterState {
+    fn default() -> Self {
+        Self {
+            image_state: ImageState::Unpublished,
+            extra: false,
+            no_tags: false,
+            current: Selector::ByYear(0),
+            count: ImageCounter(0),
+            phrase: String::new(),
+        }
+    }
+}
+
+impl FilterState {
+    fn is_enabled(&self) -> bool {
+        self.extra || !self.phrase.is_empty()
+    }
+
+    fn matches(&self, post: &Post) -> bool {
+        if !self.image_state.matches(post) {
+            return false;
+        }
+
+        if !self.current.matches(&post.date) {
+            return false;
+        }
+
+        if self.extra {
+            let no_tags = post.tags.is_empty();
+            if self.no_tags != no_tags {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    fn post_matches_qs(&self, post: &Post) -> bool {
+        post.search_parts.matches(&self.phrase)
+    }
+
+    fn species_matches_qs(&self, species: &Species) -> bool {
+        species.search_parts.matches(&self.phrase)
     }
 }

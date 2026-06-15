@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Default, Clone)]
 pub struct ImageCounter(pub usize);
 
 impl Display for ImageCounter {

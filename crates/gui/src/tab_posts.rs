@@ -5,7 +5,6 @@ pub mod modal_publish;
 mod modal_species;
 mod modal_tags;
 mod modal_view;
-mod post_filter;
 
 use filter::Filter;
 use group::Group;
@@ -348,8 +347,8 @@ impl TabPosts {
         }
     }
 
-    pub fn load(&mut self, db_id: &str, storage: &dyn eframe::Storage) {
-        self.filter.load(db_id, storage);
+    pub fn load(&mut self, _db_id: &str, storage: &dyn eframe::Storage) {
+        self.filter.load(storage);
         if let Some(value) =
             eframe::get_value::<Option<PostId>>(storage, fmt!("{ID_PREFIX}-selected-post"))
         {
@@ -360,8 +359,8 @@ impl TabPosts {
         }
     }
 
-    pub fn save(&self, db_id: &str, storage: &mut dyn eframe::Storage) {
-        self.filter.save(db_id, storage);
+    pub fn save(&self, _db_id: &str, storage: &mut dyn eframe::Storage) {
+        self.filter.save(storage);
         eframe::set_value(storage, fmt!("{ID_PREFIX}-selected-post"), &self.selected);
         eframe::set_value(storage, fmt!("{ID_PREFIX}-view-kind"), &self.view_kind);
     }
@@ -447,8 +446,7 @@ impl TabPosts {
                 main_queue.push_back(edit_details.into());
             }
             Message::RefreshView => {
-                let phrase = self.filter.search_box.phrase(ctx);
-                self.view = self.filter.make_view(&phrase, db);
+                self.view = self.filter.make_view(db);
             }
             Message::EditTags(id) => {
                 assert!(self.modal_window.is_none());
@@ -695,12 +693,12 @@ impl TabPosts {
                 ctx.memory_mut(|mem| mem.request_focus(id));
             }
             Message::FilterByDate(date) => {
-                self.filter.current = Selector::ByDate(date);
+                self.filter.set_current(Selector::ByDate(date));
                 self.scroll_to_selected = true;
                 queue.push_back(Message::RefreshView);
             }
             Message::FilterByMonth(year, month) => {
-                self.filter.current = Selector::ByMonth(year, month);
+                self.filter.set_current(Selector::ByMonth(year, month));
                 self.scroll_to_selected = true;
                 queue.push_back(Message::RefreshView);
             }
@@ -813,18 +811,26 @@ impl TabPosts {
         clipboard: &Clipboard,
     ) {
         TopBottomPanel::top(fmt!("{ID_PREFIX}-filter")).show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                self.filter.view(ui, style, db, queue);
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    self.filter.view(ui, db, queue);
 
-                ui.separator();
+                    ui.separator();
 
-                let mut val = self.view_kind.clone();
-                for option in [ViewKind::List, ViewKind::Grid] {
-                    ui.selectable_value(&mut val, option.clone(), option.name());
-                }
+                    let mut val = self.view_kind.clone();
+                    for option in [ViewKind::List, ViewKind::Grid] {
+                        ui.selectable_value(&mut val, option.clone(), option.name());
+                    }
 
-                if val != self.view_kind {
-                    queue.push_back(Message::SetViewKind(val));
+                    if val != self.view_kind {
+                        queue.push_back(Message::SetViewKind(val));
+                    }
+                });
+
+                if self.filter.is_extra_filter_enabled() {
+                    ui.horizontal(|ui| {
+                        self.filter.view_extra(ui, queue);
+                    });
                 }
             });
 
@@ -933,8 +939,8 @@ impl TabPosts {
     }
 
     fn post_context_menu(&self, ui: &mut Ui, post: &Post, queue: &mut MessageQueue) {
-        let enabled = match &self.filter.current {
-            Selector::ByDate(date) => *date != post.date,
+        let enabled = match self.filter.get_current() {
+            Selector::ByDate(date) => date != post.date,
             _ => true,
         };
         let button = Button::new(format!("Show posts from {}", post.date));
@@ -942,8 +948,8 @@ impl TabPosts {
             queue.push_back(Message::FilterByDate(post.date));
         }
 
-        let enabled = match &self.filter.current {
-            Selector::ByMonth(year, month) => *year != post.date.year || *month != post.date.month,
+        let enabled = match self.filter.get_current() {
+            Selector::ByMonth(year, month) => year != post.date.year || month != post.date.month,
             _ => true,
         };
         let button = Button::new(format!("Show posts from {}", post.date.month));
