@@ -42,9 +42,11 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     };
 
     if opts.update_db {
-        photos::sync_db::perform(&rootdir, &mut db)?;
+        let new = photos::sync_db::perform(&rootdir, &mut db)?;
         db.refresh_all_records();
-        db.current_version.posts += 1;
+        if new > 0 {
+            db.current_version.photos += 1;
+        }
     }
 
     let native_options = eframe::NativeOptions {
