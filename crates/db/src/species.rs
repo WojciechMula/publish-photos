@@ -59,6 +59,7 @@ pub struct Species {
     pub latin: Latin,
     pub pl: String,
     pub wikipedia_pl: String,
+    pub insektarium_pl: String,
     pub en: String,
     pub wikipedia_en: String,
     pub category: Option<String>,
@@ -92,6 +93,11 @@ impl Species {
 
         if self.wikipedia_pl != other.wikipedia_pl {
             self.wikipedia_pl = other.wikipedia_pl.clone();
+            changed = true;
+        }
+
+        if self.insektarium_pl != other.insektarium_pl {
+            self.insektarium_pl = other.insektarium_pl.clone();
             changed = true;
         }
 

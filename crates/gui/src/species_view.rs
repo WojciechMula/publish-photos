@@ -291,9 +291,7 @@ pub fn format_latin(ui: &mut Ui, species: &Species) {
 
 pub fn format_pl(ui: &mut Ui, species: &Species) {
     icon_pl(ui);
-    if species.wikipedia_pl.is_empty() {
-        ui.label(&species.pl);
-    } else {
+    if !species.wikipedia_pl.is_empty() {
         let label = if species.pl.is_empty() {
             "Wikipedia"
         } else {
@@ -301,7 +299,21 @@ pub fn format_pl(ui: &mut Ui, species: &Species) {
         };
 
         ui.hyperlink_to(label, &species.wikipedia_pl);
+        return;
     }
+
+    if !species.insektarium_pl.is_empty() {
+        let label = if species.pl.is_empty() {
+            "Insektarium"
+        } else {
+            &species.pl
+        };
+
+        ui.hyperlink_to(label, &species.insektarium_pl);
+        return;
+    }
+
+    ui.label(&species.pl);
 }
 
 pub fn format_en(ui: &mut Ui, species: &Species) {

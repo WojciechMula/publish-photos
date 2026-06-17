@@ -54,6 +54,7 @@ pub enum Message {
     ChangeLatin(Latin),
     ChangePolish(String),
     ChangeEnglish(String),
+    ChangeInsektariumPl(String),
     ChangeWikipediaPl(String),
     ChangeWikipediaEn(String),
     ChangeCategory(Option<String>),
@@ -69,6 +70,7 @@ impl Message {
             Self::ChangePolish(_) => unreachable!(),
             Self::ChangeEnglish(_) => unreachable!(),
             Self::ChangeWikipediaPl(_) => unreachable!(),
+            Self::ChangeInsektariumPl(_) => unreachable!(),
             Self::ChangeWikipediaEn(_) => unreachable!(),
             Self::ChangeCategory(_) => unreachable!(),
         }
@@ -201,6 +203,10 @@ impl ModalEdit {
                 self.new.wikipedia_pl = text;
                 self.validate(db);
             }
+            Message::ChangeInsektariumPl(text) => {
+                self.new.insektarium_pl = text;
+                self.validate(db);
+            }
             Message::ChangeWikipediaEn(text) => {
                 self.new.wikipedia_en = text;
                 self.validate(db);
@@ -315,42 +321,63 @@ impl ModalEdit {
 
             ui.end_row();
 
+            ui.separator();
+            ui.end_row();
+
             icon_pl(ui);
+            if let Some(val) = edit(ui, &self.new.pl) {
+                queue.push_back(Message::ChangePolish(val));
+            }
+
+            ui.end_row();
+
+            ui.label("wiki");
             ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, &self.new.pl) {
-                    queue.push_back(Message::ChangePolish(val));
+                if let Some(val) = edit(ui, &self.new.wikipedia_pl) {
+                    queue.push_back(Message::ChangeWikipediaPl(val));
                 }
 
-                ui.label("wiki");
-                ui.horizontal(|ui| {
-                    if let Some(val) = edit(ui, &self.new.wikipedia_pl) {
-                        queue.push_back(Message::ChangeWikipediaPl(val));
-                    }
-
-                    if is_hyperlink(&self.new.wikipedia_pl) {
-                        ui.hyperlink_to("visit", &self.new.wikipedia_pl);
-                    }
-                });
+                if is_hyperlink(&self.new.wikipedia_pl) {
+                    ui.hyperlink_to("visit", &self.new.wikipedia_pl);
+                }
             });
             ui.end_row();
 
-            icon_en(ui);
+            ui.label("insektarium");
             ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, &self.new.en) {
-                    queue.push_back(Message::ChangeEnglish(val));
+                if let Some(val) = edit(ui, &self.new.insektarium_pl) {
+                    queue.push_back(Message::ChangeInsektariumPl(val));
                 }
 
-                ui.label("wiki");
-                ui.horizontal(|ui| {
-                    if let Some(val) = edit(ui, &self.new.wikipedia_en) {
-                        queue.push_back(Message::ChangeWikipediaEn(val));
-                    }
-
-                    if is_hyperlink(&self.new.wikipedia_en) {
-                        ui.hyperlink_to("visit", &self.new.wikipedia_en);
-                    }
-                });
+                if is_hyperlink(&self.new.insektarium_pl) {
+                    ui.hyperlink_to("visit", &self.new.insektarium_pl);
+                }
             });
+            ui.end_row();
+
+            ui.separator();
+            ui.end_row();
+
+            icon_en(ui);
+            if let Some(val) = edit(ui, &self.new.en) {
+                queue.push_back(Message::ChangeEnglish(val));
+            }
+
+            ui.end_row();
+
+            ui.label("wiki");
+            ui.horizontal(|ui| {
+                if let Some(val) = edit(ui, &self.new.wikipedia_en) {
+                    queue.push_back(Message::ChangeWikipediaEn(val));
+                }
+
+                if is_hyperlink(&self.new.wikipedia_en) {
+                    ui.hyperlink_to("visit", &self.new.wikipedia_en);
+                }
+            });
+            ui.end_row();
+
+            ui.separator();
             ui.end_row();
 
             ui.label("category");
