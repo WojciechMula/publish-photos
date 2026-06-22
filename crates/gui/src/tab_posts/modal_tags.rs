@@ -108,7 +108,7 @@ impl ModalTags {
 
         let mut select_tags = SelectTags::edit(Id::new(ID_PREFIX), &post.tags);
 
-        let by_date = db.get_tags_view(&Selector::ByDate(post.date)).clone();
+        let by_date = db.get_tags_view(&Selector::ByDate(post.date));
         let by_month = &db
             .get_tags_view(&Selector::ByMonth(post.date.year, post.date.month))
             .0;

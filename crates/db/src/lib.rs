@@ -335,8 +335,11 @@ impl Database {
         }
     }
 
-    pub fn get_tags_view(&self, selector: &Selector) -> &TranslatedTagsView {
-        self.tags_views.get(selector).unwrap()
+    pub fn get_tags_view(&self, selector: &Selector) -> TranslatedTagsView {
+        match self.tags_views.get(selector) {
+            Some(tv) => tv.clone(),
+            None => TranslatedTagsView::default(),
+        }
     }
 
     pub fn refresh_picture_views(&mut self) {
