@@ -259,13 +259,13 @@ fn block(
 
         ui.vertical(|ui| {
             ui.label(RichText::new(&species.latin).italics().heading());
-            if !species.pl.is_empty() || !species.wikipedia_pl.is_empty() {
+            if has_polish(species) {
                 ui.horizontal(|ui| {
                     format_pl(ui, species);
                 });
             }
 
-            if !species.en.is_empty() || !species.wikipedia_en.is_empty() {
+            if has_english(species) {
                 ui.horizontal(|ui| {
                     format_en(ui, species);
                 });
@@ -333,11 +333,19 @@ pub fn format_en(ui: &mut Ui, species: &Species) {
 
 pub fn singleline(ui: &mut Ui, species: &Species) {
     format_latin(ui, species);
-    if !species.pl.is_empty() | !species.wikipedia_pl.is_empty() {
+    if has_polish(species) {
         format_pl(ui, species);
     }
 
-    if !species.en.is_empty() | !species.wikipedia_en.is_empty() {
+    if has_english(species) {
         format_en(ui, species);
     }
+}
+
+fn has_polish(species: &Species) -> bool {
+    !species.pl.is_empty() || !species.wikipedia_pl.is_empty() || !species.insektarium_pl.is_empty()
+}
+
+fn has_english(species: &Species) -> bool {
+    !species.en.is_empty() || !species.wikipedia_en.is_empty()
 }
