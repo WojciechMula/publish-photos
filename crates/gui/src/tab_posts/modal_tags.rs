@@ -66,6 +66,7 @@ pub enum Message {
     ToggleTagGroups,
     ToggleFrequentTags,
     FocusEditBox,
+    FocusAndSelectAllEditBox,
 }
 
 impl Message {
@@ -79,6 +80,7 @@ impl Message {
             Self::ToggleTagGroups => "show/hide list of tag groups",
             Self::ToggleFrequentTags => "show/hide list frequent tags",
             Self::FocusEditBox => unreachable!(),
+            Self::FocusAndSelectAllEditBox => unreachable!(),
         }
     }
 }
@@ -237,6 +239,10 @@ impl ModalTags {
             Message::FocusEditBox => {
                 request_focus(ctx, self.select_tags.text_edit_id);
             }
+            Message::FocusAndSelectAllEditBox => {
+                self.select_tags.select_all(ctx);
+                request_focus(ctx, self.select_tags.text_edit_id);
+            }
         }
     }
 
@@ -347,6 +353,9 @@ impl ModalTags {
             .open(self.frequent_tags_opened_flag)
             .show(ui, |ui| {
                 if let Some(action) = self.select_tags.draw_tags(ui, style) {
+                    if matches!(action, SelectTagsAction::Action(Action::AddTag(_))) {
+                        queue.push_back(Message::FocusAndSelectAllEditBox);
+                    }
                     queue.push_back(action.into());
                 }
             });

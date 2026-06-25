@@ -6,6 +6,8 @@ use db::Database;
 use db::TagList;
 use db::TranslatedTag;
 use db::TranslatedTagsView;
+use egui::text::CCursor;
+use egui::text::CCursorRange;
 use egui::Align;
 use egui::Button;
 use egui::Context;
@@ -306,6 +308,17 @@ impl SelectTags {
                 }
             }
             TranslatedTag::Untranslated(string) => string.contains(&self.new_tag),
+        }
+    }
+
+    pub fn select_all(&mut self, ctx: &Context) {
+        if let Some(mut state) = TextEdit::load_state(ctx, self.text_edit_id) {
+            state.cursor.set_char_range(Some(CCursorRange::two(
+                CCursor::new(0),
+                CCursor::new(self.new_tag.len()),
+            )));
+
+            state.store(ctx, self.text_edit_id);
         }
     }
 }
