@@ -30,18 +30,6 @@ pub struct Filter {
     icon_width: f32,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct FilterState {
-    image_state: ImageState,
-    pub extra: bool,
-    no_tags: bool,
-    pub current: Selector,
-    phrase: String,
-
-    #[serde(skip)]
-    count: ImageCounter,
-}
-
 impl Default for Filter {
     fn default() -> Self {
         Self {
@@ -170,11 +158,12 @@ impl Filter {
     }
 
     pub fn view_extra(&mut self, ui: &mut Ui, queue: &mut VecDeque<Message>) {
-        if ui
-            .checkbox(&mut self.filter.no_tags, "having no tags")
-            .changed()
-        {
-            queue.push_back(Message::RefreshView);
+        ui.label("tags:");
+        for val in TagState::ALL {
+            let resp = ui.radio_value(&mut self.filter.tag_state, val, val.name());
+            if resp.changed() {
+                queue.push_back(Message::RefreshView);
+            }
         }
     }
 
@@ -270,12 +259,53 @@ impl ImageState {
 
 // --------------------------------------------------
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
+pub enum TagState {
+    Any,
+    Empty,
+    Present,
+}
+
+impl TagState {
+    pub const ALL: [Self; 3] = [Self::Any, Self::Empty, Self::Present];
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Any => "any",
+            Self::Empty => "no tags",
+            Self::Present => "has tags",
+        }
+    }
+
+    fn matches(&self, post: &Post) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Empty => post.tags.is_empty(),
+            Self::Present => !post.tags.is_empty(),
+        }
+    }
+}
+
+// --------------------------------------------------
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FilterState {
+    image_state: ImageState,
+    pub extra: bool,
+    tag_state: TagState,
+    pub current: Selector,
+    phrase: String,
+
+    #[serde(skip)]
+    count: ImageCounter,
+}
+
 impl Default for FilterState {
     fn default() -> Self {
         Self {
             image_state: ImageState::Unpublished,
             extra: false,
-            no_tags: false,
+            tag_state: TagState::Any,
             current: Selector::ByYear(0),
             count: ImageCounter(0),
             phrase: String::new(),
@@ -298,8 +328,7 @@ impl FilterState {
         }
 
         if self.extra {
-            let no_tags = post.tags.is_empty();
-            if self.no_tags != no_tags {
+            if !self.tag_state.matches(post) {
                 return false;
             }
         }
