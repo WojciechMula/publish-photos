@@ -9,6 +9,7 @@ use crate::ImageCounter;
 use db::Database;
 use db::Species;
 use db::SpeciesId;
+use db::TaxonomicRank;
 use egui::Align;
 use egui::Label;
 use egui::Layout;
@@ -258,7 +259,21 @@ fn block(
         result = image(ui, image_cache, style, db, species, width);
 
         ui.vertical(|ui| {
-            ui.label(RichText::new(&species.latin).italics().heading());
+            {
+                let latin = RichText::new(&species.latin).italics().heading();
+                if species.taxonomic_rank != TaxonomicRank::Species {
+                    let text = RichText::new(species.taxonomic_rank.en_name()).heading();
+                    let widget = Label::new(text);
+                    ui.horizontal(|ui| {
+                        ui.add(widget)
+                            .on_hover_text(species.taxonomic_rank.pl_name());
+                        ui.label(latin);
+                    });
+                } else {
+                    ui.label(latin);
+                }
+            }
+
             if has_polish(species) {
                 ui.horizontal(|ui| {
                     format_pl(ui, species);
@@ -286,6 +301,12 @@ fn block(
 }
 
 pub fn format_latin(ui: &mut Ui, species: &Species) {
+    if species.taxonomic_rank != TaxonomicRank::Species {
+        let widget = Label::new(species.taxonomic_rank.en_name());
+        ui.add(widget)
+            .on_hover_text(species.taxonomic_rank.pl_name());
+    }
+
     ui.label(RichText::new(&species.latin).italics());
 }
 

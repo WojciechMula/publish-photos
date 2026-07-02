@@ -16,8 +16,10 @@ use db::Database;
 use db::Latin;
 use db::Species;
 use db::SpeciesId;
+use db::TaxonomicRank;
 use egui::Align;
 use egui::CentralPanel;
+use egui::ComboBox;
 use egui::Context;
 use egui::Grid;
 use egui::Key;
@@ -52,6 +54,7 @@ pub enum Message {
     SaveAndExit,
     CancelAndExit,
     ChangeLatin(Latin),
+    ChangeTaxonomicRank(TaxonomicRank),
     ChangePolish(String),
     ChangeEnglish(String),
     ChangeInsektariumPl(String),
@@ -67,6 +70,7 @@ impl Message {
             Self::SaveAndExit => help::SAVE_AND_EXIT,
             Self::CancelAndExit => unreachable!(),
             Self::ChangeLatin(_) => unreachable!(),
+            Self::ChangeTaxonomicRank(_) => unreachable!(),
             Self::ChangePolish(_) => unreachable!(),
             Self::ChangeEnglish(_) => unreachable!(),
             Self::ChangeWikipediaPl(_) => unreachable!(),
@@ -191,6 +195,10 @@ impl ModalEdit {
                 self.new.latin = text;
                 self.validate(db);
             }
+            Message::ChangeTaxonomicRank(rank) => {
+                self.new.taxonomic_rank = rank;
+                self.validate(db);
+            }
             Message::ChangePolish(text) => {
                 self.new.pl = text;
                 self.validate(db);
@@ -306,113 +314,130 @@ impl ModalEdit {
     }
 
     fn draw_details(&self, ui: &mut Ui, queue: &mut MessageQueue) {
-        Grid::new("species-details").num_columns(2).show(ui, |ui| {
-            ui.label("Latin");
-            ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, (&self.new.latin).into()) {
-                    queue.push_back(Message::ChangeLatin(val.into()));
-                }
-
-                if let Err(msg) = &self.can_save {
-                    let color = ui.visuals().error_fg_color;
-                    ui.colored_label(color, msg);
-                }
-            });
-
-            ui.end_row();
-
-            ui.separator();
-            ui.end_row();
-
-            icon_pl(ui);
-            if let Some(val) = edit(ui, &self.new.pl) {
-                queue.push_back(Message::ChangePolish(val));
-            }
-
-            ui.end_row();
-
-            ui.label("wiki");
-            ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, &self.new.wikipedia_pl) {
-                    queue.push_back(Message::ChangeWikipediaPl(val));
-                }
-
-                if is_hyperlink(&self.new.wikipedia_pl) {
-                    ui.hyperlink_to("visit", &self.new.wikipedia_pl);
-                }
-            });
-            ui.end_row();
-
-            ui.label("insektarium");
-            ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, &self.new.insektarium_pl) {
-                    queue.push_back(Message::ChangeInsektariumPl(val));
-                }
-
-                if is_hyperlink(&self.new.insektarium_pl) {
-                    ui.hyperlink_to("visit", &self.new.insektarium_pl);
-                }
-            });
-            ui.end_row();
-
-            ui.separator();
-            ui.end_row();
-
-            icon_en(ui);
-            if let Some(val) = edit(ui, &self.new.en) {
-                queue.push_back(Message::ChangeEnglish(val));
-            }
-
-            ui.end_row();
-
-            ui.label("wiki");
-            ui.horizontal(|ui| {
-                if let Some(val) = edit(ui, &self.new.wikipedia_en) {
-                    queue.push_back(Message::ChangeWikipediaEn(val));
-                }
-
-                if is_hyperlink(&self.new.wikipedia_en) {
-                    ui.hyperlink_to("visit", &self.new.wikipedia_en);
-                }
-            });
-            ui.end_row();
-
-            ui.separator();
-            ui.end_row();
-
-            ui.label("category");
-            ui.horizontal(|ui| {
-                let mut val = match &self.new.category {
-                    Some(category) => category.clone(),
-                    None => "".to_owned(),
-                };
-
-                let resp = ui.text_edit_singleline(&mut val);
-                resp.context_menu(|ui| {
-                    if ui.button(fmt!("{ICON_CONTENT_PASTE} Paste")).clicked() {
-                        let cmd = egui::ViewportCommand::RequestPaste;
-                        ui.ctx().send_viewport_cmd(cmd);
-                        resp.request_focus();
+        Grid::new(fmt!("{ID_PREFIX}-species-details"))
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Latin");
+                ui.horizontal(|ui| {
+                    if let Some(val) = edit(ui, (&self.new.latin).into()) {
+                        queue.push_back(Message::ChangeLatin(val.into()));
                     }
 
-                    if !self.categories.is_empty() {
-                        ui.separator();
-                        for category in &self.categories {
-                            if ui.button(category).clicked() {
-                                val = category.clone();
+                    let mut tr = self.new.taxonomic_rank;
+                    ComboBox::from_id_salt(fmt!("{ID_PREFIX}-tr"))
+                        .selected_text(taxonomic_rank_label(tr))
+                        .show_ui(ui, |ui| {
+                            for val in TaxonomicRank::ALL.iter().rev() {
+                                ui.horizontal(|ui| {
+                                    ui.selectable_value(&mut tr, *val, taxonomic_rank_label(*val));
+                                });
                             }
-                        }
+                        });
+
+                    if tr != self.new.taxonomic_rank {
+                        queue.push_back(Message::ChangeTaxonomicRank(tr));
+                    }
+
+                    if let Err(msg) = &self.can_save {
+                        let color = ui.visuals().error_fg_color;
+                        ui.colored_label(color, msg);
                     }
                 });
 
-                let val = if val.is_empty() { None } else { Some(val) };
+                ui.end_row();
 
-                if self.new.category != val {
-                    queue.push_back(Message::ChangeCategory(val));
+                ui.separator();
+                ui.end_row();
+
+                icon_pl(ui);
+                if let Some(val) = edit(ui, &self.new.pl) {
+                    queue.push_back(Message::ChangePolish(val));
                 }
+
+                ui.end_row();
+
+                ui.label("wiki");
+                ui.horizontal(|ui| {
+                    if let Some(val) = edit(ui, &self.new.wikipedia_pl) {
+                        queue.push_back(Message::ChangeWikipediaPl(val));
+                    }
+
+                    if is_hyperlink(&self.new.wikipedia_pl) {
+                        ui.hyperlink_to("visit", &self.new.wikipedia_pl);
+                    }
+                });
+                ui.end_row();
+
+                ui.label("insektarium");
+                ui.horizontal(|ui| {
+                    if let Some(val) = edit(ui, &self.new.insektarium_pl) {
+                        queue.push_back(Message::ChangeInsektariumPl(val));
+                    }
+
+                    if is_hyperlink(&self.new.insektarium_pl) {
+                        ui.hyperlink_to("visit", &self.new.insektarium_pl);
+                    }
+                });
+                ui.end_row();
+
+                ui.separator();
+                ui.end_row();
+
+                icon_en(ui);
+                if let Some(val) = edit(ui, &self.new.en) {
+                    queue.push_back(Message::ChangeEnglish(val));
+                }
+
+                ui.end_row();
+
+                ui.label("wiki");
+                ui.horizontal(|ui| {
+                    if let Some(val) = edit(ui, &self.new.wikipedia_en) {
+                        queue.push_back(Message::ChangeWikipediaEn(val));
+                    }
+
+                    if is_hyperlink(&self.new.wikipedia_en) {
+                        ui.hyperlink_to("visit", &self.new.wikipedia_en);
+                    }
+                });
+                ui.end_row();
+
+                ui.separator();
+                ui.end_row();
+
+                ui.label("category");
+                ui.horizontal(|ui| {
+                    let mut val = match &self.new.category {
+                        Some(category) => category.clone(),
+                        None => "".to_owned(),
+                    };
+
+                    let resp = ui.text_edit_singleline(&mut val);
+                    resp.context_menu(|ui| {
+                        if ui.button(fmt!("{ICON_CONTENT_PASTE} Paste")).clicked() {
+                            let cmd = egui::ViewportCommand::RequestPaste;
+                            ui.ctx().send_viewport_cmd(cmd);
+                            resp.request_focus();
+                        }
+
+                        if !self.categories.is_empty() {
+                            ui.separator();
+                            for category in &self.categories {
+                                if ui.button(category).clicked() {
+                                    val = category.clone();
+                                }
+                            }
+                        }
+                    });
+
+                    let val = if val.is_empty() { None } else { Some(val) };
+
+                    if self.new.category != val {
+                        queue.push_back(Message::ChangeCategory(val));
+                    }
+                });
+                ui.end_row();
             });
-            ui.end_row();
-        });
     }
 
     fn is_modified(&self) -> bool {
@@ -465,4 +490,11 @@ fn is_hyperlink(url: &str) -> bool {
     }
 
     false
+}
+
+fn taxonomic_rank_label(tr: TaxonomicRank) -> String {
+    let en = tr.en_name();
+    let pl = tr.pl_name();
+
+    format!("{en} ({pl})")
 }

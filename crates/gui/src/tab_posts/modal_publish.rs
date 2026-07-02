@@ -14,6 +14,8 @@ use db::Database;
 use db::Post;
 use db::PostId;
 use db::PublishedState;
+use db::Species;
+use db::TaxonomicRank;
 use egui::vec2;
 use egui::Align;
 use egui::Button;
@@ -315,15 +317,16 @@ pub fn render_text(post: &Post, db: &Database) -> String {
 
         let latin = post.species.as_ref().unwrap();
         let species = db.species_by_latin(latin).unwrap();
-        let latin = latin.as_str();
 
-        let pl = format_species(PL_EMOJI, &species.pl);
-        let en = format_species(EN_EMOJI, &species.en);
-        f.writeln(match (pl, en) {
-            (None, None) => latin.to_owned(),
-            (Some(pl), None) => format!("{latin} ({pl})"),
-            (None, Some(en)) => format!("{latin} ({en})"),
-            (Some(pl), Some(en)) => format!("{latin} ({pl} {en})"),
+        f.writeln(match (!species.pl.is_empty(), !species.en.is_empty()) {
+            (false, false) => latin.as_str().to_owned(),
+            (true, false) => format!("{latin} ({PL_EMOJI} {})", format_pl_species(species)),
+            (false, true) => format!("{latin} ({EN_EMOJI} {})", format_en_species(species)),
+            (true, true) => format!(
+                "{latin} ({PL_EMOJI} {} {EN_EMOJI} {})",
+                format_pl_species(species),
+                format_en_species(species)
+            ),
         });
     }
 
@@ -334,16 +337,16 @@ pub fn render_text(post: &Post, db: &Database) -> String {
         if !species.pl.is_empty() {
             f.writeln(format!(
                 "{PL_EMOJI} {} ({})",
-                species.pl,
+                format_pl_species(species),
                 &species.latin.as_str()
             ));
             if !species.en.is_empty() {
-                f.writeln(format!("{EN_EMOJI} {}", species.en));
+                f.writeln(format!("{EN_EMOJI} {}", format_en_species(species)));
             }
         } else if !species.en.is_empty() {
             f.writeln(format!(
                 "{EN_EMOJI} {} ({})",
-                species.en,
+                format_en_species(species),
                 species.latin.as_str()
             ));
         } else {
@@ -372,12 +375,20 @@ pub fn render_text(post: &Post, db: &Database) -> String {
     f.buf
 }
 
-fn format_species(emoji: &str, name: &str) -> Option<String> {
-    if name.is_empty() {
-        return None;
+fn format_pl_species(species: &Species) -> String {
+    if species.taxonomic_rank == TaxonomicRank::Species {
+        species.pl.clone()
+    } else {
+        format!("{} {}", species.taxonomic_rank.pl_name(), species.pl)
     }
+}
 
-    Some(format!("{emoji} {name}"))
+fn format_en_species(species: &Species) -> String {
+    if species.taxonomic_rank == TaxonomicRank::Species {
+        species.en.clone()
+    } else {
+        format!("{} {}", species.taxonomic_rank.en_name(), species.pl)
+    }
 }
 
 #[derive(Default)]
