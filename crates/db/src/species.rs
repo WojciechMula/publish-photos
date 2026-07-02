@@ -1,6 +1,7 @@
 use super::FileMetadata;
 use super::SearchParts;
 use super::SpeciesId;
+use super::TaxonomicRank;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Display;
@@ -57,6 +58,7 @@ impl Display for Latin {
 #[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Species {
     pub latin: Latin,
+    pub taxonomic_rank: TaxonomicRank,
     pub pl: String,
     pub wikipedia_pl: String,
     pub insektarium_pl: String,
@@ -116,6 +118,11 @@ impl Species {
             changed = true;
         }
 
+        if self.taxonomic_rank != other.taxonomic_rank {
+            self.taxonomic_rank = other.taxonomic_rank;
+            changed = true;
+        }
+
         if changed {
             self.refresh();
         }
@@ -127,6 +134,8 @@ impl Species {
         let items = [&self.latin.0, &self.pl, &self.en];
 
         self.search_parts.clear();
+        self.search_parts.add(self.taxonomic_rank.en_name());
+        self.search_parts.add(self.taxonomic_rank.pl_name());
         for item in items {
             for part in item.split_whitespace() {
                 self.search_parts.add(part);

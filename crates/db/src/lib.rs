@@ -53,6 +53,9 @@ use picture_views::PictureViewsBuilder;
 mod selector;
 pub use selector::Selector;
 
+mod taxonomic_rank;
+pub use taxonomic_rank::TaxonomicRank;
+
 // --------------------------------------------------
 
 pub type LocalDateTime = DateTime<Local>;
