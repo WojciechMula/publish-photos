@@ -29,10 +29,13 @@ use egui_material_icons::icons::ICON_ARROW_UPWARD;
 use egui_material_icons::icons::ICON_FORMAT_LIST_NUMBERED;
 use egui_material_icons::icons::ICON_SORT_BY_ALPHA;
 
+const ID_PREFIX: &str = "tab-species";
+
 pub struct TabSpecies {
     list: SpeciesList,
     search_box: SearchBox,
     modal_window: ModalWindow,
+    first_run: bool,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
@@ -103,9 +106,10 @@ impl Default for TabSpecies {
         let mut res = Self {
             list: SpeciesList::default().with_width(300.0),
             queue: MessageQueue::new(),
-            search_box: SearchBox::new("tab-species-search"),
+            search_box: SearchBox::new(fmt!("{ID_PREFIX}-search")),
             keyboard_mapping: Self::create_mapping(),
             modal_window: ModalWindow::None,
+            first_run: true,
         };
 
         res.queue.push_back(Message::RefreshView);
@@ -124,6 +128,14 @@ impl TabSpecies {
         main_queue: &mut MainMessageQueue,
     ) {
         self.list.image_width = style.image.preview_width;
+        if self.first_run {
+            let phrase = self.search_box.phrase(ctx);
+            if !phrase.is_empty() {
+                self.queue.push_back(Message::FilterByName(phrase));
+            }
+
+            self.first_run = false;
+        }
 
         while let Some(msg) = self.queue.pop_front() {
             self.handle_message(ctx, db, msg, main_queue);
@@ -293,7 +305,7 @@ impl TabSpecies {
 
         ScrollArea::vertical()
             .auto_shrink(false)
-            .id_salt("tab-species-scroll")
+            .id_salt(fmt!("{ID_PREFIX}-scroll"))
             .show(ui, |ui| {
                 ui.vertical(|ui| {
                     let resp = self.list.render(ui, image_cache, style, db);
