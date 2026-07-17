@@ -59,6 +59,7 @@ pub enum Message {
     ModalEdit(ModalEditMessage),
     OpenModalEdit(SpeciesId),
     AddNew,
+    AddNewFrom(String),
     EditCurrent,
     Edit(SpeciesId),
     FilterByName(String),
@@ -79,6 +80,7 @@ impl Message {
             Self::ModalEdit(msg) => msg.name(),
             Self::OpenModalEdit(_) => unreachable!(),
             Self::AddNew => "add new species",
+            Self::AddNewFrom(_) => unreachable!(),
             Self::EditCurrent => "edit highlighted species",
             Self::Edit(_) => unreachable!(),
             Self::FilterByName(_) => unreachable!(),
@@ -206,6 +208,10 @@ impl TabSpecies {
                 let window = ModalEdit::new();
                 self.modal_window = ModalWindow::ModalEdit(Box::new(window));
             }
+            Message::AddNewFrom(fragment) => {
+                let window = ModalEdit::new_with_hint(capitalize_first(fragment));
+                self.modal_window = ModalWindow::ModalEdit(Box::new(window));
+            }
             Message::EditCurrent => {
                 if let Some(id) = self.list.hovered {
                     self.queue.push_back(Message::OpenModalEdit(id));
@@ -291,7 +297,12 @@ impl TabSpecies {
             ui.separator();
 
             if ui.button("➕Add new").clicked() {
-                queue.push_back(Message::AddNew);
+                let phrase = self.search_box.phrase(ui.ctx());
+                if phrase.is_empty() {
+                    queue.push_back(Message::AddNew);
+                } else {
+                    queue.push_back(Message::AddNewFrom(phrase));
+                }
             }
 
             ui.separator();
@@ -348,5 +359,13 @@ const fn sort_order_label(sort_order: &SortOrder) -> &str {
         SortOrder::PolishDesc => fmt!("{ICON_SORT_BY_ALPHA}{ICON_ARROW_UPWARD} Polish"),
         SortOrder::EnglishAsc => fmt!("{ICON_SORT_BY_ALPHA}{ICON_ARROW_DOWNWARD} English"),
         SortOrder::EnglishDesc => fmt!("{ICON_SORT_BY_ALPHA}{ICON_ARROW_UPWARD} English"),
+    }
+}
+
+fn capitalize_first(s: String) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => s,
+        Some(first) => first.to_uppercase().collect::<String>() + c.as_str(),
     }
 }

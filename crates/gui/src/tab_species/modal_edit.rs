@@ -99,6 +99,13 @@ impl ModalEdit {
         }
     }
 
+    pub fn new_with_hint(hint: String) -> Self {
+        let mut modal = Self::new();
+        modal.new.latin = hint.into();
+
+        modal
+    }
+
     pub fn edit(id: SpeciesId, db: &Database) -> Self {
         let original = db.species_by_id(&id).unwrap().clone();
         let new = original.clone();
