@@ -80,7 +80,7 @@ impl Message {
             Self::ModalEdit(msg) => msg.name(),
             Self::OpenModalEdit(_) => unreachable!(),
             Self::AddNew => "add new species",
-            Self::AddNewFrom(_) => unreachable!(),
+            Self::AddNewFrom(_) => "add new species",
             Self::EditCurrent => "edit highlighted species",
             Self::Edit(_) => unreachable!(),
             Self::FilterByName(_) => unreachable!(),

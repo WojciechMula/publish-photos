@@ -336,6 +336,13 @@ impl ModalSpecies {
                     if val != self.species_thumbnail_size {
                         queue.push_back(Message::ThumbnailSize(val));
                     }
+
+                    ui.separator();
+
+                    if ui.button("➕Add new").clicked() {
+                        let hint = self.search_box.phrase(ctx);
+                        tab_queue.push_back(TabMessage::AddNewSpecies(hint));
+                    }
                 });
 
                 ui.separator();

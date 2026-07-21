@@ -217,6 +217,7 @@ pub enum Message {
     CopyPaths,
 
     EditSpeciesDetails(SpeciesId),
+    AddNewSpecies(String),
 }
 
 impl Message {
@@ -274,6 +275,7 @@ impl Message {
             Self::SetGridColumns(_) => unreachable!(),
             Self::CopyPaths => unreachable!(),
             Self::EditSpeciesDetails(_) => unreachable!(),
+            Self::AddNewSpecies(_) => "add new species",
         }
     }
 }
@@ -727,6 +729,10 @@ impl TabPosts {
             Message::EditSpeciesDetails(id) => {
                 main_queue.push_back(MainMessage::SelectTabSpecies);
                 main_queue.push_back(TabSpeciesMessage::OpenModalEdit(id).into());
+            }
+            Message::AddNewSpecies(hint) => {
+                main_queue.push_back(MainMessage::SelectTabSpecies);
+                main_queue.push_back(TabSpeciesMessage::AddNewFrom(hint).into());
             }
         }
     }
