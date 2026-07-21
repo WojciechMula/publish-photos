@@ -427,13 +427,17 @@ impl ModalSpecies {
                         crate::species_view::format_latin(ui, species);
                     });
 
-                    ui.horizontal(|ui| {
-                        crate::species_view::format_pl(ui, species);
-                    });
+                    if !species.pl.is_empty() {
+                        ui.horizontal(|ui| {
+                            crate::species_view::format_pl(ui, species);
+                        });
+                    }
 
-                    ui.horizontal(|ui| {
-                        crate::species_view::format_en(ui, species);
-                    });
+                    if !species.en.is_empty() {
+                        ui.horizontal(|ui| {
+                            crate::species_view::format_en(ui, species);
+                        });
+                    }
                 });
 
             if post.is_example {
