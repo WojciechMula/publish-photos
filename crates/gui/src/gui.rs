@@ -134,7 +134,7 @@ pub fn add_image(
     } else {
         let resp = ui.add_sized(size, Label::new(&meta.uri).truncate());
         if ui.is_rect_visible(resp.rect) {
-            image_cache.request(meta.uri.clone());
+            image_cache.request(meta.uri.clone(), ui.ctx());
         }
 
         resp
@@ -161,7 +161,7 @@ pub fn add_image_with_tint(
     } else {
         let resp = ui.add_sized(Vec2::splat(size), Label::new(&meta.uri));
         if ui.is_rect_visible(resp.rect) {
-            image_cache.request(meta.uri.clone());
+            image_cache.request(meta.uri.clone(), ui.ctx());
         }
 
         resp

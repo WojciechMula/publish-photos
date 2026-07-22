@@ -190,7 +190,7 @@ impl ModalView {
 
         if !self.initialized {
             for item in &post.files {
-                image_cache.request(item.uri.clone());
+                image_cache.request(item.uri.clone(), ctx);
             }
             self.initialized = true;
         }

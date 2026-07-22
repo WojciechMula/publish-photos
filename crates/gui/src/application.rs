@@ -192,7 +192,7 @@ impl Application {
             tag_groups: TabTagGroups::default(),
             ignored_tags: TabIgnoredTags::default(),
             initialized: false,
-            image_cache: ImageCache::default(),
+            image_cache: ImageCache::new(),
             style: Style::default(),
             queue,
             can_close: false,
