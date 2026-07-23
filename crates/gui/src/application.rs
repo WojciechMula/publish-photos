@@ -221,13 +221,7 @@ impl Application {
             return;
         }
 
-        // 2. main winow
-        if let Some(msg) = keyboard_action(ctx, &self.keyboard_mapping) {
-            self.queue.push_back(msg);
-            return;
-        }
-
-        // 3. active tab/modal inside the tab
+        // 2. active tab/modal inside the tab
         let keyboard_mapping = match self.active_tab {
             Tab::Posts => self.posts.get_keyboard_mapping(),
             Tab::Species => self.species.get_keyboard_mapping(),
@@ -238,6 +232,12 @@ impl Application {
 
         if let Some(msg) = keyboard_action(ctx, keyboard_mapping) {
             self.queue.push_back(msg);
+        }
+
+        // 3. main winow
+        if let Some(msg) = keyboard_action(ctx, &self.keyboard_mapping) {
+            self.queue.push_back(msg);
+            return;
         }
     }
 
