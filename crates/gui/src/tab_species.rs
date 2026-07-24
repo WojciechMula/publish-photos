@@ -248,6 +248,9 @@ impl TabSpecies {
                     match action {
                         SpeciesViewAction::SelectNext => species.next_example(),
                         SpeciesViewAction::SelectPrev => species.prev_example(),
+                        SpeciesViewAction::Copy(kind, text) => {
+                            main_queue.push_back(MainMessage::Copy(kind, text));
+                        }
                     }
                 }
             }

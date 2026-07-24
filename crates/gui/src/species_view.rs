@@ -1,3 +1,4 @@
+use crate::clipboard::ClipboardKind;
 use crate::gui::add_image;
 use crate::gui::frame;
 use crate::gui::icon_en;
@@ -19,6 +20,7 @@ use egui::UiBuilder;
 use egui::Vec2;
 
 use egui_material_icons::icons::ICON_ARROW_BACK_2;
+use egui_material_icons::icons::ICON_CONTENT_COPY;
 use egui_material_icons::icons::ICON_PLAY_ARROW;
 
 #[derive(Default)]
@@ -199,7 +201,7 @@ impl SpeciesList {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct SpeciesListResponse {
     pub hovered: Option<Option<SpeciesId>>,
     pub clicked: Option<SpeciesId>,
@@ -207,10 +209,11 @@ pub struct SpeciesListResponse {
     pub species_view_action: Option<(SpeciesViewAction, SpeciesId)>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum SpeciesViewAction {
     SelectNext,
     SelectPrev,
+    Copy(ClipboardKind, String),
 }
 
 pub fn image(
@@ -267,30 +270,46 @@ fn block(
         result = image(ui, image_cache, style, db, species, width);
 
         ui.vertical(|ui| {
-            {
+            ui.horizontal(|ui| {
                 let latin = RichText::new(&species.latin).italics().heading();
                 if species.taxonomic_rank != TaxonomicRank::Species {
                     let text = RichText::new(species.taxonomic_rank.en_name()).heading();
                     let widget = Label::new(text);
-                    ui.horizontal(|ui| {
-                        ui.add(widget)
-                            .on_hover_text(species.taxonomic_rank.pl_name());
-                        ui.label(latin);
-                    });
-                } else {
-                    ui.label(latin);
+                    ui.add(widget)
+                        .on_hover_text(species.taxonomic_rank.pl_name());
                 }
-            }
+                ui.label(latin);
+                if ui.button(ICON_CONTENT_COPY).clicked() {
+                    result = Some(SpeciesViewAction::Copy(
+                        ClipboardKind::Species,
+                        species.latin.to_string(),
+                    ));
+                }
+            });
 
             if has_polish(species) {
                 ui.horizontal(|ui| {
                     format_pl(ui, species);
+
+                    if !species.pl.is_empty() && ui.button(ICON_CONTENT_COPY).clicked() {
+                        result = Some(SpeciesViewAction::Copy(
+                            ClipboardKind::Generic,
+                            species.pl.clone(),
+                        ));
+                    }
                 });
             }
 
             if has_english(species) {
                 ui.horizontal(|ui| {
                     format_en(ui, species);
+
+                    if !species.en.is_empty() && ui.button(ICON_CONTENT_COPY).clicked() {
+                        result = Some(SpeciesViewAction::Copy(
+                            ClipboardKind::Generic,
+                            species.en.clone(),
+                        ));
+                    }
                 });
             }
 
