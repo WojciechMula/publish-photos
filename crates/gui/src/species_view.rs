@@ -26,6 +26,7 @@ pub struct SpeciesList {
     ids: Option<Vec<SpeciesId>>,
     view: Vec<SpeciesId>,
     phrase: String,
+    fragments: Vec<String>,
     pub sort_order: SortOrder,
     pub image_width: f32,
     pub hovered: Option<SpeciesId>,
@@ -80,7 +81,9 @@ impl SpeciesList {
     }
 
     fn match_phrase(&self, species: &Species) -> bool {
-        species.search_parts.matches(&self.phrase)
+        self.fragments
+            .iter()
+            .all(|frag| species.search_parts.matches(frag))
     }
 
     pub fn set_filter(&mut self, phrase: String, db: &Database) {
@@ -89,6 +92,11 @@ impl SpeciesList {
         }
 
         self.phrase = phrase.trim().to_lowercase();
+        self.fragments = self
+            .phrase
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
         self.refresh_view(db);
     }
 

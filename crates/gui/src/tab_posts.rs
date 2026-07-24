@@ -315,11 +315,11 @@ mod shortcut {
         }
     }
 
-    pub const EDIT_DESCRIPTION: KeyboardShortcut = ctrl(Key::E);
-    pub const EDIT_TAGS: KeyboardShortcut = ctrl(Key::T);
-    pub const EDIT_SPECIES: KeyboardShortcut = ctrl(Key::S);
+    pub const EDIT_DESCRIPTION: KeyboardShortcut = key(Key::E);
+    pub const EDIT_TAGS: KeyboardShortcut = key(Key::T);
+    pub const EDIT_SPECIES: KeyboardShortcut = key(Key::S);
     pub const UNDO: KeyboardShortcut = ctrl(Key::Z);
-    pub const PUBLISH: KeyboardShortcut = ctrl(Key::P);
+    pub const PUBLISH: KeyboardShortcut = key(Key::P);
     pub const START_GROUPING: KeyboardShortcut = ctrl(Key::G);
     pub const PREVIEW_1: KeyboardShortcut = key(Key::F);
     pub const PREVIEW_2: KeyboardShortcut = key(Key::V);
