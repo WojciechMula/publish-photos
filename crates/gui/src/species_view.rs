@@ -214,6 +214,7 @@ pub enum SpeciesViewAction {
     SelectNext,
     SelectPrev,
     Copy(ClipboardKind, String),
+    Edit,
 }
 
 pub fn image(
@@ -284,6 +285,10 @@ fn block(
                         ClipboardKind::Species,
                         species.latin.to_string(),
                     ));
+                }
+
+                if ui.button("Edit").clicked() {
+                    result = Some(SpeciesViewAction::Edit);
                 }
             });
 

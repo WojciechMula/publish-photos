@@ -290,6 +290,9 @@ impl ModalSpecies {
                         SpeciesViewAction::Copy(kind, text) => {
                             tab_queue.push_back(TabMessage::Copy(kind, text));
                         }
+                        SpeciesViewAction::Edit => {
+                            tab_queue.push_back(TabMessage::EditSpeciesDetails(id));
+                        }
                     }
                 }
             }

@@ -251,6 +251,9 @@ impl TabSpecies {
                         SpeciesViewAction::Copy(kind, text) => {
                             main_queue.push_back(MainMessage::Copy(kind, text));
                         }
+                        SpeciesViewAction::Edit => {
+                            self.queue.push_back(Message::OpenModalEdit(id));
+                        }
                     }
                 }
             }
