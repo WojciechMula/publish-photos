@@ -32,10 +32,11 @@ pub enum TaxonomicRank {
     #[default]
     Species,
     Subspecies,
+    Complex,
 }
 
 impl TaxonomicRank {
-    pub const ALL: [Self; 28] = [
+    pub const ALL: [Self; 29] = [
         Self::Regnum,
         Self::Subregnum,
         Self::Superphylum,
@@ -64,6 +65,7 @@ impl TaxonomicRank {
         Self::Infragenus,
         Self::Species,
         Self::Subspecies,
+        Self::Complex,
     ];
 
     pub const fn latin_name(&self) -> &'static str {
@@ -96,6 +98,7 @@ impl TaxonomicRank {
             Self::Infragenus => "infragenus",
             Self::Species => "species",
             Self::Subspecies => "subspecies",
+            Self::Complex => "complex",
         }
     }
 
@@ -129,6 +132,7 @@ impl TaxonomicRank {
             Self::Infragenus => "infragenus",
             Self::Species => "species",
             Self::Subspecies => "subspecies",
+            Self::Complex => "complex",
         }
     }
 
@@ -159,6 +163,7 @@ impl TaxonomicRank {
             Self::Subgenus => "podrodzaj",
             Self::Species => "gatunek",
             Self::Subspecies => "podgatunek",
+            Self::Complex => "kompleks",
             Self::Infrafamilia | Self::Infratribus | Self::Infragenus => self.latin_name(),
         }
     }

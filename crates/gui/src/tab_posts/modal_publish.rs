@@ -318,7 +318,10 @@ pub fn render_text(post: &Post, db: &Database) -> String {
         let latin = post.species.as_ref().unwrap();
         let species = db.species_by_latin(latin).unwrap();
 
-        f.writeln(match (!species.pl.is_empty(), !species.en.is_empty()) {
+        let has_pl = !species.pl.is_empty();
+        let has_en = !species.en.is_empty();
+
+        f.writeln(match (has_pl, has_en) {
             (false, false) => latin.as_str().to_owned(),
             (true, false) => format!("{latin} ({PL_EMOJI} {})", format_pl_species(species)),
             (false, true) => format!("{latin} ({EN_EMOJI} {})", format_en_species(species)),
@@ -330,7 +333,7 @@ pub fn render_text(post: &Post, db: &Database) -> String {
         });
     }
 
-    if f.is_empty() && post.species.is_some() {
+    if post.species.is_some() && f.is_empty() {
         let latin = post.species.as_ref().unwrap();
         let species = db.species_by_latin(latin).unwrap();
 
@@ -338,10 +341,14 @@ pub fn render_text(post: &Post, db: &Database) -> String {
             f.writeln(format!(
                 "{PL_EMOJI} {} ({})",
                 format_pl_species(species),
-                &species.latin.as_str()
+                species.latin
             ));
             if !species.en.is_empty() {
-                f.writeln(format!("{EN_EMOJI} {}", format_en_species(species)));
+                f.writeln(format!(
+                    "{EN_EMOJI} {} ({})",
+                    format_en_species(species),
+                    species.latin
+                ));
             }
         } else if !species.en.is_empty() {
             f.writeln(format!(
@@ -350,7 +357,20 @@ pub fn render_text(post: &Post, db: &Database) -> String {
                 species.latin.as_str()
             ));
         } else {
-            f.writeln(species.latin.as_str().to_string());
+            if species.taxonomic_rank == TaxonomicRank::Species {
+                f.writeln(species.latin.as_str().to_string());
+            } else {
+                f.writeln(format!(
+                    "{PL_EMOJI} {} {}",
+                    species.taxonomic_rank.pl_name(),
+                    species.latin.as_str()
+                ));
+                f.writeln(format!(
+                    "{EN_EMOJI} {} {}",
+                    species.taxonomic_rank.en_name(),
+                    species.latin.as_str()
+                ));
+            }
         }
     }
 
@@ -387,7 +407,7 @@ fn format_en_species(species: &Species) -> String {
     if species.taxonomic_rank == TaxonomicRank::Species {
         species.en.clone()
     } else {
-        format!("{} {}", species.taxonomic_rank.en_name(), species.pl)
+        format!("{} {}", species.taxonomic_rank.en_name(), species.en)
     }
 }
 
