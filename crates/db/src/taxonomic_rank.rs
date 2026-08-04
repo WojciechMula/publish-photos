@@ -18,6 +18,7 @@ pub enum TaxonomicRank {
     Subordo,
     Infraordo,
     Superfamilia,
+    Epifamilia,
     Familia,
     Subfamilia,
     Infrafamilia,
@@ -36,7 +37,7 @@ pub enum TaxonomicRank {
 }
 
 impl TaxonomicRank {
-    pub const ALL: [Self; 29] = [
+    pub const ALL: [Self; 30] = [
         Self::Regnum,
         Self::Subregnum,
         Self::Superphylum,
@@ -52,6 +53,7 @@ impl TaxonomicRank {
         Self::Subordo,
         Self::Infraordo,
         Self::Superfamilia,
+        Self::Epifamilia,
         Self::Familia,
         Self::Subfamilia,
         Self::Infrafamilia,
@@ -85,6 +87,7 @@ impl TaxonomicRank {
             Self::Subordo => "subordo",
             Self::Infraordo => "infraordo",
             Self::Superfamilia => "superfamilia",
+            Self::Epifamilia => "epifamilia",
             Self::Familia => "familia",
             Self::Subfamilia => "subfamilia",
             Self::Infrafamilia => "infrafamilia",
@@ -119,6 +122,7 @@ impl TaxonomicRank {
             Self::Subordo => "suborder",
             Self::Infraordo => "infraorder",
             Self::Superfamilia => "superfamily",
+            Self::Epifamilia => "epifamily",
             Self::Familia => "family",
             Self::Subfamilia => "subffamily",
             Self::Infrafamilia => "infrafamily",
@@ -153,6 +157,7 @@ impl TaxonomicRank {
             Self::Subordo => "podrząd",
             Self::Infraordo => "infrarząd",
             Self::Superfamilia => "nadrodzina",
+            Self::Epifamilia => "epirodzina",
             Self::Familia => "rodzina",
             Self::Subfamilia => "podrodzina",
             Self::Supertribus => "nadplemię",
