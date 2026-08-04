@@ -44,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     if opts.update_db {
         let new = photos::sync_db::perform(&rootdir, &mut db)?;
         db.refresh_all_records();
+        db.force_refresh_caches();
         if new > 0 {
             db.current_version.photos += 1;
         }

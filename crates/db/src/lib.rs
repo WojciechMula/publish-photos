@@ -170,7 +170,7 @@ impl Database {
         result.rootpath = path.to_path_buf();
         result.rootdir = match path.parent() {
             Some(dir) => dir.to_path_buf(),
-            None => unreachable!("path to a file always has parent"),
+            None => unreachable!("path to a file always has a parent"),
         };
 
         result.refresh_all_records();
@@ -183,7 +183,7 @@ impl Database {
         let rootpath = path.to_path_buf();
         let rootdir = match path.parent() {
             Some(dir) => dir.to_path_buf(),
-            None => unreachable!("path to a file always has parent"),
+            None => unreachable!("path to a file always has a parent"),
         };
 
         let mut result = Self {
@@ -400,6 +400,11 @@ impl Database {
         };
 
         self.posts.0.remove(index);
+    }
+
+    pub fn force_refresh_caches(&mut self) {
+        self.cache_versions = CacheVersion::default();
+        self.refresh_caches();
     }
 
     pub fn refresh_caches(&mut self) {
