@@ -38,6 +38,18 @@ impl TagList {
         false
     }
 
+    pub fn move_index(&mut self, from: usize, to: usize) -> Option<usize> {
+        if from >= self.0.len() || to >= self.0.len() || from == to {
+            return None;
+        }
+
+        let item = self.0.remove(from);
+        let insert_at = if from < to { to - 1 } else { to };
+        self.0.insert(insert_at, item);
+
+        Some(insert_at)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &String> {
         self.0.iter()
     }

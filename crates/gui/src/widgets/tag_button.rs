@@ -8,7 +8,14 @@ use egui::TextFormat;
 use egui::Ui;
 use egui::Vec2;
 
-fn tag_button_ui(ui: &mut Ui, text: &str, needle: &str, style: &Style) -> Response {
+fn tag_button_ui(
+    ui: &mut Ui,
+    text: &str,
+    needle: &str,
+    style: &Style,
+    drag: bool,
+    target: bool,
+) -> Response {
     let mut job = LayoutJob::default();
 
     let leading_space = 0.0;
@@ -47,12 +54,27 @@ fn tag_button_ui(ui: &mut Ui, text: &str, needle: &str, style: &Style) -> Respon
     let padding = ui.style().spacing.button_padding;
 
     let size_padding = Vec2::new(size.x + 2.0 * padding.x, size.y + 2.0 * padding.y);
-    let (rect, mut response) = ui.allocate_exact_size(size_padding, Sense::HOVER | Sense::CLICK);
+    let sense = if drag {
+        Sense::click_and_drag()
+    } else {
+        Sense::HOVER | Sense::CLICK
+    };
+    let (rect, mut response) = ui.allocate_exact_size(size_padding, sense);
     response.intrinsic_size = Some(galley.intrinsic_size());
 
     if ui.is_rect_visible(response.rect) {
         let pos = rect.translate(padding).left_top();
-        let (bg_stroke, background) = if response.hovered() {
+        let (bg_stroke, background) = if target {
+            (
+                ui.visuals().widgets.active.bg_stroke,
+                ui.visuals().selection.bg_fill.gamma_multiply(0.65),
+            )
+        } else if response.dragged() {
+            (
+                ui.visuals().widgets.active.bg_stroke,
+                ui.visuals().selection.bg_fill,
+            )
+        } else if response.hovered() {
             (ui.visuals().widgets.hovered.bg_stroke, style.tag_hovered_bg)
         } else {
             (ui.visuals().widgets.active.bg_stroke, style.tag_active_bg)
@@ -69,5 +91,13 @@ fn tag_button_ui(ui: &mut Ui, text: &str, needle: &str, style: &Style) -> Respon
 }
 
 pub fn tag_button<'a>(text: &'a str, needle: &'a str, style: &'a Style) -> impl egui::Widget + 'a {
-    move |ui: &mut egui::Ui| tag_button_ui(ui, text, needle, style)
+    move |ui: &mut egui::Ui| tag_button_ui(ui, text, needle, style, false, false)
+}
+
+pub fn tag_button_draggable<'a>(
+    text: &'a str,
+    needle: &'a str,
+    style: &'a Style,
+) -> impl egui::Widget + 'a {
+    move |ui: &mut egui::Ui| tag_button_ui(ui, text, needle, style, true, false)
 }

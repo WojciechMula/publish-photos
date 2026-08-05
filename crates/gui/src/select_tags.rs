@@ -1,5 +1,6 @@
 use crate::style::Style;
 use crate::widgets::tag_button;
+use crate::widgets::tag_button_draggable;
 use const_format::formatcp as fmt;
 use db::edit_tags::Action;
 use db::Database;
@@ -9,11 +10,13 @@ use db::TranslatedTagsView;
 use egui::text::CCursor;
 use egui::text::CCursorRange;
 use egui::Align;
+use egui::Area;
 use egui::Button;
 use egui::Context;
 use egui::Id;
 use egui::Key;
 use egui::Layout;
+use egui::Order;
 use egui::Popup;
 use egui::PopupAnchor;
 use egui::PopupCloseBehavior;
@@ -22,6 +25,7 @@ use egui::Sense;
 use egui::SetOpenCommand;
 use egui::TextEdit;
 use egui::Ui;
+use egui::Vec2;
 
 use egui_material_icons::icons::ICON_ADD;
 use egui_material_icons::icons::ICON_BACKSPACE;
@@ -34,6 +38,9 @@ pub struct SelectTags {
     filtered: Vec<TranslatedTagGroup>,
     autocompletion: Vec<TranslatedTag>,
     undo: Vec<Action>,
+    dragged_tag: Option<usize>,
+    dragged_target: Option<usize>,
+    drag_start_tags: Option<TagList>,
     pub text_edit_id: Id,
     show_pl_translations: Id,
     first_run: bool,
@@ -73,6 +80,9 @@ impl SelectTags {
             filtered: Vec::new(),
             autocompletion: Vec::new(),
             undo: Vec::new(),
+            dragged_tag: None,
+            dragged_target: None,
+            drag_start_tags: None,
             text_edit_id: Id::new((id, "select-tag")),
             show_pl_translations,
             first_run: true,
@@ -208,6 +218,88 @@ impl SelectTags {
         };
 
         self.draw_tag_groups(ui, style, groups)
+    }
+
+    pub fn draw_selected_tags(&mut self, ui: &mut Ui, style: &Style) -> Option<SelectTagsAction> {
+        let mut result: Option<SelectTagsAction> = None;
+        let tags = self.tags.0.clone();
+        let dragging = self.dragged_tag.is_some();
+        let pointer_pos = ui.ctx().pointer_interact_pos();
+
+        ui.horizontal_wrapped(|ui| {
+            for (index, tag) in tags.iter().enumerate() {
+                let resp = ui.add(tag_button_draggable(tag, "", style));
+                let is_target = dragging
+                    && self.dragged_tag != Some(index)
+                    && pointer_pos.is_some_and(|pointer_pos| resp.rect.contains(pointer_pos));
+
+                if resp.clicked() {
+                    result = Some(Action::RemoveTag(tag.clone()).into());
+                }
+
+                if resp.drag_started() {
+                    self.dragged_tag = Some(index);
+                    self.dragged_target = None;
+                    self.drag_start_tags = Some(self.tags.clone());
+                }
+
+                if dragging && self.dragged_tag != Some(index) && is_target {
+                    self.dragged_target = Some(index);
+                }
+
+                if is_target {
+                    ui.painter().rect_filled(
+                        resp.rect,
+                        3.0,
+                        ui.visuals().selection.bg_fill.gamma_multiply(0.22),
+                    );
+                }
+            }
+        });
+
+        if dragging {
+            self.draw_drag_preview(ui, style);
+        }
+
+        if let Some(from) = self.dragged_tag {
+            if !ui.input(|i| i.pointer.primary_down()) {
+                if let Some(start_tags) = self.drag_start_tags.take() {
+                    if let Some(to) = self.dragged_target {
+                        let mut reordered = start_tags.clone();
+                        if reordered.move_index(from, to).is_some() && reordered != self.tags {
+                            result = Some(Action::AssignTags(reordered).into());
+                        }
+                    }
+                }
+                self.dragged_tag = None;
+                self.dragged_target = None;
+            }
+        }
+
+        result
+    }
+
+    fn draw_drag_preview(&self, ui: &mut Ui, style: &Style) {
+        let Some(index) = self.dragged_tag else {
+            return;
+        };
+
+        let Some(tag) = self.tags.0.get(index) else {
+            return;
+        };
+
+        let Some(pointer_pos) = ui.ctx().pointer_interact_pos() else {
+            return;
+        };
+
+        let pos = pointer_pos;
+        Area::new(Id::new((self.text_edit_id, "drag-preview")))
+            .order(Order::Foreground)
+            .interactable(false)
+            .fixed_pos(pos)
+            .show(ui.ctx(), |ui| {
+                ui.add(tag_button(tag, "", style));
+            });
     }
 
     fn draw_tag_groups(

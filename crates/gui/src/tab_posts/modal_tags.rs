@@ -13,7 +13,6 @@ use crate::select_tags::TranslatedTagGroup;
 use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
-use crate::widgets::tag_button;
 use const_format::formatcp as fmt;
 use db::edit_details::EditDetails;
 use db::edit_tags::Action;
@@ -247,7 +246,7 @@ impl ModalTags {
     }
 
     fn draw(
-        &self,
+        &mut self,
         ctx: &Context,
         image_cache: &mut ImageCache,
         style: &Style,
@@ -302,15 +301,10 @@ impl ModalTags {
         });
     }
 
-    fn view_selected_tags(&self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
-        ui.horizontal_wrapped(|ui| {
-            for tag in self.select_tags.tags.iter() {
-                if ui.add(tag_button(tag, "", style)).clicked() {
-                    let action = Action::RemoveTag(tag.clone());
-                    queue.push_back(action.into());
-                }
-            }
-        });
+    fn view_selected_tags(&mut self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
+        if let Some(action) = self.select_tags.draw_selected_tags(ui, style) {
+            queue.push_back(action.into());
+        }
 
         ui.separator();
 

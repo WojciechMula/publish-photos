@@ -10,7 +10,6 @@ use crate::select_tags::TranslatedTagGroup;
 use crate::style::Style;
 use crate::tab_tag_groups::Message as TabMessage;
 use crate::tab_tag_groups::MessageQueue as TabMessageQueue;
-use crate::widgets::tag_button;
 use const_format::formatcp as fmt;
 use db::edit_tags::Action;
 use db::Database;
@@ -311,7 +310,7 @@ impl ModalEdit {
         });
     }
 
-    fn draw_current(&self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
+    fn draw_current(&mut self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
         let err_color = ui.visuals().error_fg_color;
 
         ui.horizontal(|ui| {
@@ -349,10 +348,8 @@ impl ModalEdit {
             if let ModalState::TagError(msg) = &self.state {
                 ui.colored_label(err_color, msg);
             }
-            for tag in self.select_tags.tags.iter() {
-                if ui.add(tag_button(tag, "", style)).clicked() {
-                    queue.push_back(Action::RemoveTag(tag.clone()).into());
-                }
+            if let Some(action) = self.select_tags.draw_selected_tags(ui, style) {
+                queue.push_back(action.into());
             }
         });
     }
