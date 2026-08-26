@@ -19,9 +19,7 @@ use serde::Serialize;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_CALENDAR_MONTH;
-use egui_material_icons::icons::ICON_CONTENT_COPY;
 use egui_material_icons::icons::ICON_FILTER_ALT;
-use egui_material_icons::icons::ICON_MENU;
 use egui_material_icons::icons::ICON_PUBLIC;
 
 pub struct Filter {
@@ -147,15 +145,6 @@ impl Filter {
 
         if self.filter.is_enabled() {
             ui.label(self.filter.count.to_string());
-            let resp = ui.button(ICON_MENU);
-            resp.context_menu(|ui| {
-                if ui
-                    .button(fmt!("{ICON_CONTENT_COPY} Copy all paths"))
-                    .clicked()
-                {
-                    queue.push_back(Message::CopyPaths);
-                }
-            });
         }
     }
 

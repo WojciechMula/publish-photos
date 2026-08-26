@@ -215,7 +215,6 @@ pub enum Message {
     FilterByMonth(Year, Month),
     SetViewKind(ViewKind),
     SetGridColumns(isize),
-    CopyPaths,
 
     EditSpeciesDetails(SpeciesId),
     AddNewSpecies(String),
@@ -275,7 +274,6 @@ impl Message {
             Self::FilterByMonth(_, _) => unreachable!(),
             Self::SetViewKind(_) => unreachable!(),
             Self::SetGridColumns(_) => unreachable!(),
-            Self::CopyPaths => unreachable!(),
             Self::EditSpeciesDetails(_) => unreachable!(),
             Self::AddNewSpecies(_) => "add new species",
             Self::SearchBoxAction(_) => unreachable!(),
@@ -714,20 +712,6 @@ impl TabPosts {
             }
             Message::SetGridColumns(grid_columns) => {
                 self.grid_columns = grid_columns;
-            }
-            Message::CopyPaths => {
-                let mut paths = Vec::<String>::with_capacity(self.view.len());
-                for post_id in &self.view {
-                    let post = db.post(post_id);
-                    for file in &post.files {
-                        paths.push(file.full_path.display().to_string());
-                    }
-                }
-
-                let text = paths.join("\n");
-                let kind = ClipboardKind::Generic;
-
-                main_queue.push_back(MainMessage::Copy(kind, text));
             }
             Message::EditSpeciesDetails(id) => {
                 main_queue.push_back(MainMessage::SelectTabSpecies);
