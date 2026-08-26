@@ -25,7 +25,6 @@ use egui::Sense;
 use egui::SetOpenCommand;
 use egui::TextEdit;
 use egui::Ui;
-use egui::Vec2;
 
 use egui_material_icons::icons::ICON_ADD;
 use egui_material_icons::icons::ICON_BACKSPACE;

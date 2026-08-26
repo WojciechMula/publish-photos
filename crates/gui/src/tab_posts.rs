@@ -40,6 +40,7 @@ use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
 use crate::tab_species::Message as TabSpeciesMessage;
 use crate::widgets::checkmark;
+use crate::widgets::HistoryInputAction;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use db::edit_details::EditDetails;
@@ -218,6 +219,7 @@ pub enum Message {
 
     EditSpeciesDetails(SpeciesId),
     AddNewSpecies(String),
+    SearchBoxAction(HistoryInputAction),
 }
 
 impl Message {
@@ -276,6 +278,7 @@ impl Message {
             Self::CopyPaths => unreachable!(),
             Self::EditSpeciesDetails(_) => unreachable!(),
             Self::AddNewSpecies(_) => "add new species",
+            Self::SearchBoxAction(_) => unreachable!(),
         }
     }
 }
@@ -733,6 +736,9 @@ impl TabPosts {
             Message::AddNewSpecies(hint) => {
                 main_queue.push_back(MainMessage::SelectTabSpecies);
                 main_queue.push_back(TabSpeciesMessage::AddNewFrom(hint).into());
+            }
+            Message::SearchBoxAction(action) => {
+                self.filter.search_box.update(ctx, action);
             }
         }
     }

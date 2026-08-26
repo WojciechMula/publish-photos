@@ -45,10 +45,12 @@ impl Filter {
     pub fn load(&mut self, storage: &dyn eframe::Storage) {
         self.filter =
             eframe::get_value(storage, fmt!("{ID_PREFIX}-filter")).unwrap_or(self.filter.clone());
+        self.search_box.load(storage);
     }
 
     pub fn save(&self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, fmt!("{ID_PREFIX}-filter"), &self.filter);
+        self.search_box.save(storage);
     }
 
     pub fn set_current(&mut self, selector: Selector) {
@@ -138,11 +140,10 @@ impl Filter {
 
         ui.separator();
 
-        if self.search_box.show(ui).is_some() {
+        let action = self.search_box.show(ui);
+        if action.is_some() {
             queue.push_back(Message::RefreshView);
         }
-
-        self.filter.phrase = self.search_box.phrase(ui.ctx());
 
         if self.filter.is_enabled() {
             ui.label(self.filter.count.to_string());

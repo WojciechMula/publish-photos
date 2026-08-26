@@ -16,6 +16,7 @@ use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
 use crate::tab_posts::Post;
+use crate::widgets::HistoryInputAction;
 use const_format::formatcp as fmt;
 use db::edit_details::EditDetails;
 use db::Database;
@@ -50,6 +51,7 @@ pub struct ModalSpecies {
     search_box: SearchBox,
     species_hovered: Option<SpeciesId>,
     species_thumbnail_size: ThumbnailSize,
+    first_run: bool,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
@@ -93,6 +95,7 @@ pub enum Message {
     CancelAndExit,
     FocusSearch,
     ThumbnailSize(ThumbnailSize),
+    SearchBoxAction(HistoryInputAction),
 }
 
 impl Message {
@@ -109,6 +112,7 @@ impl Message {
             Self::CancelAndExit => unreachable!(),
             Self::FocusSearch => help::FOCUS_SEARCH,
             Self::ThumbnailSize(_) => unreachable!(),
+            Self::SearchBoxAction(_) => unreachable!(),
         }
     }
 }
@@ -116,6 +120,12 @@ impl Message {
 impl From<Message> for TabMessage {
     fn from(val: Message) -> Self {
         Self::ModalSpecies(val)
+    }
+}
+
+impl From<HistoryInputAction> for Message {
+    fn from(val: HistoryInputAction) -> Self {
+        Self::SearchBoxAction(val)
     }
 }
 
@@ -138,6 +148,7 @@ impl ModalSpecies {
             species_thumbnail_size: ThumbnailSize::Small,
             queue: MessageQueue::new(),
             keyboard_mapping: Self::create_mapping(),
+            first_run: true,
         };
 
         res.queue.push_back(Message::RefreshView);
@@ -152,6 +163,11 @@ impl ModalSpecies {
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        if self.first_run {
+            self.first_run = true;
+            self.search_box.restore(ctx);
+        }
+
         if self.recent_species_version != db.current_version.species {
             self.recent_species = RecentSpecies::new(self.id, db);
             self.recent_species_version = db.current_version.species;
@@ -212,7 +228,7 @@ impl ModalSpecies {
 
                 for view in views {
                     view.image_width = self.species_thumbnail_size.width(style);
-                    view.set_filter(self.search_box.phrase(ctx), db);
+                    view.set_filter(self.search_box.phrase(ctx).to_string(), db);
                     view.refresh_view(db);
                 }
             }
@@ -266,13 +282,16 @@ impl ModalSpecies {
 
                     tab_queue.push_back(TabMessage::Confirm(confirm));
                 } else {
+                    self.search_box.persist(ctx);
                     tab_queue.push_back(TabMessage::CloseModal);
                 }
             }
             Message::CancelAndExit => {
+                self.search_box.persist(ctx);
                 tab_queue.push_back(TabMessage::CloseModal);
             }
             Message::SaveAndExit => {
+                self.search_box.persist(ctx);
                 tab_queue.push_back(TabMessage::CloseModal);
                 if self.is_modified() {
                     let msg = EditDetails::SetSpecies(self.id, self.new.clone());
@@ -295,6 +314,18 @@ impl ModalSpecies {
                         }
                     }
                 }
+            }
+            Message::SearchBoxAction(action) => {
+                match &action {
+                    HistoryInputAction::Submit(text) => {
+                        self.queue.push_back(Message::FilterByName(text.clone()))
+                    }
+                    HistoryInputAction::TextChanged(text) => {
+                        self.queue.push_back(Message::FilterByName(text.clone()))
+                    }
+                    _ => (),
+                }
+                self.search_box.update(ctx, action);
             }
         }
     }
@@ -328,8 +359,9 @@ impl ModalSpecies {
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.horizontal(|ui| {
-                    if let Some(phrase) = self.search_box.show(ui) {
-                        queue.push_back(Message::FilterByName(phrase));
+                    let action = self.search_box.show(ui);
+                    if action.is_some() {
+                        queue.push_back(action.into());
                     }
 
                     ui.separator();
@@ -347,7 +379,7 @@ impl ModalSpecies {
 
                     if ui.button("➕Add new").clicked() {
                         let hint = self.search_box.phrase(ctx);
-                        tab_queue.push_back(TabMessage::AddNewSpecies(hint));
+                        tab_queue.push_back(TabMessage::AddNewSpecies(hint.to_string()));
                     }
                 });
 

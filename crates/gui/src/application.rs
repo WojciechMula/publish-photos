@@ -392,6 +392,7 @@ impl Application {
         let db_id = self.db.rootpath.display().to_string();
 
         self.posts.load(&db_id, storage);
+        self.species.load(&db_id, storage);
     }
 }
 
@@ -515,6 +516,7 @@ impl eframe::App for Application {
         let db_id = self.db.rootpath.display().to_string();
 
         self.posts.save(&db_id, storage);
+        self.species.save(&db_id, storage);
     }
 }
 

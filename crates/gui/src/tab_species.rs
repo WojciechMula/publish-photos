@@ -14,6 +14,7 @@ use crate::species_view::SortOrder;
 use crate::species_view::SpeciesList;
 use crate::species_view::SpeciesViewAction;
 use crate::style::Style;
+use crate::widgets::HistoryInputAction;
 use const_format::formatcp as fmt;
 use db::Database;
 use db::SpeciesId;
@@ -72,6 +73,7 @@ pub enum Message {
     SpeciesViewAction(SpeciesViewAction, SpeciesId),
     SelectPrevExample,
     SelectNextExample,
+    SearchBoxAction(HistoryInputAction),
 }
 
 impl Message {
@@ -93,6 +95,7 @@ impl Message {
             Self::SpeciesViewAction(..) => unreachable!(),
             Self::SelectPrevExample => "select the previous example from the list",
             Self::SelectNextExample => "select the next example from the list",
+            Self::SearchBoxAction(_) => unreachable!(),
         }
     }
 }
@@ -133,7 +136,8 @@ impl TabSpecies {
         if self.first_run {
             let phrase = self.search_box.phrase(ctx);
             if !phrase.is_empty() {
-                self.queue.push_back(Message::FilterByName(phrase));
+                self.queue
+                    .push_back(Message::FilterByName(phrase.to_string()));
             }
 
             self.first_run = false;
@@ -166,6 +170,14 @@ impl TabSpecies {
             .ctrl(Key::N, Message::AddNew.into())
             .key(Key::ArrowRight, Message::SelectPrevExample.into())
             .key(Key::ArrowLeft, Message::SelectNextExample.into())
+    }
+
+    pub fn load(&mut self, _db_id: &str, storage: &dyn eframe::Storage) {
+        self.search_box.load(storage);
+    }
+
+    pub fn save(&self, _db_id: &str, storage: &mut dyn eframe::Storage) {
+        self.search_box.save(storage);
     }
 
     pub fn modal_opened(&self) -> bool {
@@ -271,6 +283,19 @@ impl TabSpecies {
                     }
                 }
             }
+            Message::SearchBoxAction(action) => {
+                match &action {
+                    HistoryInputAction::Submit(text) => {
+                        self.queue.push_back(Message::FilterByName(text.clone()))
+                    }
+                    HistoryInputAction::TextChanged(text) => {
+                        self.queue.push_back(Message::FilterByName(text.clone()))
+                    }
+                    _ => (),
+                }
+
+                self.search_box.update(ctx, action);
+            }
         }
     }
 
@@ -296,18 +321,19 @@ impl TabSpecies {
         queue: &mut MessageQueue,
     ) {
         ui.horizontal(|ui| {
-            if let Some(filter) = self.search_box.show(ui) {
-                queue.push_back(Message::FilterByName(filter));
+            let action = self.search_box.show(ui);
+            if action.is_some() {
+                queue.push_back(Message::SearchBoxAction(action));
             }
 
             ui.separator();
 
             if ui.button("➕Add new").clicked() {
-                let phrase = self.search_box.phrase(ui.ctx());
+                let phrase = self.search_box.phrase2();
                 if phrase.is_empty() {
                     queue.push_back(Message::AddNew);
                 } else {
-                    queue.push_back(Message::AddNewFrom(phrase));
+                    queue.push_back(Message::AddNewFrom(phrase.to_string()));
                 }
             }
 
