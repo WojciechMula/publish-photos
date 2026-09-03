@@ -247,7 +247,6 @@ impl Application {
         // 3. main winow
         if let Some(msg) = keyboard_action(ctx, &self.keyboard_mapping) {
             self.queue.push_back(msg);
-            return;
         }
     }
 

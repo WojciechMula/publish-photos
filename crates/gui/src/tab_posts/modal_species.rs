@@ -228,7 +228,7 @@ impl ModalSpecies {
 
                 for view in views {
                     view.image_width = self.species_thumbnail_size.width(style);
-                    view.set_filter(self.search_box.phrase(ctx).to_string(), db);
+                    view.set_filter(self.search_box.phrase().to_string(), db);
                     view.refresh_view(db);
                 }
             }
@@ -378,7 +378,7 @@ impl ModalSpecies {
                     ui.separator();
 
                     if ui.button("➕Add new").clicked() {
-                        let hint = self.search_box.phrase(ctx);
+                        let hint = self.search_box.phrase();
                         tab_queue.push_back(TabMessage::AddNewSpecies(hint.to_string()));
                     }
                 });

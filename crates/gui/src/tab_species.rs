@@ -134,7 +134,7 @@ impl TabSpecies {
     ) {
         self.list.image_width = style.image.preview_width;
         if self.first_run {
-            let phrase = self.search_box.phrase(ctx);
+            let phrase = self.search_box.phrase();
             if !phrase.is_empty() {
                 self.queue
                     .push_back(Message::FilterByName(phrase.to_string()));
@@ -285,10 +285,7 @@ impl TabSpecies {
             }
             Message::SearchBoxAction(action) => {
                 match &action {
-                    HistoryInputAction::Submit(text) => {
-                        self.queue.push_back(Message::FilterByName(text.clone()))
-                    }
-                    HistoryInputAction::TextChanged(text) => {
+                    HistoryInputAction::Submit(text) | HistoryInputAction::TextChanged(text) => {
                         self.queue.push_back(Message::FilterByName(text.clone()))
                     }
                     _ => (),
@@ -329,7 +326,7 @@ impl TabSpecies {
             ui.separator();
 
             if ui.button("➕Add new").clicked() {
-                let phrase = self.search_box.phrase2();
+                let phrase = self.search_box.phrase();
                 if phrase.is_empty() {
                     queue.push_back(Message::AddNew);
                 } else {

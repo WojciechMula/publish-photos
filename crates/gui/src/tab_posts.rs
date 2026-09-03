@@ -353,7 +353,7 @@ impl TabPosts {
             label_width: 0.0,
             group: None,
             keyboard_mapping: Self::create_mapping(),
-            labels_version: 0,
+            labels_version: u64::MAX,
             labels: BTreeMap::new(),
         }
     }
@@ -744,7 +744,7 @@ impl TabPosts {
     }
 
     fn update_labels(&mut self, db: &Database) {
-        if self.labels_version != db.current_version.labels {
+        if self.labels_version == db.current_version.labels {
             return;
         }
 

@@ -44,11 +44,7 @@ impl SearchBox {
         self.input.restore(ctx, self.id);
     }
 
-    pub fn phrase(&self, _ctx: &Context) -> &String {
-        &self.input.current_text
-    }
-
-    pub fn phrase2(&self) -> &String {
+    pub fn phrase(&self) -> &String {
         &self.input.current_text
     }
 

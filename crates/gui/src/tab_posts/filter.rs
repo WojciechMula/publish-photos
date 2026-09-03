@@ -3,6 +3,7 @@ use super::ID_PREFIX;
 use crate::file_stem;
 use crate::gui::text_size;
 use crate::search_box::SearchBox;
+use crate::widgets::HistoryInputAction;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
 use db::Database;
@@ -140,7 +141,15 @@ impl Filter {
 
         let action = self.search_box.show(ui);
         if action.is_some() {
-            queue.push_back(Message::RefreshView);
+            match &action {
+                HistoryInputAction::Submit(text) | HistoryInputAction::TextChanged(text) => {
+                    if *text != self.filter.phrase {
+                        self.filter.phrase = text.clone();
+                    }
+                }
+                _ => (),
+            }
+            queue.push_back(Message::SearchBoxAction(action));
         }
 
         if self.filter.is_enabled() {

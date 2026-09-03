@@ -59,7 +59,7 @@ impl From<&LabelEntry> for LabelConfig {
         use crate::keyboard::format_shortcut;
 
         let shortcut = if let Some((key, modifiers)) = &v.shortcut {
-            format_shortcut(&key, &modifiers)
+            format_shortcut(key, modifiers)
         } else {
             "".to_owned()
         };

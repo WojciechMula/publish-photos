@@ -3,6 +3,7 @@ use crate::gui::icon_en;
 use crate::gui::icon_pl;
 use crate::keyboard::KeyboardMapping;
 use crate::search_box::SearchBox;
+use crate::widgets::HistoryInputAction;
 use db::Database;
 use db::Translation;
 use egui::Align;
@@ -29,6 +30,7 @@ pub enum Message {
     ChangePolish { id: usize, text: String },
     ChangeEnglish { id: usize, text: String },
     FocusSearch,
+    SearchBoxAction(HistoryInputAction),
 }
 
 impl Message {
@@ -100,6 +102,9 @@ impl TabTagTranslations {
             Message::FocusSearch => {
                 self.search_box.take_focus(ctx);
             }
+            Message::SearchBoxAction(action) => {
+                self.search_box.update(ctx, action);
+            }
         }
     }
 
@@ -112,7 +117,10 @@ impl TabTagTranslations {
     fn draw_list(&self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                self.search_box.show(ui);
+                let action = self.search_box.show(ui);
+                if action.is_some() {
+                    queue.push_back(Message::SearchBoxAction(action));
+                }
 
                 ui.separator();
 
@@ -132,9 +140,9 @@ impl TabTagTranslations {
             .id_salt("scroll-area-tags")
             .auto_shrink(false)
             .show(ui, |ui| {
-                let phrase = self.search_box.phrase(ui.ctx());
+                let phrase = self.search_box.phrase();
                 for (id, trans) in db.tag_translations.0.iter().enumerate() {
-                    if self.filter(&phrase, trans) {
+                    if self.filter(phrase, trans) {
                         self.draw_translation(ui, id, trans, queue);
                     }
                 }
