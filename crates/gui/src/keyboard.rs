@@ -142,3 +142,37 @@ pub fn format_shortcut(key: &Key, modifiers: &Modifiers) -> String {
 
     result
 }
+
+pub fn from_str(s: &str) -> crate::Result<(Key, Modifiers)> {
+    if s.is_empty() {
+        return crate::err!("expected non-empty string");
+    }
+
+    if !s.is_ascii() {
+        return crate::err!("expected only ASCII chars");
+    }
+
+    let binding = s.to_ascii_uppercase();
+    let mut s = binding.as_str();
+    let mut modifiers = Modifiers::NONE;
+    loop {
+        if let Some(suffix) = s.strip_prefix("CTRL-") {
+            modifiers |= Modifiers::CTRL | Modifiers::COMMAND | Modifiers::MAC_CMD;
+            s = suffix;
+        } else if let Some(suffix) = s.strip_prefix("ALT-") {
+            modifiers |= Modifiers::ALT;
+            s = suffix;
+        } else if let Some(suffix) = s.strip_prefix("SHIFT-") {
+            modifiers |= Modifiers::SHIFT;
+            s = suffix;
+        } else {
+            break;
+        }
+    }
+
+    let Some(key) = Key::from_name(s) else {
+        return crate::err!("'{s}' is not a valid keystroke");
+    };
+
+    Ok((key, modifiers))
+}

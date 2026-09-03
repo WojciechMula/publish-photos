@@ -37,9 +37,11 @@ use crate::gui::tight_frame;
 use crate::gui::OverlayLocation;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
+use crate::labels::LabelEntry;
 use crate::style::Style;
 use crate::tab_species::Message as TabSpeciesMessage;
 use crate::widgets::checkmark;
+use crate::widgets::label_button;
 use crate::widgets::HistoryInputAction;
 use crate::ImageCounter;
 use const_format::formatcp as fmt;
@@ -105,6 +107,8 @@ pub struct TabPosts {
     view_kind: ViewKind,
 
     keyboard_mapping: KeyboardMapping,
+    labels_version: u64,
+    labels: BTreeMap<String, LabelEntry>,
 
     pub queue: MessageQueue,
 }
@@ -200,6 +204,7 @@ pub enum Message {
     EditDescriptionCurrent,
     EditTagsCurrent,
     EditSpeciesCurrent,
+    ToggleLabelCurrent(String),
     ViewCurrent,
     SelectNext,
     SelectPrev,
@@ -277,6 +282,7 @@ impl Message {
             Self::EditSpeciesDetails(_) => unreachable!(),
             Self::AddNewSpecies(_) => "add new species",
             Self::SearchBoxAction(_) => unreachable!(),
+            Self::ToggleLabelCurrent(_) => "toggle label",
         }
     }
 }
@@ -338,7 +344,7 @@ impl TabPosts {
             selected: None,
             scroll_to_selected: false,
             grid_columns: 1,
-            version: 0,
+            version: u64::MAX,
             filter: Filter::default(),
             queue,
             inline_editors: BTreeMap::new(),
@@ -347,6 +353,8 @@ impl TabPosts {
             label_width: 0.0,
             group: None,
             keyboard_mapping: Self::create_mapping(),
+            labels_version: 0,
+            labels: BTreeMap::new(),
         }
     }
 
@@ -382,6 +390,8 @@ impl TabPosts {
             self.queue.push_back(Message::RefreshView);
             self.version = db.current_version.posts;
         }
+
+        self.update_labels(db);
 
         let mut queue = MessageQueue::new();
 
@@ -652,6 +662,12 @@ impl TabPosts {
                     queue.push_back(Message::View(id));
                 }
             }
+            Message::ToggleLabelCurrent(label) => {
+                if let Some(id) = self.hovered {
+                    let msg = EditDetails::ToggleLabel(id, label);
+                    main_queue.push_back(msg.into());
+                }
+            }
             Message::SelectNext => {
                 let id = move_selection(&self.view, self.selected, 1);
                 self.scroll_to_selected = self.selected != id;
@@ -725,6 +741,29 @@ impl TabPosts {
                 self.filter.search_box.update(ctx, action);
             }
         }
+    }
+
+    fn update_labels(&mut self, db: &Database) {
+        if self.labels_version != db.current_version.labels {
+            return;
+        }
+
+        self.keyboard_mapping = Self::create_mapping();
+        self.labels.clear();
+
+        for entry in crate::labels::from_db(db) {
+            if let Some((key, modifiers)) = entry.shortcut.as_ref() {
+                self.keyboard_mapping.add(
+                    *key,
+                    *modifiers,
+                    Message::ToggleLabelCurrent(entry.label.clone()).into(),
+                );
+            }
+
+            self.labels.insert(entry.label.clone(), entry);
+        }
+
+        self.labels_version = db.current_version.labels;
     }
 
     fn create_mapping() -> KeyboardMapping {
@@ -831,7 +870,7 @@ impl TabPosts {
             });
 
             if self.label_width == 0.0 {
-                self.label_width = crate::gui::max_size(&["tags", "species"], ui);
+                self.label_width = crate::gui::max_size(&["tags", "species", "labels"], ui);
             }
         });
 
@@ -1143,6 +1182,15 @@ impl TabPosts {
                     self.show_species(ui, post, db, queue, clipboard);
                 });
 
+                ui.horizontal(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.set_min_width(self.label_width);
+                        ui.label("labels");
+                    });
+
+                    self.show_labels(ui, post);
+                });
+
                 if !post.social_media.facebook_url.is_empty() {
                     ui.horizontal(|ui| {
                         ui.horizontal(|ui| {
@@ -1341,6 +1389,18 @@ impl TabPosts {
                     }
                 } else {
                     ui.label("—");
+                }
+            }
+        });
+    }
+
+    fn show_labels(&self, ui: &mut Ui, post: &Post) {
+        ui.horizontal_wrapped(|ui| {
+            for label in post.labels.iter() {
+                if let Some(entry) = self.labels.get(label) {
+                    ui.add(label_button(&entry.label, entry.color, entry.text_color));
+                } else {
+                    ui.label(label);
                 }
             }
         });

@@ -1,18 +1,15 @@
 use crate::application::Message;
 use crate::application::MessageQueue;
-use crate::colors;
+use crate::colors::select_color;
 use crate::gui::button;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::modal::ModalWindowTrait;
 use crate::style::Style;
-use crate::widgets::color_box;
 use const_format::formatcp as fmt;
 use db::Database;
 use egui::Align;
 use egui::CollapsingHeader;
-use egui::Color32;
-use egui::ComboBox;
 use egui::Grid;
 use egui::Id;
 use egui::Key;
@@ -221,36 +218,5 @@ fn select_size(ui: &mut Ui, current_value: &mut f32, range: RangeInclusive<usize
     let slider = Slider::new(&mut value, range);
     if ui.add(slider).changed() {
         *current_value = value as f32;
-    }
-}
-
-fn select_color(ui: &mut Ui, id: &str, color: &mut Color32) {
-    ui.horizontal(|ui| {
-        readonly_color(ui, *color);
-        if let Some(new_color) = choose_color(ui, id, *color) {
-            *color = new_color;
-        }
-    });
-}
-
-fn readonly_color(ui: &mut Ui, color: Color32) {
-    ui.add(color_box(color, 2));
-}
-
-fn choose_color(ui: &mut Ui, id: &str, current_color: Color32) -> Option<Color32> {
-    let mut selected_color = current_color;
-    ComboBox::from_id_salt(id).show_ui(ui, |ui| {
-        for (color, label) in colors::ALL {
-            ui.horizontal(|ui| {
-                readonly_color(ui, color);
-                ui.selectable_value(&mut selected_color, color, label);
-            });
-        }
-    });
-
-    if selected_color != current_color {
-        Some(selected_color)
-    } else {
-        None
     }
 }

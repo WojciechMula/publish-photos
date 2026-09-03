@@ -9,6 +9,7 @@ use crate::modal_keyboard::ModalKeyboard;
 use crate::modal_settings::ModalSettings;
 use crate::style::Style;
 use crate::tab_ignored_tags::TabIgnoredTags;
+use crate::tab_labels::TabLabels;
 use crate::tab_posts::Message as TabPostsMessage;
 use crate::tab_posts::TabPosts;
 use crate::tab_species::Message as TabSpeciesMessage;
@@ -50,6 +51,7 @@ pub struct Application {
     tag_translations: TabTagTranslations,
     tag_groups: TabTagGroups,
     ignored_tags: TabIgnoredTags,
+    labels: TabLabels,
 
     modal_window: Vec<Box<dyn ModalWindowTrait>>,
     can_close: bool,
@@ -87,6 +89,7 @@ pub enum Message {
     SelectTabTagTranslations,
     SelectTabTagGroup,
     SelectTabIgnoredTags,
+    SelectTabLabels,
     OpenHelp,
 }
 
@@ -113,6 +116,7 @@ impl Message {
             Self::SelectTabTagTranslations => "select tab tag translations",
             Self::SelectTabTagGroup => "select tab tag groups",
             Self::SelectTabIgnoredTags => "select tab igonored tags",
+            Self::SelectTabLabels => "select tab labels",
             Self::OpenHelp => "keyboard shortcuts help",
             Self::ConfirmResult(_) => unreachable!(),
         }
@@ -142,6 +146,7 @@ impl Clone for Message {
             Self::SelectTabTagTranslations => Self::SelectTabTagTranslations,
             Self::SelectTabTagGroup => Self::SelectTabTagGroup,
             Self::SelectTabIgnoredTags => Self::SelectTabIgnoredTags,
+            Self::SelectTabLabels => Self::SelectTabLabels,
             Self::OpenHelp => Self::OpenHelp,
             Self::ConfirmResult(val) => {
                 Self::ConfirmResult(val.as_ref().map(|boxed| Box::new(*boxed.clone())))
@@ -163,6 +168,7 @@ pub enum Tab {
     TagTranslations,
     TagGroups,
     IgnoredTags,
+    Labels,
 }
 
 impl Tab {
@@ -173,6 +179,7 @@ impl Tab {
             Self::TagTranslations => "Tag translations",
             Self::TagGroups => "Tag groups",
             Self::IgnoredTags => "Igonored tags",
+            Self::Labels => "Labels",
         }
     }
 }
@@ -191,6 +198,7 @@ impl Application {
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
             ignored_tags: TabIgnoredTags::default(),
+            labels: TabLabels::default(),
             initialized: false,
             image_cache: ImageCache::new(),
             style: Style::default(),
@@ -209,6 +217,7 @@ impl Application {
             .key(Key::F4, Message::SelectTabTagTranslations)
             .key(Key::F5, Message::SelectTabTagGroup)
             .key(Key::F6, Message::SelectTabIgnoredTags)
+            .key(Key::F7, Message::SelectTabLabels)
             .ctrl(Key::S, Message::SaveDatabase)
     }
 
@@ -228,6 +237,7 @@ impl Application {
             Tab::TagTranslations => &self.tag_translations.keyboard_mapping,
             Tab::TagGroups => self.tag_groups.get_keyboard_mapping(),
             Tab::IgnoredTags => &self.ignored_tags.keyboard_mapping,
+            Tab::Labels => &self.labels.keyboard_mapping,
         };
 
         if let Some(msg) = keyboard_action(ctx, keyboard_mapping) {
@@ -360,6 +370,9 @@ impl Application {
             Message::SelectTabIgnoredTags => {
                 self.active_tab = Tab::IgnoredTags;
             }
+            Message::SelectTabLabels => {
+                self.active_tab = Tab::Labels;
+            }
             Message::OpenHelp => {
                 let window = ModalKeyboard::default()
                     .with_mapping(&self.keyboard_mapping)
@@ -369,6 +382,7 @@ impl Application {
                         Tab::TagTranslations => &self.tag_translations.keyboard_mapping,
                         Tab::TagGroups => self.tag_groups.get_keyboard_mapping(),
                         Tab::IgnoredTags => &self.ignored_tags.keyboard_mapping,
+                        Tab::Labels => &self.labels.keyboard_mapping,
                     });
 
                 let window: Box<dyn ModalWindowTrait> = Box::new(window);
@@ -433,6 +447,7 @@ impl eframe::App for Application {
                         Tab::TagTranslations,
                         Tab::TagGroups,
                         Tab::IgnoredTags,
+                        Tab::Labels,
                     ] {
                         ui.selectable_value(&mut self.active_tab, tab.clone(), tab.name());
                     }
@@ -486,6 +501,7 @@ impl eframe::App for Application {
                     .update(ctx, &self.style, &mut self.db, &mut self.queue)
             }
             Tab::IgnoredTags => self.ignored_tags.update(ctx, &self.style, &mut self.db),
+            Tab::Labels => self.labels.update(ctx, &mut self.db),
         }
 
         for (id, window) in self.modal_window.iter_mut().rev().enumerate() {

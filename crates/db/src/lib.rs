@@ -29,6 +29,12 @@ pub use tag_translations::TagTranslations;
 pub use tag_translations::TranslatedTag;
 pub use tag_translations::Translation;
 
+mod label_list;
+pub use label_list::LabelList;
+
+mod label_config;
+pub use label_config::LabelConfig;
+
 use crate::tag_hints::Builder;
 use crate::tag_hints::TagHints;
 use chrono::DateTime;
@@ -68,6 +74,7 @@ pub struct Database {
     pub species: Vec<Species>,
     pub tag_groups: TagGroupList,
     pub ignored_tags: BTreeSet<String>,
+    pub labels: Vec<LabelConfig>,
 
     #[serde(skip)]
     pub rootpath: PathBuf,
@@ -105,6 +112,7 @@ pub struct Version {
     pub tag_groups: u64,
     pub tag_translations: u64,
     pub ignored_tags: u64,
+    pub labels: u64,
 }
 
 struct CacheVersion {
@@ -251,13 +259,14 @@ impl Database {
     }
 
     pub fn is_dirty(&self) -> bool {
-        const fn mktuple(v: &Version) -> (u64, u64, u64, u64, u64) {
+        const fn mktuple(v: &Version) -> (u64, u64, u64, u64, u64, u64) {
             (
                 v.photos,
                 v.species,
                 v.tag_groups,
                 v.tag_translations,
                 v.ignored_tags,
+                v.labels,
             )
         }
 

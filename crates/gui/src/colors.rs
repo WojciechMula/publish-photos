@@ -1,4 +1,7 @@
+use crate::widgets::color_box;
 use egui::Color32;
+use egui::ComboBox;
+use egui::Ui;
 
 pub const ALICE_BLUE: Color32 = Color32::from_rgb(240, 248, 255);
 pub const ANTIQUE_WHITE: Color32 = Color32::from_rgb(250, 235, 215);
@@ -795,3 +798,56 @@ pub const ALL: [(Color32, &str); 396] = [
     (YELLOW4, "yellow4"),
     (YELLOW_GREEN, "yellow green"),
 ];
+
+pub fn color_by_name(needle: &str) -> Option<Color32> {
+    let pos = ALL
+        .binary_search_by_key(&needle, |&(_color, name)| name)
+        .ok()?;
+
+    Some(ALL[pos].0)
+}
+
+pub fn color_name(c: Color32) -> Option<&'static str> {
+    let pos = ALL.iter().position(|&(color, _name)| color == c)?;
+
+    Some(ALL[pos].1)
+}
+
+pub fn select_color(ui: &mut Ui, id: &str, color: &mut Color32) -> bool {
+    let mut changed = false;
+
+    ui.horizontal(|ui| {
+        readonly_color(ui, *color);
+        if let Some(new_color) = choose_color(ui, id, *color) {
+            *color = new_color;
+            changed = true;
+        }
+    });
+
+    changed
+}
+
+fn readonly_color(ui: &mut Ui, color: Color32) {
+    ui.add(color_box(color, 3));
+}
+
+pub fn choose_color(ui: &mut Ui, id: &str, current_color: Color32) -> Option<Color32> {
+    let mut selected_color = current_color;
+    let label = color_name(selected_color).unwrap_or("-");
+    ComboBox::from_id_salt(id)
+        .selected_text(label)
+        .show_ui(ui, |ui| {
+            for (color, label) in ALL {
+                ui.horizontal(|ui| {
+                    readonly_color(ui, color);
+                    ui.selectable_value(&mut selected_color, color, label);
+                });
+            }
+        });
+
+    if selected_color != current_color {
+        Some(selected_color)
+    } else {
+        None
+    }
+}

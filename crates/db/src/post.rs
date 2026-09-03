@@ -1,5 +1,6 @@
 use crate::Database;
 use crate::Date;
+use crate::LabelList;
 use crate::Latin;
 use crate::LocalDateTime;
 use crate::PostId;
@@ -27,6 +28,7 @@ pub struct Post {
     pub is_example: bool,
     #[serde(default)]
     pub social_media: SocialMediaState,
+    pub labels: LabelList,
 
     // runtime parameters
     #[serde(skip)]
@@ -55,6 +57,9 @@ impl Post {
         self.search_parts.add(&self.en);
         for tag in self.tags.iter() {
             self.search_parts.add(&format!("#{tag}"));
+        }
+        for label in self.labels.iter() {
+            self.search_parts.add(&label);
         }
     }
 

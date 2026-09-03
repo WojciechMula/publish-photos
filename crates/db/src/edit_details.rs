@@ -14,6 +14,7 @@ pub enum EditDetails {
     SetTags(PostId, TagList),
     SetSpecies(PostId, Option<Latin>),
     SetSocialMediaLink(PostId, String, SocialMediaLink),
+    ToggleLabel(PostId, String),
     Undo(PostId),
 }
 
@@ -33,6 +34,7 @@ impl EditDetails {
             | Self::SetTags(id, _)
             | Self::SetSpecies(id, _)
             | Self::SetSocialMediaLink(id, _, _)
+            | Self::ToggleLabel(id, _)
             | Self::Undo(id) => *id,
         }
     }
@@ -144,6 +146,11 @@ pub fn apply_aux(action: EditDetails, post: &mut Post) -> Option<EditDetails> {
             } else {
                 None
             }
+        }
+        EditDetails::ToggleLabel(id, label) => {
+            post.labels.toggle(label.clone());
+
+            Some(EditDetails::ToggleLabel(id, label))
         }
     }
 }

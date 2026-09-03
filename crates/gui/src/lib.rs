@@ -8,6 +8,7 @@ mod help;
 mod image_cache;
 mod image_counter;
 mod keyboard;
+mod labels;
 mod modal;
 mod modal_keyboard;
 mod modal_settings;
@@ -17,6 +18,7 @@ mod species_view;
 mod style;
 pub mod sync_db;
 mod tab_ignored_tags;
+mod tab_labels;
 mod tab_posts;
 mod tab_species;
 mod tab_tag_groups;
@@ -27,6 +29,13 @@ pub use image_counter::ImageCounter;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[macro_export]
+macro_rules! err {
+    ($($arg:expr),*) => {
+        Err(format!($($arg,)*).into())
+    }
+}
 
 // --------------------------------------------------
 
