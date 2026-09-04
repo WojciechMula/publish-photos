@@ -316,16 +316,12 @@ impl ModalSpecies {
                 }
             }
             Message::SearchBoxAction(action) => {
-                match &action {
-                    HistoryInputAction::Submit(text) => {
-                        self.queue.push_back(Message::FilterByName(text.clone()))
-                    }
-                    HistoryInputAction::TextChanged(text) => {
-                        self.queue.push_back(Message::FilterByName(text.clone()))
-                    }
-                    _ => (),
-                }
+                let prev = self.search_box.phrase().to_string();
                 self.search_box.update(ctx, action);
+                if prev != *self.search_box.phrase() {
+                    self.queue
+                        .push_back(Message::FilterByName(self.search_box.phrase().to_string()));
+                }
             }
         }
     }
