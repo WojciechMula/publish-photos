@@ -1,12 +1,11 @@
 use db::Database;
 use db::LabelConfig;
 use egui::Color32;
-use egui::Key;
-use egui::Modifiers;
+use egui::KeyboardShortcut;
 
 pub struct LabelEntry {
     pub label: String,
-    pub shortcut: Option<(Key, Modifiers)>,
+    pub shortcut: Option<KeyboardShortcut>,
     pub color: Color32,
     pub text_color: Color32,
 }
@@ -58,8 +57,8 @@ impl From<&LabelEntry> for LabelConfig {
         use crate::colors::color_name;
         use crate::keyboard::format_shortcut;
 
-        let shortcut = if let Some((key, modifiers)) = &v.shortcut {
-            format_shortcut(key, modifiers)
+        let shortcut = if let Some(shortcut) = &v.shortcut {
+            format_shortcut(&shortcut.logical_key, &shortcut.modifiers)
         } else {
             "".to_owned()
         };

@@ -11,8 +11,10 @@ use egui::Context;
 use egui::Event;
 use egui::Grid;
 use egui::Key;
+use egui::KeyboardShortcut;
 use egui::ScrollArea;
 use egui::Ui;
+use std::collections::HashSet;
 
 use egui_material_icons::icons::ICON_DELETE;
 
@@ -20,37 +22,28 @@ const ID_PREFIX: &str = "tab-labels";
 
 #[derive(Default)]
 pub struct TabLabels {
-    new: String,
     pub keyboard_mapping: KeyboardMapping,
     cache: Vec<LabelEntry>,
-    wait_for_key: Option<usize>,
     needs_sync: bool,
+    new: String,
+    wait_for_key: Option<usize>,
+    taken_shortcuts: HashSet<KeyboardShortcut>,
+    shortcut_error: Option<String>,
 }
 
 impl TabLabels {
+    pub fn register_taken_shortcuts(&mut self, km: &KeyboardMapping) {
+        for (key, list) in km.iter() {
+            for (modifiers, _) in list.iter() {
+                let shortcut = KeyboardShortcut::new(*modifiers, *key);
+                self.taken_shortcuts.insert(shortcut);
+            }
+        }
+    }
+
     pub fn update(&mut self, ctx: &Context, db: &mut Database) {
         self.refresh_cache(db);
-
-        if let Some(id) = self.wait_for_key {
-            ctx.input(|i| {
-                for event in &i.events {
-                    if let Event::Key {
-                        key,
-                        modifiers,
-                        pressed: true,
-                        ..
-                    } = event
-                    {
-                        if *key != Key::Escape {
-                            self.cache[id].shortcut = Some((*key, *modifiers));
-                            self.needs_sync = true;
-                        }
-                        self.wait_for_key = None;
-                        break;
-                    }
-                }
-            });
-        }
+        self.read_key(ctx);
 
         CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -93,19 +86,26 @@ impl TabLabels {
 
                     // column #2
                     ui.horizontal(|ui| {
-                        if let Some((key, modifiers)) = entry.shortcut.as_ref() {
-                            ui.add(
-                                Shortcut::from_key_and_modifiers(*key, *modifiers)
-                                    .with_color(shortcut_color),
-                            );
+                        if let Some(shortcut) = entry.shortcut.as_ref() {
+                            ui.add(Shortcut::from_shortcut(shortcut).with_color(shortcut_color));
                         }
 
-                        if self.wait_for_key.is_none() {
-                            if ui.button("change").clicked() {
-                                self.wait_for_key = Some(id);
+                        match self.wait_for_key {
+                            None => {
+                                if ui.button("change").clicked() {
+                                    self.shortcut_error = None;
+                                    self.wait_for_key = Some(id);
+                                }
                             }
-                        } else if self.wait_for_key == Some(id) {
-                            ui.label("press a key");
+                            Some(index) => {
+                                if index == id {
+                                    if let Some(error) = &self.shortcut_error {
+                                        ui.label(error);
+                                    } else {
+                                        ui.label("press a key");
+                                    }
+                                }
+                            }
                         }
                     });
 
@@ -140,5 +140,57 @@ impl TabLabels {
         }
 
         self.cache = crate::labels::from_db(db);
+    }
+
+    fn read_key(&mut self, ctx: &Context) {
+        let Some(id) = self.wait_for_key else {
+            return;
+        };
+
+        let Some(shortcut) = ctx.input(|i| {
+            for event in &i.events {
+                if let Event::Key {
+                    key,
+                    modifiers,
+                    pressed: true,
+                    ..
+                } = event
+                {
+                    return Some(KeyboardShortcut::new(*modifiers, *key));
+                }
+            }
+
+            None
+        }) else {
+            return;
+        };
+
+        if shortcut.logical_key == Key::Escape {
+            self.wait_for_key = None;
+            return;
+        }
+
+        if shortcut.logical_key == Key::Delete {
+            self.wait_for_key = None;
+            self.cache[id].shortcut = None;
+            self.needs_sync = true;
+            return;
+        }
+
+        if self.taken_shortcuts.contains(&shortcut) {
+            self.shortcut_error = Some("already taken".to_string());
+            return;
+        }
+
+        for (k, entry) in self.cache.iter_mut().enumerate() {
+            if k == id {
+                entry.shortcut = Some(shortcut);
+            } else if entry.shortcut == Some(shortcut) {
+                entry.shortcut = None;
+            }
+        }
+
+        self.wait_for_key = None;
+        self.needs_sync = true;
     }
 }

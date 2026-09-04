@@ -2,6 +2,7 @@ use egui::Color32;
 use egui::FontId;
 use egui::Galley;
 use egui::Key;
+use egui::KeyboardShortcut;
 use egui::Modifiers;
 use egui::Pos2;
 use egui::Rect;
@@ -40,6 +41,10 @@ impl Shortcut {
             color: Color32::WHITE,
             stroke_width: 0.5,
         }
+    }
+
+    pub fn from_shortcut(s: &KeyboardShortcut) -> Self {
+        Self::from_key_and_modifiers(s.logical_key, s.modifiers)
     }
 
     pub fn from_key_and_modifiers(key: Key, modifiers: Modifiers) -> Self {

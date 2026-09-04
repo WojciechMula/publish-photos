@@ -143,7 +143,7 @@ pub fn format_shortcut(key: &Key, modifiers: &Modifiers) -> String {
     result
 }
 
-pub fn from_str(s: &str) -> crate::Result<(Key, Modifiers)> {
+pub fn from_str(s: &str) -> crate::Result<KeyboardShortcut> {
     if s.is_empty() {
         return crate::err!("expected non-empty string");
     }
@@ -174,5 +174,5 @@ pub fn from_str(s: &str) -> crate::Result<(Key, Modifiers)> {
         return crate::err!("'{s}' is not a valid keystroke");
     };
 
-    Ok((key, modifiers))
+    Ok(KeyboardShortcut::new(modifiers, key))
 }

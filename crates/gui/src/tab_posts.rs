@@ -752,10 +752,10 @@ impl TabPosts {
         self.labels.clear();
 
         for entry in crate::labels::from_db(db) {
-            if let Some((key, modifiers)) = entry.shortcut.as_ref() {
+            if let Some(shortcut) = entry.shortcut.as_ref() {
                 self.keyboard_mapping.add(
-                    *key,
-                    *modifiers,
+                    shortcut.logical_key,
+                    shortcut.modifiers,
                     Message::ToggleLabelCurrent(entry.label.clone()).into(),
                 );
             }

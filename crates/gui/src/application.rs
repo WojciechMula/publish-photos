@@ -189,22 +189,29 @@ impl Application {
         let mut queue = MessageQueue::new();
         queue.push_back(Message::MaximizeWindow);
 
+        let keyboard_mapping = Self::create_mapping();
+
+        let posts = TabPosts::new();
+        let mut labels = TabLabels::default();
+        labels.register_taken_shortcuts(&keyboard_mapping);
+        labels.register_taken_shortcuts(posts.get_keyboard_mapping());
+
         Self {
             db,
             active_tab: Tab::Posts,
             modal_window: Vec::new(),
             species: TabSpecies::default(),
-            posts: TabPosts::new(),
+            posts,
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
             ignored_tags: TabIgnoredTags::default(),
-            labels: TabLabels::default(),
+            labels,
             initialized: false,
             image_cache: ImageCache::new(),
             style: Style::default(),
             queue,
             can_close: false,
-            keyboard_mapping: Self::create_mapping(),
+            keyboard_mapping,
             clipboard: Clipboard::default(),
         }
     }
