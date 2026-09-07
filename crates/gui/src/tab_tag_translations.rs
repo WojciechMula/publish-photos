@@ -103,7 +103,7 @@ impl TabTagTranslations {
                 self.search_box.take_focus(ctx);
             }
             Message::SearchBoxAction(action) => {
-                self.search_box.update(ctx, action);
+                self.search_box.update(action);
             }
         }
     }
@@ -117,8 +117,7 @@ impl TabTagTranslations {
     fn draw_list(&self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                let action = self.search_box.show(ui);
-                if action.is_some() {
+                if let Some(action) = self.search_box.show(ui) {
                     queue.push_back(Message::SearchBoxAction(action));
                 }
 

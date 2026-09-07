@@ -1,237 +1,244 @@
+use egui::Button;
 use egui::Context;
 use egui::Id;
+use egui::Key;
+use egui::Modifiers;
+use egui::RectAlign;
+use egui::ScrollArea;
+use egui::TextEdit;
+use egui::Ui;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::VecDeque;
 
 /// Actions emitted by `HistoryInput::show` describing user intents for this frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HistoryInputAction {
-    None,
-    /// The user modified the input string.
-    TextChanged(String),
-    /// The user explicitly deleted or canceled the autocompleted tail.
-    CancelAutocomplete(String),
-    /// The user submitted a non-empty string.
-    Submit(String),
-    /// The user requested navigation through history.
-    NavigateHistory(HistoryDirection),
-    /// The user requested autocompletion using a match from history.
-    Autocomplete {
-        current_len: usize,
-        matched_text: String,
-    },
+    ArrowDown,
+    ArrowUp,
+    Delete,
+    Home,
+    End,
+    Enter,
+    Escape,
+    Commit,
     Clear,
+    ShowAll,
+    Changed(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HistoryDirection {
-    Up,
-    Down,
-}
-
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct HistoryInput {
-    pub current_text: String,
-    pub history: Vec<String>,
-    history_index: Option<usize>,
-    draft_text: String,
+    pub id: Id,
+    pub current: String,
+    history: VecDeque<String>,
+    filtered: Vec<String>,
+    cursor: Option<usize>,
     hint_text: String,
 }
 
 impl HistoryInput {
+    pub fn new(id: Id) -> Self {
+        Self {
+            id,
+            current: String::new(),
+            history: VecDeque::new(),
+            filtered: Vec::new(),
+            cursor: None,
+            hint_text: String::new(),
+        }
+    }
+
     pub fn with_hint(mut self, hint_text: &str) -> Self {
         self.hint_text = hint_text.to_string();
-
         self
     }
 
-    /// Phase 1: Pure UI rendering. Reads state and returns an action without mutating `self`.
-    pub fn show(&self, ui: &mut egui::Ui, id: Id) -> HistoryInputAction {
-        let mut text = self.current_text.clone();
-        let text_edit = egui::TextEdit::singleline(&mut text)
-            .id(id)
-            .hint_text(&self.hint_text);
-        let output = text_edit.show(ui);
-        let response = output.response;
-
-        // 1. Handle submission (Enter key)
-        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            let trimmed = self.current_text.trim();
-            if !trimmed.is_empty() {
-                return HistoryInputAction::Submit(trimmed.to_string());
+    pub fn show(&self, ui: &mut Ui) -> Option<HistoryInputAction> {
+        let modifiers = Modifiers::NONE;
+        let mut action: Option<HistoryInputAction> = None;
+        let is_open = egui::Popup::is_id_open(ui.ctx(), self.id);
+        if is_open {
+            let ctx = ui.ctx();
+            if ctx.input_mut(|i| i.consume_key(modifiers, Key::ArrowDown)) {
+                action = Some(HistoryInputAction::ArrowDown);
+            } else if ctx.input_mut(|i| i.consume_key(modifiers, Key::ArrowUp)) {
+                action = Some(HistoryInputAction::ArrowUp);
+            } else if ctx.input_mut(|i| i.consume_key(modifiers, Key::Home)) {
+                action = Some(HistoryInputAction::Home);
+            } else if ctx.input_mut(|i| i.consume_key(modifiers, Key::End)) {
+                action = Some(HistoryInputAction::End);
+            } else if ctx.input_mut(|i| i.consume_key(modifiers, Key::Enter)) {
+                action = Some(HistoryInputAction::Enter);
+            } else if ctx.input_mut(|i| i.consume_key(modifiers, Key::Escape)) {
+                action = Some(HistoryInputAction::Escape);
+            } else if ctx.input_mut(|i| i.consume_key(Modifiers::SHIFT, Key::Delete)) {
+                action = Some(HistoryInputAction::Delete);
+            }
+        } else {
+            let ctx = ui.ctx();
+            if self.current.is_empty() {
+                if ctx.input_mut(|i| i.consume_key(modifiers, Key::ArrowDown))
+                    || ctx.input_mut(|i| i.consume_key(modifiers, Key::ArrowUp))
+                {
+                    action = Some(HistoryInputAction::ShowAll);
+                }
             }
         }
 
-        // 2. Handle history navigation keypresses
-        if response.has_focus() {
-            let (up, down) = ui.input(|i| {
-                (
-                    i.key_pressed(egui::Key::ArrowUp),
-                    i.key_pressed(egui::Key::ArrowDown),
-                )
+        let mut tmp = self.current.clone();
+        let edit = TextEdit::singleline(&mut tmp);
+        let edit_output = edit.show(ui);
+        let r = edit_output.response;
+        if r.changed() {
+            action = Some(HistoryInputAction::Changed(tmp));
+        }
+
+        let open = r.has_focus() && !self.filtered.is_empty();
+        if open {
+            egui::Popup::open_id(ui.ctx(), self.id);
+        }
+
+        if r.lost_focus() {
+            action = Some(HistoryInputAction::Commit);
+        }
+
+        egui::Popup::menu(&r)
+            .align(RectAlign::BOTTOM_START)
+            .open(open)
+            .id(self.id)
+            .close_behavior(egui::PopupCloseBehavior::CloseOnClick)
+            .show(|ui| {
+                ScrollArea::vertical()
+                    .max_height(f32::INFINITY)
+                    .show(ui, |ui| {
+                        ui.set_min_width(r.rect.width());
+                        for (idx, text) in self.filtered.iter().enumerate() {
+                            let button = if self.cursor == Some(idx) {
+                                Button::new(text).selected(true)
+                            } else {
+                                Button::new(text)
+                            };
+
+                            if ui.add(button).clicked() {
+                                action = Some(HistoryInputAction::Changed(text.clone()));
+                            }
+                        }
+                    });
             });
 
-            if up {
-                return HistoryInputAction::NavigateHistory(HistoryDirection::Up);
-            }
-            if down {
-                return HistoryInputAction::NavigateHistory(HistoryDirection::Down);
-            }
-        }
-
-        // 3. Handle Autocomplete and Deletion / Backspace
-        if response.has_focus() && self.history_index.is_none() {
-            // Check if user pressed Backspace, Delete, or performed a Cut operation
-            let is_deletion = ui.input(|i| {
-                i.key_pressed(egui::Key::Backspace)
-                    || i.key_pressed(egui::Key::Delete)
-                    || i.events.iter().any(|e| matches!(e, egui::Event::Cut))
-            });
-
-            // If the user presses Backspace/Delete while autocompleted tail is active,
-            // cancel autocomplete and revert to what the user had actually typed (`text` emitted by TextEdit).
-            if is_deletion {
-                // `text` holds the string after TextEdit processed the keypress
-                return HistoryInputAction::CancelAutocomplete(text);
-            }
-
-            // Trigger autocomplete only if text changed via normal typing
-            if response.changed() {
-                if let Some(action) = self.check_autocomplete() {
-                    return action;
-                }
-            }
-        }
-
-        // 4. Handle standard text changes
-        if response.changed() {
-            return HistoryInputAction::TextChanged(text);
-        }
-
-        HistoryInputAction::None
+        action
     }
 
-    /// Phase 2: State mutation. Updates internal state using only `egui::Context` and the widget `Id`.
-    pub fn update(&mut self, ctx: &egui::Context, id: Id, action: HistoryInputAction) {
-        match action {
-            HistoryInputAction::None => {}
-
-            HistoryInputAction::TextChanged(new_text)
-            | HistoryInputAction::CancelAutocomplete(new_text) => {
-                self.current_text = new_text;
+    fn update_filter(&mut self) {
+        self.filtered.clear();
+        for text in self.history.iter() {
+            if self.current.is_empty() || !text.contains(&self.current) {
+                continue;
             }
 
-            HistoryInputAction::Submit(trimmed) => {
-                if self.history.last().map(|s| s.as_str()) != Some(&trimmed) {
-                    self.history.push(trimmed);
-                }
-                self.current_text.clear();
-                self.draft_text.clear();
-                self.history_index = None;
-
-                ctx.memory_mut(|m| m.request_focus(id));
-            }
-
-            HistoryInputAction::NavigateHistory(direction) => {
-                ctx.input_mut(|i| match direction {
-                    HistoryDirection::Up => {
-                        i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp)
-                    }
-                    HistoryDirection::Down => {
-                        i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown)
-                    }
-                });
-
-                match direction {
-                    HistoryDirection::Up => self.navigate_up(),
-                    HistoryDirection::Down => self.navigate_down(),
-                }
-            }
-
-            HistoryInputAction::Autocomplete {
-                current_len,
-                matched_text,
-            } => {
-                self.current_text = matched_text;
-
-                if let Some(mut state) = egui::TextEdit::load_state(ctx, id) {
-                    let primary_cursor = egui::text::CCursor::new(current_len);
-                    let secondary_cursor = egui::text::CCursor::new(self.current_text.len());
-
-                    state
-                        .cursor
-                        .set_char_range(Some(egui::text::CCursorRange::two(
-                            primary_cursor,
-                            secondary_cursor,
-                        )));
-
-                    state.store(ctx, id);
-                }
-            }
-
-            HistoryInputAction::Clear => {
-                self.current_text.clear();
-                self.history_index = None;
-            }
-        }
-    }
-
-    fn check_autocomplete(&self) -> Option<HistoryInputAction> {
-        if self.current_text.is_empty() {
-            return None;
+            self.filtered.push(text.clone());
         }
 
-        let current_len = self.current_text.len();
-        let match_found = self
-            .history
-            .iter()
-            .rev()
-            .find(|h| h.starts_with(&self.current_text) && h.len() > current_len)
-            .cloned()?;
-
-        Some(HistoryInputAction::Autocomplete {
-            current_len,
-            matched_text: match_found,
-        })
+        self.cursor = if self.filtered.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
     }
 
-    fn navigate_up(&mut self) {
-        if let Some(idx) = self.history_index {
-            if idx > 0 {
-                self.history_index = Some(idx - 1);
-                self.current_text = self.history[idx - 1].clone();
-            }
-        } else if !self.history.is_empty() {
-            self.draft_text = self.current_text.clone();
-            let last_idx = self.history.len() - 1;
-            self.history_index = Some(last_idx);
-            self.current_text = self.history[last_idx].clone();
-        }
-    }
+    fn set_current(&mut self, new: String) -> bool {
+        if new != self.current {
+            self.current = new;
+            self.update_filter();
 
-    fn navigate_down(&mut self) {
-        if let Some(idx) = self.history_index {
-            if idx + 1 < self.history.len() {
-                self.history_index = Some(idx + 1);
-                self.current_text = self.history[idx + 1].clone();
+            self.cursor = if self.filtered.is_empty() {
+                None
             } else {
-                self.history_index = None;
-                self.current_text = self.draft_text.clone();
+                Some(0)
+            };
+
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update(&mut self, key: HistoryInputAction) -> bool {
+        match key {
+            HistoryInputAction::Commit => {
+                if !self.current.is_empty() {
+                    if let Some(pos) = self.history.iter().position(|s| *s == self.current) {
+                        self.history.remove(pos);
+                    }
+
+                    self.history.push_front(self.current.clone());
+                }
+                false
+            }
+            HistoryInputAction::Changed(new) => self.set_current(new),
+            HistoryInputAction::Clear => self.set_current("".to_owned()),
+            HistoryInputAction::ArrowUp => {
+                if let Some(cursor) = &mut self.cursor {
+                    if *cursor > 0 {
+                        *cursor -= 1;
+                    } else {
+                        *cursor = self.filtered.len() - 1;
+                    }
+                }
+                false
+            }
+            HistoryInputAction::ArrowDown => {
+                if let Some(cursor) = &mut self.cursor {
+                    *cursor = (*cursor + 1) % self.filtered.len();
+                }
+                false
+            }
+            HistoryInputAction::Home => {
+                if let Some(cursor) = &mut self.cursor {
+                    *cursor = 0;
+                }
+                false
+            }
+            HistoryInputAction::End => {
+                if let Some(cursor) = &mut self.cursor {
+                    *cursor = self.filtered.len() - 1;
+                }
+                false
+            }
+            HistoryInputAction::Delete => {
+                if let Some(cursor) = &mut self.cursor {
+                    self.filtered.remove(*cursor);
+                    *cursor = self.filtered.len() - 1;
+                }
+                false
+            }
+            HistoryInputAction::Escape => false,
+            HistoryInputAction::Enter => {
+                if let Some(cursor) = &self.cursor {
+                    self.set_current(self.filtered[*cursor].clone())
+                } else {
+                    false
+                }
+            }
+            HistoryInputAction::ShowAll => {
+                self.filtered = self.history.clone().into();
+                self.cursor = if self.filtered.is_empty() {
+                    None
+                } else {
+                    Some(0)
+                };
+                false
             }
         }
     }
 
-    pub fn persist(&self, ctx: &Context, id: Id) {
-        ctx.data_mut(|data| data.insert_persisted(id, self.history.clone()));
+    pub fn persist(&self, ctx: &Context) {
+        ctx.data_mut(|data| data.insert_persisted(self.id, self.history.clone()));
     }
 
-    pub fn restore(&mut self, ctx: &Context, id: Id) {
-        self.history = ctx.data_mut(|data| data.get_persisted(id).unwrap_or_default());
-    }
-}
-
-impl HistoryInputAction {
-    pub const fn is_some(&self) -> bool {
-        !matches!(self, Self::None)
+    pub fn restore(&mut self, ctx: &Context) {
+        self.history = ctx.data_mut(|data| data.get_persisted(self.id).unwrap_or_default());
+        self.update_filter();
     }
 }

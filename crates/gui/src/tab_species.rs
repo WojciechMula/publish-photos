@@ -284,11 +284,10 @@ impl TabSpecies {
                 }
             }
             Message::SearchBoxAction(action) => {
-                let prev = self.search_box.phrase().to_string();
-                self.search_box.update(ctx, action);
-                if prev != *self.search_box.phrase() {
-                    self.queue
-                        .push_back(Message::FilterByName(self.search_box.phrase().to_string()));
+                let changed = self.search_box.update(action);
+                if changed {
+                    let phrase = self.search_box.phrase().to_string();
+                    self.queue.push_back(Message::FilterByName(phrase));
                 }
             }
         }
@@ -316,8 +315,7 @@ impl TabSpecies {
         queue: &mut MessageQueue,
     ) {
         ui.horizontal(|ui| {
-            let action = self.search_box.show(ui);
-            if action.is_some() {
+            if let Some(action) = self.search_box.show(ui) {
                 queue.push_back(Message::SearchBoxAction(action));
             }
 

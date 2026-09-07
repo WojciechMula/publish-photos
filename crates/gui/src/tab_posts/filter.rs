@@ -138,8 +138,7 @@ impl Filter {
 
         ui.separator();
 
-        let action = self.search_box.show(ui);
-        if action.is_some() {
+        if let Some(action) = self.search_box.show(ui) {
             queue.push_back(Message::SearchBoxAction(action));
         }
 

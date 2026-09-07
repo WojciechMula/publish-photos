@@ -164,7 +164,7 @@ impl ModalSpecies {
         tab_queue: &mut TabMessageQueue,
     ) {
         if self.first_run {
-            self.first_run = true;
+            self.first_run = false;
             self.search_box.restore(ctx);
         }
 
@@ -316,18 +316,17 @@ impl ModalSpecies {
                 }
             }
             Message::SearchBoxAction(action) => {
-                let prev = self.search_box.phrase().to_string();
-                self.search_box.update(ctx, action);
-                if prev != *self.search_box.phrase() {
-                    self.queue
-                        .push_back(Message::FilterByName(self.search_box.phrase().to_string()));
+                let changed = self.search_box.update(action);
+                if changed {
+                    let phrase = self.search_box.phrase().to_string();
+                    self.queue.push_back(Message::FilterByName(phrase));
                 }
             }
         }
     }
 
     fn draw(
-        &self,
+        &mut self,
         ctx: &Context,
         image_cache: &mut ImageCache,
         style: &Style,
@@ -355,8 +354,7 @@ impl ModalSpecies {
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.horizontal(|ui| {
-                    let action = self.search_box.show(ui);
-                    if action.is_some() {
+                    if let Some(action) = self.search_box.show(ui) {
                         queue.push_back(action.into());
                     }
 

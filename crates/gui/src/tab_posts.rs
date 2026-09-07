@@ -738,7 +738,7 @@ impl TabPosts {
                 main_queue.push_back(TabSpeciesMessage::AddNewFrom(hint).into());
             }
             Message::SearchBoxAction(action) => {
-                self.filter.search_box.update(ctx, action);
+                self.filter.search_box.update(action);
             }
         }
     }
