@@ -8,7 +8,6 @@ use crate::modal::ModalWindowTrait;
 use crate::modal_keyboard::ModalKeyboard;
 use crate::modal_settings::ModalSettings;
 use crate::style::Style;
-use crate::tab_ignored_tags::TabIgnoredTags;
 use crate::tab_labels::TabLabels;
 use crate::tab_posts::Message as TabPostsMessage;
 use crate::tab_posts::TabPosts;
@@ -50,7 +49,6 @@ pub struct Application {
     posts: TabPosts,
     tag_translations: TabTagTranslations,
     tag_groups: TabTagGroups,
-    ignored_tags: TabIgnoredTags,
     labels: TabLabels,
 
     modal_window: Vec<Box<dyn ModalWindowTrait>>,
@@ -88,7 +86,6 @@ pub enum Message {
     SelectTabSpecies,
     SelectTabTagTranslations,
     SelectTabTagGroup,
-    SelectTabIgnoredTags,
     SelectTabLabels,
     OpenHelp,
 }
@@ -115,7 +112,6 @@ impl Message {
             Self::SelectTabSpecies => "select tab species",
             Self::SelectTabTagTranslations => "select tab tag translations",
             Self::SelectTabTagGroup => "select tab tag groups",
-            Self::SelectTabIgnoredTags => "select tab igonored tags",
             Self::SelectTabLabels => "select tab labels",
             Self::OpenHelp => "keyboard shortcuts help",
             Self::ConfirmResult(_) => unreachable!(),
@@ -145,7 +141,6 @@ impl Clone for Message {
             Self::SelectTabSpecies => Self::SelectTabSpecies,
             Self::SelectTabTagTranslations => Self::SelectTabTagTranslations,
             Self::SelectTabTagGroup => Self::SelectTabTagGroup,
-            Self::SelectTabIgnoredTags => Self::SelectTabIgnoredTags,
             Self::SelectTabLabels => Self::SelectTabLabels,
             Self::OpenHelp => Self::OpenHelp,
             Self::ConfirmResult(val) => {
@@ -167,7 +162,6 @@ pub enum Tab {
     Species,
     TagTranslations,
     TagGroups,
-    IgnoredTags,
     Labels,
 }
 
@@ -178,7 +172,6 @@ impl Tab {
             Self::Species => "Species",
             Self::TagTranslations => "Tag translations",
             Self::TagGroups => "Tag groups",
-            Self::IgnoredTags => "Igonored tags",
             Self::Labels => "Labels",
         }
     }
@@ -204,7 +197,6 @@ impl Application {
             posts,
             tag_translations: TabTagTranslations::default(),
             tag_groups: TabTagGroups::default(),
-            ignored_tags: TabIgnoredTags::default(),
             labels,
             initialized: false,
             image_cache: ImageCache::new(),
@@ -223,8 +215,7 @@ impl Application {
             .key(Key::F3, Message::SelectTabSpecies)
             .key(Key::F4, Message::SelectTabTagTranslations)
             .key(Key::F5, Message::SelectTabTagGroup)
-            .key(Key::F6, Message::SelectTabIgnoredTags)
-            .key(Key::F7, Message::SelectTabLabels)
+            .key(Key::F6, Message::SelectTabLabels)
             .ctrl(Key::S, Message::SaveDatabase)
     }
 
@@ -243,7 +234,6 @@ impl Application {
             Tab::Species => self.species.get_keyboard_mapping(),
             Tab::TagTranslations => &self.tag_translations.keyboard_mapping,
             Tab::TagGroups => self.tag_groups.get_keyboard_mapping(),
-            Tab::IgnoredTags => &self.ignored_tags.keyboard_mapping,
             Tab::Labels => &self.labels.keyboard_mapping,
         };
 
@@ -373,9 +363,6 @@ impl Application {
             Message::SelectTabTagGroup => {
                 self.active_tab = Tab::TagGroups;
             }
-            Message::SelectTabIgnoredTags => {
-                self.active_tab = Tab::IgnoredTags;
-            }
             Message::SelectTabLabels => {
                 self.active_tab = Tab::Labels;
             }
@@ -387,7 +374,6 @@ impl Application {
                         Tab::Species => self.species.get_keyboard_mapping(),
                         Tab::TagTranslations => &self.tag_translations.keyboard_mapping,
                         Tab::TagGroups => self.tag_groups.get_keyboard_mapping(),
-                        Tab::IgnoredTags => &self.ignored_tags.keyboard_mapping,
                         Tab::Labels => &self.labels.keyboard_mapping,
                     });
 
@@ -452,7 +438,6 @@ impl eframe::App for Application {
                         Tab::Species,
                         Tab::TagTranslations,
                         Tab::TagGroups,
-                        Tab::IgnoredTags,
                         Tab::Labels,
                     ] {
                         ui.selectable_value(&mut self.active_tab, tab.clone(), tab.name());
@@ -506,7 +491,6 @@ impl eframe::App for Application {
                 self.tag_groups
                     .update(ctx, &self.style, &mut self.db, &mut self.queue)
             }
-            Tab::IgnoredTags => self.ignored_tags.update(ctx, &self.style, &mut self.db),
             Tab::Labels => self.labels.update(ctx, &mut self.db),
         }
 

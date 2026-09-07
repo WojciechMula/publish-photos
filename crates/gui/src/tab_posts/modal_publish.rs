@@ -380,10 +380,6 @@ pub fn render_text(post: &Post, db: &Database) -> String {
 
     let mut first = true;
     for tag in post.tags.iter() {
-        if db.ignored_tags.contains(tag) {
-            continue;
-        }
-
         if !first {
             f.put_char(' ');
         }
