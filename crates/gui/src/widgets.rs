@@ -11,6 +11,7 @@ pub use colorbox::color_box;
 pub use history_input::HistoryInput;
 pub use history_input::HistoryInputAction;
 pub use label::Label;
+pub use label_button::clickable_label_button;
 pub use label_button::label_button;
 pub use shortcut::Shortcut;
 pub use tag_button::tag_button;

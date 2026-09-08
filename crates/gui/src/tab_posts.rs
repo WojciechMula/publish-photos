@@ -41,6 +41,7 @@ use crate::labels::LabelEntry;
 use crate::style::Style;
 use crate::tab_species::Message as TabSpeciesMessage;
 use crate::widgets::checkmark;
+use crate::widgets::clickable_label_button;
 use crate::widgets::label_button;
 use crate::widgets::HistoryInputAction;
 use crate::ImageCounter;
@@ -108,6 +109,7 @@ pub struct TabPosts {
 
     keyboard_mapping: KeyboardMapping,
     labels_version: u64,
+    enabled_labels_count: usize,
     labels: BTreeMap<String, LabelEntry>,
 
     pub queue: MessageQueue,
@@ -355,6 +357,7 @@ impl TabPosts {
             keyboard_mapping: Self::create_mapping(),
             labels_version: u64::MAX,
             labels: BTreeMap::new(),
+            enabled_labels_count: 0,
         }
     }
 
@@ -750,6 +753,7 @@ impl TabPosts {
 
         self.keyboard_mapping = Self::create_mapping();
         self.labels.clear();
+        self.enabled_labels_count = 0;
 
         for entry in crate::labels::from_db(db) {
             if let Some(shortcut) = entry.shortcut.as_ref() {
@@ -759,6 +763,7 @@ impl TabPosts {
                         shortcut.modifiers,
                         Message::ToggleLabelCurrent(entry.label.clone()).into(),
                     );
+                    self.enabled_labels_count += 1;
                 }
             }
 
@@ -1040,6 +1045,25 @@ impl TabPosts {
             .shortcut_text(format_shortcut(shortcut::START_GROUPING));
         if ui.add(button).clicked() {
             queue.push_back(Message::StartGrouping(post.id));
+        }
+
+        if self.enabled_labels_count > 0 {
+            ui.separator();
+            ui.menu_button("Label...", |ui| {
+                for entry in self.labels.values().filter(|entry| entry.enabled) {
+                    if ui
+                        .add(clickable_label_button(
+                            &entry.label,
+                            entry.color,
+                            entry.text_color,
+                        ))
+                        .clicked()
+                    {
+                        let action = EditDetails::ToggleLabel(post.id, entry.label.clone());
+                        queue.push_back(action.into());
+                    }
+                }
+            });
         }
     }
 
