@@ -7,4 +7,5 @@ pub struct LabelConfig {
     pub shortcut: String,
     pub color: String,
     pub text_color: String,
+    pub enabled: bool,
 }

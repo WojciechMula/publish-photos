@@ -753,11 +753,13 @@ impl TabPosts {
 
         for entry in crate::labels::from_db(db) {
             if let Some(shortcut) = entry.shortcut.as_ref() {
-                self.keyboard_mapping.add(
-                    shortcut.logical_key,
-                    shortcut.modifiers,
-                    Message::ToggleLabelCurrent(entry.label.clone()).into(),
-                );
+                if entry.enabled {
+                    self.keyboard_mapping.add(
+                        shortcut.logical_key,
+                        shortcut.modifiers,
+                        Message::ToggleLabelCurrent(entry.label.clone()).into(),
+                    );
+                }
             }
 
             self.labels.insert(entry.label.clone(), entry);

@@ -399,6 +399,7 @@ impl Application {
 
         self.posts.load(&db_id, storage);
         self.species.load(&db_id, storage);
+        self.labels.load(&db_id, storage);
     }
 }
 
@@ -523,6 +524,7 @@ impl eframe::App for Application {
 
         self.posts.save(&db_id, storage);
         self.species.save(&db_id, storage);
+        self.labels.save(&db_id, storage);
     }
 }
 

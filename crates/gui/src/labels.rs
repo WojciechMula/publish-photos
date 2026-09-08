@@ -8,6 +8,7 @@ pub struct LabelEntry {
     pub shortcut: Option<KeyboardShortcut>,
     pub color: Color32,
     pub text_color: Color32,
+    pub enabled: bool,
 }
 
 pub fn from_db(db: &Database) -> Vec<LabelEntry> {
@@ -35,6 +36,7 @@ impl LabelEntry {
             shortcut: None,
             color: Color32::BLACK,
             text_color: Color32::WHITE,
+            enabled: true,
         }
     }
 }
@@ -48,6 +50,7 @@ impl From<&LabelConfig> for LabelEntry {
             shortcut: crate::keyboard::from_str(&v.shortcut).ok(),
             color: color_by_name(&v.color).unwrap_or(crate::colors::BLACK),
             text_color: color_by_name(&v.text_color).unwrap_or(crate::colors::WHITE),
+            enabled: v.enabled,
         }
     }
 }
@@ -68,6 +71,7 @@ impl From<&LabelEntry> for LabelConfig {
             shortcut,
             color: color_name(v.color).unwrap_or("").to_owned(),
             text_color: color_name(v.text_color).unwrap_or("").to_owned(),
+            enabled: v.enabled,
         }
     }
 }

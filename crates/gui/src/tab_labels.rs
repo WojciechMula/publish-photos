@@ -23,6 +23,7 @@ const ID_PREFIX: &str = "tab-labels";
 #[derive(Default)]
 pub struct TabLabels {
     pub keyboard_mapping: KeyboardMapping,
+    show_only_enabled: bool,
     cache: Vec<LabelEntry>,
     needs_sync: bool,
     new: String,
@@ -54,6 +55,10 @@ impl TabLabels {
                     self.cache.push(LabelEntry::new(&self.new));
                     self.new.clear();
                 }
+
+                ui.separator();
+
+                ui.checkbox(&mut self.show_only_enabled, "show only enabled")
             });
 
             ui.separator();
@@ -75,12 +80,25 @@ impl TabLabels {
     fn show_entries(&mut self, ui: &mut Ui) {
         let shortcut_color = ui.visuals().strong_text_color();
 
-        let mut to_remove: Option<usize> = None;
+        enum Action {
+            None,
+            Remove(usize),
+            Enabled(usize, bool),
+        }
+
+        let mut action = Action::None;
+        let mut any_visible = false;
 
         Grid::new((ID_PREFIX, "grid"))
-            .num_columns(3)
+            .num_columns(7)
             .show(ui, |ui| {
                 for (id, entry) in self.cache.iter_mut().enumerate() {
+                    if self.show_only_enabled && !entry.enabled {
+                        continue;
+                    }
+
+                    any_visible = true;
+
                     // column #1
                     ui.add(label_button(&entry.label, entry.color, entry.text_color));
 
@@ -89,48 +107,66 @@ impl TabLabels {
                         if let Some(shortcut) = entry.shortcut.as_ref() {
                             ui.add(Shortcut::from_shortcut(shortcut).with_color(shortcut_color));
                         }
+                    });
 
-                        match self.wait_for_key {
-                            None => {
-                                if ui.button("change").clicked() {
-                                    self.shortcut_error = None;
-                                    self.wait_for_key = Some(id);
-                                }
+                    // column #3
+                    ui.horizontal(|ui| match self.wait_for_key {
+                        None => {
+                            if ui.button("change shortcut").clicked() {
+                                self.shortcut_error = None;
+                                self.wait_for_key = Some(id);
                             }
-                            Some(index) => {
-                                if index == id {
-                                    if let Some(error) = &self.shortcut_error {
-                                        ui.label(error);
-                                    } else {
-                                        ui.label("press a key");
-                                    }
+                        }
+                        Some(index) => {
+                            if index == id {
+                                if let Some(error) = &self.shortcut_error {
+                                    ui.label(error);
+                                } else {
+                                    ui.label("press a key");
                                 }
                             }
                         }
                     });
 
-                    // column #3
+                    // column #4
                     if select_color(ui, &format!("{ID_PREFIX}-{id}-bg"), &mut entry.color) {
                         self.needs_sync = true;
                     }
 
-                    // column #4
+                    // column #5
                     if select_color(ui, &format!("{ID_PREFIX}-{id}-fg"), &mut entry.text_color) {
                         self.needs_sync = true;
                     }
 
-                    // column #5
+                    // column #6
                     if ui.button(ICON_DELETE).clicked() {
-                        to_remove = Some(id)
+                        action = Action::Remove(id);
+                    }
+
+                    // column #7
+                    let mut flag = entry.enabled;
+                    if ui.checkbox(&mut flag, "enabled").changed() {
+                        action = Action::Enabled(id, flag);
                     }
 
                     ui.end_row();
                 }
             });
 
-        if let Some(idx) = to_remove {
-            self.cache.remove(idx);
-            self.needs_sync = true;
+        if !any_visible {
+            ui.label("no labels to show");
+        }
+
+        match action {
+            Action::None => {}
+            Action::Remove(idx) => {
+                self.cache.remove(idx);
+                self.needs_sync = true;
+            }
+            Action::Enabled(idx, flag) => {
+                self.cache[idx].enabled = flag;
+                self.needs_sync = true;
+            }
         }
     }
 
@@ -192,5 +228,21 @@ impl TabLabels {
 
         self.wait_for_key = None;
         self.needs_sync = true;
+    }
+
+    pub fn load(&mut self, _db_id: &str, storage: &dyn eframe::Storage) {
+        if let Some(value) =
+            eframe::get_value::<bool>(storage, fmt!("{ID_PREFIX}-show-only-enabled"))
+        {
+            self.show_only_enabled = value;
+        }
+    }
+
+    pub fn save(&self, _db_id: &str, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(
+            storage,
+            fmt!("{ID_PREFIX}-show-only-enabled"),
+            &self.show_only_enabled,
+        );
     }
 }
