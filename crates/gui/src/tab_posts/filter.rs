@@ -317,6 +317,12 @@ impl ExceptTags {
             }
         }
 
+        for tag in &self.0 {
+            if post.labels.iter().any(|s| s == tag) {
+                return false;
+            }
+        }
+
         true
     }
 }
