@@ -115,7 +115,7 @@ pub struct TabPosts {
     pub queue: MessageQueue,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
 pub enum ViewKind {
     List,
     Grid,
@@ -126,6 +126,13 @@ impl ViewKind {
         match self {
             Self::List => fmt!("{ICON_LIST} list"),
             Self::Grid => fmt!("{ICON_GRID_ON} grid"),
+        }
+    }
+
+    fn next(&self) -> Self {
+        match self {
+            Self::List => Self::Grid,
+            Self::Grid => Self::List,
         }
     }
 }
@@ -221,6 +228,7 @@ pub enum Message {
     FilterByDate(Date),
     FilterByMonth(Year, Month),
     SetViewKind(ViewKind),
+    ToggleViewKind,
     SetGridColumns(isize),
 
     EditSpeciesDetails(SpeciesId),
@@ -280,6 +288,7 @@ impl Message {
             Self::FilterByDate(_) => unreachable!(),
             Self::FilterByMonth(_, _) => unreachable!(),
             Self::SetViewKind(_) => unreachable!(),
+            Self::ToggleViewKind => "switch between grid/list view",
             Self::SetGridColumns(_) => unreachable!(),
             Self::EditSpeciesDetails(_) => unreachable!(),
             Self::AddNewSpecies(_) => "add new species",
@@ -729,6 +738,9 @@ impl TabPosts {
                 self.scroll_to_selected = true;
                 self.grid_columns = 1;
             }
+            Message::ToggleViewKind => {
+                queue.push_back(Message::SetViewKind(self.view_kind.next()));
+            }
             Message::SetGridColumns(grid_columns) => {
                 self.grid_columns = grid_columns;
             }
@@ -815,6 +827,7 @@ impl TabPosts {
             .key(Key::PageUp, msg(Message::SelectPrevRowsMany))
             .key(Key::Home, msg(Message::SelectFirst))
             .key(Key::End, msg(Message::SelectLast))
+            .ctrl(Key::L, msg(Message::ToggleViewKind))
     }
 
     pub fn modal_opened(&self) -> bool {
