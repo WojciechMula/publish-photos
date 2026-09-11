@@ -88,7 +88,9 @@ use egui_material_icons::icons::ICON_DIALOGS;
 use egui_material_icons::icons::ICON_EDIT;
 use egui_material_icons::icons::ICON_FULLSCREEN;
 use egui_material_icons::icons::ICON_GRID_ON;
+use egui_material_icons::icons::ICON_IMAGE;
 use egui_material_icons::icons::ICON_LIST;
+use egui_material_icons::icons::ICON_MORE_VERT;
 use egui_material_icons::icons::ICON_UNDO;
 
 const ID_PREFIX: &str = "tab-posts";
@@ -106,6 +108,7 @@ pub struct TabPosts {
     label_width: f32,
     modal_window: ModalWindow,
     view_kind: ViewKind,
+    image_view_kind: ImageViewKind,
 
     keyboard_mapping: KeyboardMapping,
     labels_version: u64,
@@ -122,6 +125,8 @@ pub enum ViewKind {
 }
 
 impl ViewKind {
+    const ALL: [Self; 2] = [Self::List, Self::Grid];
+
     const fn name(&self) -> &str {
         match self {
             Self::List => fmt!("{ICON_LIST} list"),
@@ -133,6 +138,30 @@ impl ViewKind {
         match self {
             Self::List => Self::Grid,
             Self::Grid => Self::List,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
+pub enum ImageViewKind {
+    First,
+    Expanded,
+}
+
+impl ImageViewKind {
+    const ALL: [Self; 2] = [Self::First, Self::Expanded];
+
+    const fn name(&self) -> &str {
+        match self {
+            Self::First => fmt!("{ICON_IMAGE} first"),
+            Self::Expanded => fmt!("{ICON_MORE_VERT} expanded"),
+        }
+    }
+
+    fn next(&self) -> Self {
+        match self {
+            Self::First => Self::Expanded,
+            Self::Expanded => Self::First,
         }
     }
 }
@@ -229,6 +258,8 @@ pub enum Message {
     FilterByMonth(Year, Month),
     SetViewKind(ViewKind),
     ToggleViewKind,
+    SetImageViewKind(ImageViewKind),
+    ToggleImageViewKind,
     SetGridColumns(isize),
 
     EditSpeciesDetails(SpeciesId),
@@ -289,6 +320,8 @@ impl Message {
             Self::FilterByMonth(_, _) => unreachable!(),
             Self::SetViewKind(_) => unreachable!(),
             Self::ToggleViewKind => "switch between grid/list view",
+            Self::SetImageViewKind(_) => unreachable!(),
+            Self::ToggleImageViewKind => "switch between first/expanded image view",
             Self::SetGridColumns(_) => unreachable!(),
             Self::EditSpeciesDetails(_) => unreachable!(),
             Self::AddNewSpecies(_) => "add new species",
@@ -361,6 +394,7 @@ impl TabPosts {
             inline_editors: BTreeMap::new(),
             modal_window: ModalWindow::None,
             view_kind: ViewKind::List,
+            image_view_kind: ImageViewKind::First,
             label_width: 0.0,
             group: None,
             keyboard_mapping: Self::create_mapping(),
@@ -741,6 +775,13 @@ impl TabPosts {
             Message::ToggleViewKind => {
                 queue.push_back(Message::SetViewKind(self.view_kind.next()));
             }
+            Message::SetImageViewKind(image_view_kind) => {
+                self.image_view_kind = image_view_kind;
+                self.scroll_to_selected = true;
+            }
+            Message::ToggleImageViewKind => {
+                queue.push_back(Message::SetImageViewKind(self.image_view_kind.next()));
+            }
             Message::SetGridColumns(grid_columns) => {
                 self.grid_columns = grid_columns;
             }
@@ -828,6 +869,7 @@ impl TabPosts {
             .key(Key::Home, msg(Message::SelectFirst))
             .key(Key::End, msg(Message::SelectLast))
             .ctrl(Key::L, msg(Message::ToggleViewKind))
+            .ctrl(Key::E, msg(Message::ToggleImageViewKind))
     }
 
     pub fn modal_opened(&self) -> bool {
@@ -872,13 +914,23 @@ impl TabPosts {
 
                     ui.separator();
 
-                    let mut val = self.view_kind.clone();
-                    for option in [ViewKind::List, ViewKind::Grid] {
-                        ui.selectable_value(&mut val, option.clone(), option.name());
+                    let mut val = self.view_kind;
+                    for option in ViewKind::ALL {
+                        ui.selectable_value(&mut val, option, option.name());
                     }
 
                     if val != self.view_kind {
                         queue.push_back(Message::SetViewKind(val));
+                    }
+
+                    ui.separator();
+                    let mut val = self.image_view_kind;
+                    for option in ImageViewKind::ALL {
+                        ui.selectable_value(&mut val, option, option.name());
+                    }
+
+                    if val != self.image_view_kind {
+                        queue.push_back(Message::SetImageViewKind(val));
                     }
                 });
 
@@ -1087,6 +1139,26 @@ impl TabPosts {
         style: &Style,
         post: &Post,
         queue: &mut MessageQueue,
+        image_view_kind: ImageViewKind,
+    ) {
+        let n = post.files.len();
+        if n > 1 && image_view_kind == ImageViewKind::Expanded {
+            ui.vertical(|ui| {
+                self.draw_image_aux(ui, image_cache, style, post, queue, image_view_kind);
+            });
+        } else {
+            self.draw_image_aux(ui, image_cache, style, post, queue, image_view_kind);
+        }
+    }
+
+    fn draw_image_aux(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        post: &Post,
+        queue: &mut MessageQueue,
+        image_view_kind: ImageViewKind,
     ) {
         let resp = add_image(
             ui,
@@ -1098,18 +1170,33 @@ impl TabPosts {
 
         let n = post.files.len();
         if n > 1 {
-            add_overlay(
-                ui,
-                &resp,
-                OverlayLocation::BottomRight,
-                style.image.overlay.margin,
-                |ui| {
-                    let count = ImageCounter(n);
-                    let label = count.to_string();
+            match image_view_kind {
+                ImageViewKind::First => {
+                    add_overlay(
+                        ui,
+                        &resp,
+                        OverlayLocation::BottomRight,
+                        style.image.overlay.margin,
+                        |ui| {
+                            let count = ImageCounter(n);
+                            let label = count.to_string();
 
-                    ui.add(overlay_label(label, style))
-                },
-            );
+                            ui.add(overlay_label(label, style))
+                        },
+                    );
+                }
+                ImageViewKind::Expanded => {
+                    for i in 1..n {
+                        add_image(
+                            ui,
+                            &post.files[i],
+                            image_cache,
+                            style.image.preview_width,
+                            style.image.radius,
+                        );
+                    }
+                }
+            }
         }
 
         if post.published.as_bool() {
@@ -1153,7 +1240,7 @@ impl TabPosts {
         clipboard: &Clipboard,
     ) {
         ui.horizontal(|ui| {
-            self.draw_image(ui, image_cache, style, post, queue);
+            self.draw_image(ui, image_cache, style, post, queue, self.image_view_kind);
 
             ui.vertical(|ui| {
                 ui.with_layout(Layout::top_down_justified(Align::LEFT), |ui| {
@@ -1480,7 +1567,14 @@ impl TabPosts {
                                 let fill = self.fill(post, style);
 
                                 let resp = tight_frame(ui, fill, |ui| {
-                                    self.draw_image(ui, image_cache, style, post, queue);
+                                    self.draw_image(
+                                        ui,
+                                        image_cache,
+                                        style,
+                                        post,
+                                        queue,
+                                        ImageViewKind::First,
+                                    );
                                 });
 
                                 if self.scroll_to_selected && self.selected == Some(post.id) {
