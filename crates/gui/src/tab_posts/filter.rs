@@ -52,7 +52,7 @@ impl Filter {
     }
 
     pub fn set_current(&mut self, selector: Selector) {
-        self.filter.current = selector;
+        self.filter.set_current(selector);
     }
 
     pub fn get_current(&self) -> Selector {
@@ -106,25 +106,34 @@ impl Filter {
             .show_ui(ui, |ui| {
                 let mut current = self.filter.current;
 
-                for selector in &db.picture_views.selectors {
-                    let Some(view) = db.picture_views.views.get(selector) else {
-                        continue;
-                    };
-                    let label = format_selector(
-                        selector,
-                        count_pictures(view, db, &self.filter.image_state),
-                    );
+                if !self.filter.selector_history.is_empty() {
+                    for selector in self.filter.selector_history.iter() {
+                        render_selector(
+                            ui,
+                            db,
+                            0.0,
+                            &self.filter.image_state,
+                            selector,
+                            &mut current,
+                        );
+                    }
 
-                    ui.horizontal(|ui| {
-                        if matches!(selector, Selector::ByDate(_)) {
-                            ui.add_space(self.icon_width);
-                        }
-                        ui.selectable_value(&mut current, *selector, label);
-                    });
+                    ui.separator();
+                }
+
+                for selector in &db.picture_views.selectors {
+                    render_selector(
+                        ui,
+                        db,
+                        self.icon_width,
+                        &self.filter.image_state,
+                        selector,
+                        &mut current,
+                    );
                 }
 
                 if current != self.filter.current {
-                    self.filter.current = current;
+                    self.set_current(current);
                     queue.push_back(Message::RefreshView);
                 }
             });
@@ -207,6 +216,33 @@ impl Filter {
 
         tmp.iter().map(|(id, _)| *id).collect()
     }
+}
+
+fn render_selector(
+    ui: &mut Ui,
+    db: &Database,
+    icon_width: f32,
+    image_state: &ImageState,
+    selector: &Selector,
+    current: &mut Selector,
+) {
+    let Some(view) = db.picture_views.views.get(selector) else {
+        return;
+    };
+    let label = format_selector(selector, count_pictures(view, db, image_state));
+
+    ui.horizontal(|ui| {
+        match selector {
+            Selector::ByYear(_) => {}
+            Selector::ByMonth(_, _) => {
+                ui.add_space(icon_width);
+            }
+            Selector::ByDate(_) => {
+                ui.add_space(2.0 * icon_width);
+            }
+        }
+        ui.selectable_value(current, *selector, label);
+    });
 }
 
 fn format_selector(selector: &Selector, count: usize) -> String {
@@ -338,6 +374,7 @@ pub struct FilterState {
     except_tags: ExceptTags,
     pub current: Selector,
     phrase: String,
+    selector_history: VecDeque<Selector>,
 
     #[serde(skip)]
     count: ImageCounter,
@@ -354,11 +391,14 @@ impl Default for FilterState {
             current: Selector::ByYear(0),
             count: ImageCounter(0),
             phrase: String::new(),
+            selector_history: VecDeque::new(),
         }
     }
 }
 
 impl FilterState {
+    const SELECTOR_HISTORY_SIZE: usize = 10;
+
     fn is_enabled(&self) -> bool {
         self.extra || !self.phrase.is_empty()
     }
@@ -391,5 +431,18 @@ impl FilterState {
 
     fn species_matches_qs(&self, species: &Species) -> bool {
         species.search_parts.matches(&self.phrase)
+    }
+
+    fn set_current(&mut self, sel: Selector) {
+        if let Some(pos) = self.selector_history.iter().position(|s| *s == sel) {
+            self.selector_history.remove(pos);
+        }
+
+        self.selector_history.push_front(sel);
+        while self.selector_history.len() > Self::SELECTOR_HISTORY_SIZE {
+            self.selector_history.pop_back();
+        }
+
+        self.current = sel;
     }
 }
