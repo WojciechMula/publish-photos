@@ -1,5 +1,6 @@
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardKind;
+use crate::clipboard::ClipboardValue;
 use crate::confirm::Confirm;
 use crate::confirm::ConfirmOption;
 use crate::image_cache::ImageCache;
@@ -73,7 +74,7 @@ pub enum Message {
     OpenModal(Box<dyn ModalWindowTrait>),
     EditDetails(EditDetails),
     StartPublishing(PostId),
-    Copy(ClipboardKind, String),
+    Copy(ClipboardValue),
     CloseModal,
     SaveDatabase,
     SetStyle(Style),
@@ -129,7 +130,7 @@ impl Clone for Message {
             Self::OpenModal(_) => unreachable!(),
             Self::EditDetails(val) => Self::EditDetails(val.clone()),
             Self::StartPublishing(val) => Self::StartPublishing(*val),
-            Self::Copy(kind, val) => Self::Copy(*kind, val.clone()),
+            Self::Copy(val) => Self::Copy(val.clone()),
             Self::CloseModal => Self::CloseModal,
             Self::SaveDatabase => Self::SaveDatabase,
             Self::SetStyle(val) => Self::SetStyle(val.clone()),
@@ -341,7 +342,15 @@ impl Application {
             Message::MaximizeWindow => {
                 ctx.send_viewport_cmd(ViewportCommand::Maximized(true));
             }
-            Message::Copy(kind, text) => {
+            Message::Copy(val) => {
+                let (kind, text) = match val {
+                    ClipboardValue::Generic(text) => (ClipboardKind::Generic, text),
+                    ClipboardValue::Polish(text) => (ClipboardKind::Polish, text),
+                    ClipboardValue::English(text) => (ClipboardKind::English, text),
+                    ClipboardValue::Tags(text) => (ClipboardKind::Tags, text),
+                    ClipboardValue::Species(text) => (ClipboardKind::Species, text),
+                };
+
                 self.clipboard.copy(kind, text.clone());
                 ctx.copy_text(text);
             }

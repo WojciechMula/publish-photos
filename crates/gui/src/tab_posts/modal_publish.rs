@@ -1,10 +1,10 @@
 use crate::application::Message as MainMessage;
-use crate::clipboard::ClipboardKind;
 use crate::gui::add_image;
 use crate::gui::button;
 use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::style::Style;
+use crate::tab_posts::ClipboardValue;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
 use crate::widgets::checkmark;
@@ -139,64 +139,55 @@ impl ModalPublish {
             Message::Copy1 => {
                 if let Some(entry) = self.entries.get_mut(0) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy2 => {
                 if let Some(entry) = self.entries.get_mut(1) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy3 => {
                 if let Some(entry) = self.entries.get_mut(2) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy4 => {
                 if let Some(entry) = self.entries.get_mut(3) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy5 => {
                 if let Some(entry) = self.entries.get_mut(4) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy6 => {
                 if let Some(entry) = self.entries.get_mut(5) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy7 => {
                 if let Some(entry) = self.entries.get_mut(6) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy8 => {
                 if let Some(entry) = self.entries.get_mut(7) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Copy9 => {
                 if let Some(entry) = self.entries.get_mut(8) {
                     entry.copied = true;
-                    tab_queue
-                        .push_back(TabMessage::Copy(ClipboardKind::Generic, entry.text.clone()));
+                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
             Message::Publish => {
@@ -278,10 +269,9 @@ impl ModalPublish {
                                         .min_size(vec2(ui.available_width(), 0.0));
 
                                 if ui.add(button).clicked() {
-                                    tab_queue.push_back(TabMessage::Copy(
-                                        ClipboardKind::Generic,
-                                        entry.text.clone(),
-                                    ));
+                                    tab_queue.push_back(
+                                        ClipboardValue::generic(entry.text.clone()).into(),
+                                    );
                                     entry.copied = true;
                                 }
                             });

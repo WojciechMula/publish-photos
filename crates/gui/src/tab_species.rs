@@ -260,8 +260,8 @@ impl TabSpecies {
                     match action {
                         SpeciesViewAction::SelectNext => species.next_example(),
                         SpeciesViewAction::SelectPrev => species.prev_example(),
-                        SpeciesViewAction::Copy(kind, text) => {
-                            main_queue.push_back(MainMessage::Copy(kind, text));
+                        SpeciesViewAction::Copy(val) => {
+                            main_queue.push_back(MainMessage::Copy(val));
                         }
                         SpeciesViewAction::Edit => {
                             self.queue.push_back(Message::OpenModalEdit(id));

@@ -1,4 +1,4 @@
-use crate::clipboard::ClipboardKind;
+use crate::clipboard::ClipboardValue;
 use crate::gui::add_image;
 use crate::gui::frame;
 use crate::gui::icon_en;
@@ -213,8 +213,14 @@ pub struct SpeciesListResponse {
 pub enum SpeciesViewAction {
     SelectNext,
     SelectPrev,
-    Copy(ClipboardKind, String),
+    Copy(ClipboardValue),
     Edit,
+}
+
+impl From<ClipboardValue> for SpeciesViewAction {
+    fn from(v: ClipboardValue) -> Self {
+        Self::Copy(v)
+    }
 }
 
 pub fn image(
@@ -281,10 +287,7 @@ fn block(
                 }
                 ui.label(latin);
                 if ui.button(ICON_CONTENT_COPY).clicked() {
-                    result = Some(SpeciesViewAction::Copy(
-                        ClipboardKind::Species,
-                        species.latin.to_string(),
-                    ));
+                    result = Some(ClipboardValue::species(species.latin.to_string()).into());
                 }
 
                 if ui.button("Edit").clicked() {
@@ -294,26 +297,24 @@ fn block(
 
             if has_polish(species) {
                 ui.horizontal(|ui| {
-                    format_pl(ui, species);
+                    if let Some(copyval) = format_pl(ui, species) {
+                        result = Some(copyval.into());
+                    }
 
                     if !species.pl.is_empty() && ui.button(ICON_CONTENT_COPY).clicked() {
-                        result = Some(SpeciesViewAction::Copy(
-                            ClipboardKind::Generic,
-                            species.pl.clone(),
-                        ));
+                        result = Some(ClipboardValue::generic(species.pl.clone()).into());
                     }
                 });
             }
 
             if has_english(species) {
                 ui.horizontal(|ui| {
-                    format_en(ui, species);
+                    if let Some(copyval) = format_en(ui, species) {
+                        result = Some(copyval.into());
+                    }
 
                     if !species.en.is_empty() && ui.button(ICON_CONTENT_COPY).clicked() {
-                        result = Some(SpeciesViewAction::Copy(
-                            ClipboardKind::Generic,
-                            species.en.clone(),
-                        ));
+                        result = Some(ClipboardValue::generic(species.en.clone()).into());
                     }
                 });
             }
@@ -342,7 +343,8 @@ pub fn format_latin(ui: &mut Ui, species: &Species) {
     ui.label(RichText::new(&species.latin).italics());
 }
 
-pub fn format_pl(ui: &mut Ui, species: &Species) {
+pub fn format_pl(ui: &mut Ui, species: &Species) -> Option<ClipboardValue> {
+    let mut result: Option<ClipboardValue> = None;
     icon_pl(ui);
     if !species.wikipedia_pl.is_empty() {
         let label = if species.pl.is_empty() {
@@ -351,8 +353,15 @@ pub fn format_pl(ui: &mut Ui, species: &Species) {
             &species.pl
         };
 
-        ui.hyperlink_to(label, &species.wikipedia_pl);
-        return;
+        let resp = ui.hyperlink_to(label, &species.wikipedia_pl);
+        if !species.pl.is_empty() {
+            resp.context_menu(|ui| {
+                if ui.button("Copy to clipboard").clicked() {
+                    result = Some(ClipboardValue::generic(species.pl.to_string()));
+                }
+            });
+        }
+        return result;
     }
 
     if !species.insektarium_pl.is_empty() {
@@ -362,14 +371,25 @@ pub fn format_pl(ui: &mut Ui, species: &Species) {
             &species.pl
         };
 
-        ui.hyperlink_to(label, &species.insektarium_pl);
-        return;
+        let resp = ui.hyperlink_to(label, &species.insektarium_pl);
+        if !species.pl.is_empty() {
+            resp.context_menu(|ui| {
+                if ui.button("Copy to clipboard").clicked() {
+                    result = Some(ClipboardValue::generic(species.pl.to_string()).into());
+                }
+            });
+        }
+        return result;
     }
 
     ui.label(&species.pl);
+
+    result
 }
 
-pub fn format_en(ui: &mut Ui, species: &Species) {
+pub fn format_en(ui: &mut Ui, species: &Species) -> Option<ClipboardValue> {
+    let mut result: Option<ClipboardValue> = None;
+
     icon_en(ui);
     if species.wikipedia_en.is_empty() {
         ui.label(&species.en);
@@ -380,19 +400,36 @@ pub fn format_en(ui: &mut Ui, species: &Species) {
             &species.en
         };
 
-        ui.hyperlink_to(label, &species.wikipedia_en);
+        let resp = ui.hyperlink_to(label, &species.wikipedia_en);
+        if species.en.is_empty() {
+            resp.context_menu(|ui| {
+                if ui.button("Copy to clipboard").clicked() {
+                    result = Some(ClipboardValue::generic(species.pl.to_string()));
+                }
+            });
+        }
     }
+
+    result
 }
 
-pub fn singleline(ui: &mut Ui, species: &Species) {
+pub fn singleline(ui: &mut Ui, species: &Species) -> Option<ClipboardValue> {
+    let mut result: Option<ClipboardValue> = None;
+
     format_latin(ui, species);
     if has_polish(species) {
-        format_pl(ui, species);
+        if let Some(val) = format_pl(ui, species) {
+            result = Some(val);
+        }
     }
 
     if has_english(species) {
-        format_en(ui, species);
+        if let Some(val) = format_en(ui, species) {
+            result = Some(val);
+        }
     }
+
+    result
 }
 
 fn has_polish(species: &Species) -> bool {

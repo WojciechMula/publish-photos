@@ -306,8 +306,8 @@ impl ModalSpecies {
                     match action {
                         SpeciesViewAction::SelectNext => species.next_example(),
                         SpeciesViewAction::SelectPrev => species.prev_example(),
-                        SpeciesViewAction::Copy(kind, text) => {
-                            tab_queue.push_back(TabMessage::Copy(kind, text));
+                        SpeciesViewAction::Copy(val) => {
+                            tab_queue.push_back(TabMessage::Copy(val));
                         }
                         SpeciesViewAction::Edit => {
                             tab_queue.push_back(TabMessage::EditSpeciesDetails(id));

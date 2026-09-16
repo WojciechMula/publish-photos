@@ -7,6 +7,15 @@ pub enum ClipboardKind {
     Generic,
 }
 
+#[derive(Clone, Debug)]
+pub enum ClipboardValue {
+    Polish(String),
+    English(String),
+    Tags(String),
+    Species(String),
+    Generic(String),
+}
+
 #[derive(Default)]
 pub struct Clipboard {
     polish: Vec<String>,
@@ -49,5 +58,27 @@ impl Clipboard {
             ClipboardKind::Species => &mut self.species,
             ClipboardKind::Generic => &mut self.generic,
         }
+    }
+}
+
+impl ClipboardValue {
+    pub fn polish(s: String) -> Self {
+        Self::Polish(s)
+    }
+
+    pub fn english(s: String) -> Self {
+        Self::English(s)
+    }
+
+    pub fn tags(s: String) -> Self {
+        Self::Tags(s)
+    }
+
+    pub fn species(s: String) -> Self {
+        Self::Species(s)
+    }
+
+    pub fn generic(s: String) -> Self {
+        Self::Generic(s)
     }
 }

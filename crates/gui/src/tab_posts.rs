@@ -23,6 +23,7 @@ use crate::application::Message as MainMessage;
 use crate::application::MessageQueue as MainMessageQueue;
 use crate::clipboard::Clipboard;
 use crate::clipboard::ClipboardKind;
+use crate::clipboard::ClipboardValue;
 use crate::confirm::Confirm;
 use crate::gui::add_image;
 use crate::gui::add_image_with_tint;
@@ -233,7 +234,7 @@ pub enum Message {
     CloseModal,
     Confirm(Confirm),
 
-    Copy(ClipboardKind, String),
+    Copy(ClipboardValue),
 
     RefreshView,
     Hovered(Option<PostId>),
@@ -340,6 +341,12 @@ impl From<Message> for MainMessage {
 impl From<EditDetails> for Message {
     fn from(val: EditDetails) -> Self {
         Self::EditDetails(val)
+    }
+}
+
+impl From<ClipboardValue> for Message {
+    fn from(val: ClipboardValue) -> Self {
+        Self::Copy(val)
     }
 }
 
@@ -605,8 +612,8 @@ impl TabPosts {
             Message::Hovered(post_id) => {
                 self.hovered = post_id;
             }
-            Message::Copy(kind, text) => {
-                main_queue.push_back(MainMessage::Copy(kind, text));
+            Message::Copy(val) => {
+                main_queue.push_back(MainMessage::Copy(val));
             }
             Message::StartGrouping(id) => {
                 if self.group.is_none() {
@@ -1253,7 +1260,7 @@ impl TabPosts {
                         };
                         if button::copy(ui, true) {
                             let path = post.files[0].full_path.display().to_string();
-                            queue.push_back(Message::Copy(ClipboardKind::Generic, path));
+                            queue.push_back(ClipboardValue::generic(path).into());
                         }
                     });
                 });
@@ -1346,7 +1353,7 @@ impl TabPosts {
             let resp = ui.hyperlink_to(title, url).on_hover_text(url);
             resp.context_menu(|ui| {
                 if ui.button(fmt!("{ICON_CONTENT_COPY} Copy URL")).clicked() {
-                    queue.push_back(Message::Copy(ClipboardKind::Generic, url.to_string()));
+                    queue.push_back(ClipboardValue::generic(url.to_string()).into());
                 }
             });
         });
@@ -1367,7 +1374,7 @@ impl TabPosts {
 
             let empty = post.tags.is_empty();
             if button::copy(ui, !empty) {
-                queue.push_back(Message::Copy(ClipboardKind::Tags, post.tags_string.clone()));
+                queue.push_back(ClipboardValue::tags(post.tags_string.clone()).into());
             }
 
             if empty && clipboard.available(ClipboardKind::Tags) {
@@ -1469,11 +1476,14 @@ impl TabPosts {
             }
             if button::copy(ui, post.species.is_some()) {
                 let latin = post.species.as_ref().unwrap().clone();
-                queue.push_back(Message::Copy(ClipboardKind::Species, latin.into()));
+                queue.push_back(ClipboardValue::species(latin.into()).into());
             }
             if let Some(latin) = &post.species {
                 let species = db.species_by_latin(latin).unwrap();
-                crate::species_view::singleline(ui, species);
+                let action = crate::species_view::singleline(ui, species);
+                if let Some(action) = action {
+                    queue.push_back(action.into());
+                }
 
                 if post.is_example {
                     if ui.button("🗙 Not a good example").clicked() {
@@ -1662,11 +1672,15 @@ fn inline_edit(
             result = Some(Message::InlineEditStart { id, field });
         }
         if button::copy(ui, !current.is_empty()) {
-            let kind = match field {
-                Field::Polish => ClipboardKind::Polish,
-                Field::English => ClipboardKind::English,
+            match field {
+                Field::Polish => {
+                    result = Some(ClipboardValue::polish(current.to_owned()).into());
+                }
+
+                Field::English => {
+                    result = Some(ClipboardValue::english(current.to_owned()).into());
+                }
             };
-            result = Some(Message::Copy(kind, current.to_owned()));
         }
 
         let mut label = if current.is_empty() {
