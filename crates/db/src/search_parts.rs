@@ -14,6 +14,10 @@ impl SearchParts {
         }
     }
 
+    pub fn get(&self) -> &[String] {
+        &self.parts
+    }
+
     pub fn matches(&self, phrase: &str) -> bool {
         if phrase.is_empty() {
             return true;

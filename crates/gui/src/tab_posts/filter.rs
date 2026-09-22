@@ -10,10 +10,10 @@ use db::Date;
 use db::Post;
 use db::PostId;
 use db::Selector;
-use db::Species;
 use egui::ComboBox;
 use egui::TextEdit;
 use egui::Ui;
+use query::Expr;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::VecDeque;
@@ -41,8 +41,10 @@ impl Default for Filter {
 
 impl Filter {
     pub fn load(&mut self, storage: &dyn eframe::Storage) {
-        self.filter =
-            eframe::get_value(storage, fmt!("{ID_PREFIX}-filter")).unwrap_or(self.filter.clone());
+        if let Some(filter) = eframe::get_value(storage, fmt!("{ID_PREFIX}-filter")) {
+            self.filter = filter;
+            self.filter.refresh_query();
+        }
         self.search_box.load(storage);
     }
 
@@ -151,12 +153,16 @@ impl Filter {
             queue.push_back(Message::SearchBoxAction(action));
         }
 
+        if !self.filter.query_err.is_empty() {
+            let color = ui.visuals().error_fg_color;
+            ui.colored_label(color, &self.filter.query_err);
+        }
+
         if self.filter.is_enabled() {
             ui.label(self.filter.count.to_string());
         }
 
-        if self.filter.phrase != *self.search_box.phrase() {
-            self.filter.phrase = self.search_box.phrase().to_string();
+        if self.filter.set_phrase(self.search_box.phrase()) {
             queue.push_back(Message::RefreshView);
         }
     }
@@ -190,19 +196,17 @@ impl Filter {
             .iter()
             .filter(|post| self.filter.matches(post))
             .filter(|post| {
-                if self.filter.post_matches_qs(post) {
-                    return true;
-                }
-
-                let Some(latin) = &post.species else {
-                    return false;
-                };
-
-                if let Some(species) = db.species_by_latin(latin) {
-                    self.filter.species_matches_qs(species)
-                } else {
-                    false
-                }
+                self.filter.query.as_ref().is_none_or(|query| {
+                    if let Some(latin) = &post.species {
+                        if let Some(species) = db.species_by_latin(latin) {
+                            query.matches_chain(post.search_parts.get(), species.search_parts.get())
+                        } else {
+                            query.matches(post.search_parts.get())
+                        }
+                    } else {
+                        query.matches(post.search_parts.get())
+                    }
+                })
             })
         {
             let stem = file_stem(&post.files[0].rel_path);
@@ -378,6 +382,12 @@ pub struct FilterState {
 
     #[serde(skip)]
     count: ImageCounter,
+
+    #[serde(skip)]
+    query: Option<Expr>,
+
+    #[serde(skip)]
+    query_err: String,
 }
 
 impl Default for FilterState {
@@ -392,12 +402,47 @@ impl Default for FilterState {
             count: ImageCounter(0),
             phrase: String::new(),
             selector_history: VecDeque::new(),
+            query: None,
+            query_err: String::new(),
         }
     }
 }
 
 impl FilterState {
     const SELECTOR_HISTORY_SIZE: usize = 10;
+
+    fn refresh_query(&mut self) -> bool {
+        if self.phrase.is_empty() {
+            self.query = None;
+            self.query_err.clear();
+
+            return true;
+        }
+
+        match Expr::new(&self.phrase) {
+            Ok(expr) => {
+                self.query = Some(expr);
+                self.query_err.clear();
+
+                true
+            }
+            Err(err) => {
+                self.query = None;
+                self.query_err = err.to_string();
+
+                false
+            }
+        }
+    }
+
+    fn set_phrase(&mut self, phrase: &str) -> bool {
+        if phrase == self.phrase {
+            return false;
+        }
+
+        self.phrase = phrase.trim().to_owned();
+        self.refresh_query()
+    }
 
     fn is_enabled(&self) -> bool {
         self.extra || !self.phrase.is_empty()
@@ -423,14 +468,6 @@ impl FilterState {
         }
 
         true
-    }
-
-    fn post_matches_qs(&self, post: &Post) -> bool {
-        post.search_parts.matches(&self.phrase)
-    }
-
-    fn species_matches_qs(&self, species: &Species) -> bool {
-        species.search_parts.matches(&self.phrase)
     }
 
     fn set_current(&mut self, sel: Selector) {

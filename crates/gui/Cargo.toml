@@ -18,6 +18,7 @@ serde = "1.0.227"
 serde_json = "1.0.145"
 toml = "0.9.7"
 db = { version = "0.1.0", path = "../db" }
+query = { version = "0.1.0", path = "../query" }
 
 [lints.clippy]
 collapsible_if = "allow"
