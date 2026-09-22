@@ -11,7 +11,6 @@ use db::Post;
 use db::PostId;
 use db::Selector;
 use egui::ComboBox;
-use egui::TextEdit;
 use egui::Ui;
 use query::Expr;
 use serde::Deserialize;
@@ -175,18 +174,6 @@ impl Filter {
                 queue.push_back(Message::RefreshView);
             }
         }
-
-        ui.separator();
-
-        ui.label("except tags");
-        let widget = TextEdit::singleline(&mut self.filter.except_tags_string)
-            .hint_text("space-separated list of tags");
-        if ui.add(widget).changed() {
-            self.filter
-                .except_tags
-                .set_string(&self.filter.except_tags_string);
-            queue.push_back(Message::RefreshView);
-        }
     }
 
     pub fn make_view(&mut self, db: &Database) -> Vec<PostId> {
@@ -335,47 +322,11 @@ impl TagState {
 
 // --------------------------------------------------
 
-#[derive(Default, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
-pub struct ExceptTags(Vec<String>);
-
-impl ExceptTags {
-    fn set_string(&mut self, s: &str) {
-        self.0.clear();
-
-        for tag in s.split_whitespace() {
-            let tag = tag.trim();
-            if !tag.is_empty() {
-                self.0.push(tag.to_owned());
-            }
-        }
-    }
-
-    fn matches(&self, post: &Post) -> bool {
-        for tag in &self.0 {
-            if post.tags.contains(tag) {
-                return false;
-            }
-        }
-
-        for tag in &self.0 {
-            if post.labels.iter().any(|s| s == tag) {
-                return false;
-            }
-        }
-
-        true
-    }
-}
-
-// --------------------------------------------------
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FilterState {
     image_state: ImageState,
     pub extra: bool,
     tag_state: TagState,
-    except_tags_string: String,
-    except_tags: ExceptTags,
     pub current: Selector,
     phrase: String,
     selector_history: VecDeque<Selector>,
@@ -396,8 +347,6 @@ impl Default for FilterState {
             image_state: ImageState::Unpublished,
             extra: false,
             tag_state: TagState::Any,
-            except_tags_string: String::new(),
-            except_tags: ExceptTags::default(),
             current: Selector::ByYear(0),
             count: ImageCounter(0),
             phrase: String::new(),
@@ -459,10 +408,6 @@ impl FilterState {
 
         if self.extra {
             if !self.tag_state.matches(post) {
-                return false;
-            }
-
-            if !self.except_tags.matches(post) {
                 return false;
             }
         }
