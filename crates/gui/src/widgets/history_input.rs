@@ -29,7 +29,8 @@ pub enum HistoryInputAction {
 
 #[derive(Serialize, Deserialize)]
 pub struct HistoryInput {
-    pub id: Id,
+    id: Id,
+    popup_id: Id,
     pub current: String,
     history: VecDeque<String>,
     filtered: Vec<String>,
@@ -41,6 +42,7 @@ impl HistoryInput {
     pub fn new(id: Id) -> Self {
         Self {
             id,
+            popup_id: Id::new((id, "popup")),
             current: String::new(),
             history: VecDeque::new(),
             filtered: Vec::new(),
@@ -54,10 +56,14 @@ impl HistoryInput {
         self
     }
 
+    pub fn take_focus(&self, ctx: &Context) {
+        ctx.memory_mut(|mem| mem.request_focus(self.id));
+    }
+
     pub fn show(&self, ui: &mut Ui) -> Option<HistoryInputAction> {
         let modifiers = Modifiers::NONE;
         let mut action: Option<HistoryInputAction> = None;
-        let is_open = egui::Popup::is_id_open(ui.ctx(), self.id);
+        let is_open = egui::Popup::is_id_open(ui.ctx(), self.popup_id);
         if is_open {
             let ctx = ui.ctx();
             if ctx.input_mut(|i| i.consume_key(modifiers, Key::ArrowDown)) {
@@ -87,7 +93,7 @@ impl HistoryInput {
         }
 
         let mut tmp = self.current.clone();
-        let edit = TextEdit::singleline(&mut tmp);
+        let edit = TextEdit::singleline(&mut tmp).id(self.id);
         let edit_output = edit.show(ui);
         let r = edit_output.response;
         if r.changed() {
@@ -96,7 +102,7 @@ impl HistoryInput {
 
         let open = r.has_focus() && !self.filtered.is_empty();
         if open {
-            egui::Popup::open_id(ui.ctx(), self.id);
+            egui::Popup::open_id(ui.ctx(), self.popup_id);
         }
 
         if r.lost_focus() {
@@ -106,7 +112,7 @@ impl HistoryInput {
         egui::Popup::menu(&r)
             .align(RectAlign::BOTTOM_START)
             .open(open)
-            .id(self.id)
+            .id(self.popup_id)
             .close_behavior(egui::PopupCloseBehavior::CloseOnClick)
             .show(|ui| {
                 ScrollArea::vertical()

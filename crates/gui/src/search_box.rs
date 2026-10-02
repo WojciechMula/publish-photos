@@ -47,7 +47,7 @@ impl SearchBox {
     }
 
     pub fn take_focus(&self, ctx: &Context) {
-        ctx.memory_mut(|mem| mem.request_focus(self.input.id));
+        self.input.take_focus(ctx);
     }
 
     pub fn update(&mut self, action: HistoryInputAction) -> bool {

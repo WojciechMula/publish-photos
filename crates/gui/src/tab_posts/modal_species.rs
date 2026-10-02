@@ -152,6 +152,7 @@ impl ModalSpecies {
         };
 
         res.queue.push_back(Message::RefreshView);
+        res.queue.push_back(Message::FocusSearch);
         res
     }
 

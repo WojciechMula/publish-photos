@@ -49,10 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
 fn mk_dest_stem(path: &str) -> String {
     let mut res = String::new();
-    let mut iter = path
-        .split("/")
-        .skip(2)
-        .filter(|part| *part != "publish");
+    let mut iter = path.split("/").skip(2).filter(|part| *part != "publish");
 
     for part in iter {
         if !res.is_empty() {
