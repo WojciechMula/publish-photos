@@ -99,6 +99,7 @@ const ID_PREFIX: &str = "tab-posts";
 pub struct TabPosts {
     version: u64,
     view: Vec<PostId>,
+    view_expanded: Vec<ExpandedView>,
     hovered: Option<PostId>,
     selected: Option<PostId>,
     scroll_to_selected: bool,
@@ -117,6 +118,11 @@ pub struct TabPosts {
     labels: BTreeMap<String, LabelEntry>,
 
     pub queue: MessageQueue,
+}
+
+struct ExpandedView {
+    post_id: PostId,
+    image_id: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
@@ -391,6 +397,7 @@ impl TabPosts {
 
         Self {
             view: Vec::new(),
+            view_expanded: Vec::new(),
             hovered: None,
             selected: None,
             scroll_to_selected: false,
@@ -513,6 +520,7 @@ impl TabPosts {
             }
             Message::RefreshView => {
                 self.view = self.filter.make_view(db);
+                self.view_expanded = mk_expanded_view(&self.view, db);
             }
             Message::EditTags(id) => {
                 assert!(self.modal_window.is_none());
@@ -982,7 +990,12 @@ impl TabPosts {
         CentralPanel::default().show(ctx, |ui| {
             match self.view_kind {
                 ViewKind::List => self.draw_main_list(ui, image_cache, style, db, queue, clipboard),
-                ViewKind::Grid => self.draw_grid(ui, image_cache, style, db, queue),
+                ViewKind::Grid => match self.image_view_kind {
+                    ImageViewKind::First => self.draw_grid(ui, image_cache, style, db, queue),
+                    ImageViewKind::Expanded => {
+                        self.draw_grid_expanded(ui, image_cache, style, db, queue)
+                    }
+                },
             };
         });
     }
@@ -1155,6 +1168,53 @@ impl TabPosts {
             });
         } else {
             self.draw_image_aux(ui, image_cache, style, post, queue, image_view_kind);
+        }
+    }
+
+    fn draw_single_image(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        post: &Post,
+        image_id: usize,
+        queue: &mut MessageQueue,
+    ) {
+        let resp = add_image(
+            ui,
+            &post.files[image_id],
+            image_cache,
+            style.image.preview_width,
+            style.image.radius,
+        );
+
+        if post.published.as_bool() {
+            add_overlay(
+                ui,
+                &resp,
+                OverlayLocation::TopLeft,
+                style.image.overlay.margin,
+                |ui| ui.add(checkmark(true, style.copied_mark)),
+            );
+        }
+
+        if self.group.is_some() {
+            let resp = add_overlay(
+                ui,
+                &resp,
+                OverlayLocation::TopLeft,
+                style.image.overlay.margin,
+                |ui: &mut Ui| {
+                    let label = fmt!("{ICON_ADD} Add to group");
+                    let button = Button::new(label).fill(style.button.save);
+
+                    ui.add(button)
+                },
+            );
+
+            if resp.clicked() {
+                queue.push_back(Message::AddToGroup(post.id));
+            }
         }
     }
 
@@ -1615,6 +1675,79 @@ impl TabPosts {
             });
     }
 
+    fn draw_grid_expanded(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
+        ScrollArea::both()
+            .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
+            .show(ui, |ui| {
+                let mut hovered: Option<PostId> = None;
+                let width = ui.available_size().x;
+                let n = (width / (style.image.preview_width + 8.0)) as isize;
+                if n != self.grid_columns {
+                    queue.push_back(Message::SetGridColumns(n));
+                }
+
+                let mut it = self.view_expanded.iter().filter(|ev| {
+                    if let Some(group) = &self.group {
+                        !group.contains(&ev.post_id)
+                    } else {
+                        true
+                    }
+                });
+
+                let mut empty = false;
+                while !empty {
+                    ui.horizontal(|ui| {
+                        for _ in 0..n {
+                            if let Some(ev) = it.next() {
+                                let post = db.post(&ev.post_id);
+                                let fill = self.fill(post, style);
+
+                                let resp = tight_frame(ui, fill, |ui| {
+                                    self.draw_single_image(
+                                        ui,
+                                        image_cache,
+                                        style,
+                                        post,
+                                        ev.image_id,
+                                        queue,
+                                    );
+                                });
+
+                                if self.scroll_to_selected && self.selected == Some(post.id) {
+                                    ui.scroll_to_rect(resp.rect, Some(Align::Center));
+                                }
+
+                                if resp.contains_pointer() {
+                                    hovered = Some(post.id);
+                                }
+                                if resp.clicked() {
+                                    queue.push_back(Message::Select(post.id));
+                                }
+                                if resp.double_clicked() {
+                                    queue.push_back(Message::View(post.id));
+                                }
+                                resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
+                            } else {
+                                empty = true;
+                                break;
+                            }
+                        }
+                    });
+                }
+
+                if hovered != self.hovered {
+                    queue.push_back(Message::Hovered(hovered));
+                }
+            });
+    }
+
     fn fill(&self, post: &Post, style: &Style) -> Option<Color32> {
         if self.selected == Some(post.id) {
             Some(style.selected_post)
@@ -1719,6 +1852,22 @@ fn move_selection(view: &[PostId], selected: Option<PostId>, direction: isize) -
     } else {
         Some(view[0])
     }
+}
+
+fn mk_expanded_view(view: &[PostId], db: &Database) -> Vec<ExpandedView> {
+    let mut res = Vec::<ExpandedView>::new();
+
+    for post_id in view.iter() {
+        let post = db.post(post_id);
+        for (image_id, _) in post.files.iter().enumerate() {
+            res.push(ExpandedView {
+                post_id: *post_id,
+                image_id,
+            });
+        }
+    }
+
+    res
 }
 
 fn format_shortcut(shortcut: KeyboardShortcut) -> String {
