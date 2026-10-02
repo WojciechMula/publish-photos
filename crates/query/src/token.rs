@@ -18,10 +18,10 @@ pub enum Token {
     #[token(")")]
     RParen,
 
-    #[regex("[a-zA-Z0-9][a-zA-Z0-9-]*", capture_slice)]
+    #[regex("[\\p{Cased_Letter}0-9][\\p{Cased_Letter}0-9-]*", capture_slice)]
     Substring(String),
 
-    #[regex("[a-zA-Z0-9-]+\\*", capture_prefix)]
+    #[regex("[\\p{Cased_Letter}0-9-]+\\*", capture_prefix)]
     Prefix(String),
 
     #[regex("\"[^\"]+\"", capture_quoted_string)]
