@@ -2053,6 +2053,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mkpost"
+version = "0.1.0"
+dependencies = [
+ "db",
+]
+
+[[package]]
 name = "moxcms"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

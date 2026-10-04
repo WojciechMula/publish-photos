@@ -70,6 +70,10 @@ impl TaxonomicRank {
         Self::Complex,
     ];
 
+    pub const fn is_species(&self) -> bool {
+        matches!(self, Self::Species)
+    }
+
     pub const fn latin_name(&self) -> &'static str {
         match self {
             Self::Regnum => "regnum",
