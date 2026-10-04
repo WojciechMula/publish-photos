@@ -519,8 +519,24 @@ impl TabPosts {
                 main_queue.push_back(edit_details.into());
             }
             Message::RefreshView => {
+                let pos = self
+                    .selected
+                    .map(|post_id| self.view.iter().position(|id| *id == post_id))
+                    .flatten();
+
                 self.view = self.filter.make_view(db);
                 self.view_expanded = mk_expanded_view(&self.view, db);
+
+                if let Some(pos) = pos {
+                    match self.view.get(pos) {
+                        Some(post_id) => {
+                            self.selected = Some(*post_id);
+                        }
+                        None => {
+                            self.selected = self.view.last().copied();
+                        }
+                    }
+                }
             }
             Message::EditTags(id) => {
                 assert!(self.modal_window.is_none());
