@@ -40,15 +40,11 @@ use crate::tag_hints::TagHints;
 use chrono::DateTime;
 use chrono::Local;
 use chrono::Utc;
-use jpeg::ImageSize;
-use jpeg::identify as identify_jpeg;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -483,29 +479,11 @@ impl Database {
     }
 
     pub fn refresh_all_records(&mut self) {
-        const HEAD_BYTES: u64 = 1024 * 16;
-
-        let mut buf = Vec::<u8>::with_capacity(HEAD_BYTES as usize);
-
-        fn identify(path: &Path, buf: &mut Vec<u8>) -> Option<ImageSize> {
-            let file = File::open(path).ok()?;
-            let mut file = file.take(HEAD_BYTES);
-
-            buf.clear();
-            file.read_to_end(buf).ok()?;
-
-            identify_jpeg(buf)
-        }
-
         for (id, entry) in self.posts.0.iter_mut().enumerate() {
             entry.id = PostId(id);
             for entry in &mut entry.files {
                 entry.full_path = self.rootdir.join(&entry.rel_path);
                 entry.uri = format!("file://{}", entry.full_path.display());
-
-                if entry.image_size.is_none() {
-                    entry.image_size = identify(&entry.full_path, &mut buf);
-                }
             }
 
             entry.refresh();

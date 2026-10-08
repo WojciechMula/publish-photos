@@ -8,7 +8,6 @@ use crate::SearchParts;
 use crate::TagList;
 use crate::edit_details::EditDetails;
 use chrono::Local;
-use jpeg::ImageSize;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -75,7 +74,6 @@ impl Post {
 #[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct FileMetadata {
     pub rel_path: PathBuf,
-    pub image_size: Option<ImageSize>,
 
     #[serde(skip)]
     pub uri: String,

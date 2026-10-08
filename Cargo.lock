@@ -877,7 +877,6 @@ name = "db"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "jpeg",
  "serde",
  "toml",
 ]
@@ -1860,13 +1859,6 @@ checksum = "9afb3de4395d6b3e67a780b6de64b51c978ecf11cb9a462c66be7d4ca9039d33"
 dependencies = [
  "getrandom",
  "libc",
-]
-
-[[package]]
-name = "jpeg"
-version = "0.1.0"
-dependencies = [
- "serde",
 ]
 
 [[package]]

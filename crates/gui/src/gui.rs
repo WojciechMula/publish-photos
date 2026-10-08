@@ -1,3 +1,4 @@
+use crate::image_cache::CacheEntry;
 use crate::image_cache::ImageCache;
 use crate::style::Style;
 use crate::widgets::Label as CustomLabel;
@@ -107,22 +108,26 @@ pub fn add_image(
     width: f32,
     radius: f32,
 ) -> Response {
-    let ratio = if let Some(image_size) = meta.image_size {
-        let w = image_size.width as f32;
-        let h = image_size.height as f32;
-        if image_size.width > image_size.height {
+    let ce = image_cache.get(&meta.uri);
+    let ratio = if let Some(CacheEntry {
+        dims: Some((w, h)), ..
+    }) = ce
+    {
+        let w = *w as f32;
+        let h = *h as f32;
+        if w > h {
             h / w
         } else {
             w / h
         }
     } else {
-        1.0 / 3.0
+        2.0 / 3.0
     };
 
     let height = width * ratio;
     let size = Vec2::new(width, height);
 
-    if image_cache.is_cached(&meta.uri) {
+    if ce.is_some() {
         ui.add_sized(
             size,
             Image::from_uri(meta.uri.clone())

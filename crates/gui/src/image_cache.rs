@@ -1,4 +1,4 @@
-use eframe::emath::OrderedFloat;
+use egui::load::ImagePoll;
 use egui::Context;
 use egui::SizeHint;
 use std::collections::BinaryHeap;
@@ -7,8 +7,13 @@ use std::collections::HashSet;
 
 pub struct ImageCache {
     pub max_size: usize,
-    pub loaded: HashMap<String, u64>,
+    pub loaded: HashMap<String, CacheEntry>,
     pub requested: HashSet<String>,
+}
+
+pub struct CacheEntry {
+    pub time: u64,
+    pub dims: Option<(usize, usize)>,
 }
 
 impl ImageCache {
@@ -24,9 +29,22 @@ impl ImageCache {
         self.loaded.contains_key(uri)
     }
 
+    pub fn get(&self, uri: &String) -> Option<&CacheEntry> {
+        self.loaded.get(uri)
+    }
+
     pub fn request(&mut self, uri: String, ctx: &Context) {
-        if let Some(time) = self.loaded.get_mut(&uri) {
-            *time = ctx.cumulative_frame_nr();
+        if let Some(ce) = self.loaded.get_mut(&uri) {
+            ce.time = ctx.cumulative_frame_nr();
+            if ce.dims.is_none() {
+                if let Ok(ImagePoll::Ready { image }) =
+                    ctx.try_load_image(&uri, SizeHint::default())
+                {
+                    let width = image.size[0];
+                    let height = image.size[1];
+                    ce.dims = Some((width, height));
+                }
+            }
         } else {
             self.requested.insert(uri);
         }
@@ -43,8 +61,8 @@ impl ImageCache {
             let to_discard = (loaded + requested) - self.max_size;
 
             let mut oldest = KBottom::new(to_discard);
-            for (uri, time) in &self.loaded {
-                oldest.add(uri, time);
+            for (uri, ce) in &self.loaded {
+                oldest.add(uri, &ce.time);
             }
 
             for BinaryHeapEntry { uri, .. } in oldest.binheap {
@@ -56,8 +74,8 @@ impl ImageCache {
         let time = ctx.cumulative_frame_nr();
 
         for uri in self.requested.drain() {
-            let _ = ctx.try_load_image(&uri, SizeHint::Scale(OrderedFloat(1.0)));
-            self.loaded.insert(uri, time);
+            let _ = ctx.try_load_image(&uri, SizeHint::default());
+            self.loaded.insert(uri, CacheEntry { time, dims: None });
         }
     }
 }
