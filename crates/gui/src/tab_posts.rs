@@ -519,24 +519,10 @@ impl TabPosts {
                 main_queue.push_back(edit_details.into());
             }
             Message::RefreshView => {
-                let pos = self
-                    .selected
-                    .map(|post_id| self.view.iter().position(|id| *id == post_id))
-                    .flatten();
-
+                let state = self.save_selected();
                 self.view = self.filter.make_view(db);
                 self.view_expanded = mk_expanded_view(&self.view, db);
-
-                if let Some(pos) = pos {
-                    match self.view.get(pos) {
-                        Some(post_id) => {
-                            self.selected = Some(*post_id);
-                        }
-                        None => {
-                            self.selected = self.view.last().copied();
-                        }
-                    }
-                }
+                self.restore_selected(state);
             }
             Message::EditTags(id) => {
                 assert!(self.modal_window.is_none());
@@ -827,6 +813,34 @@ impl TabPosts {
             Message::SearchBoxAction(action) => {
                 self.filter.search_box.update(action);
             }
+        }
+    }
+
+    fn save_selected(&self) -> Option<SelectedState> {
+        let id = self.selected?;
+        let position = self.view.iter().position(|post_id| *post_id == id)?;
+
+        Some(SelectedState { id, position })
+    }
+
+    fn restore_selected(&mut self, state: Option<SelectedState>) {
+        if let Some(state) = state {
+            let selected_still_in_view = self.view.iter().any(|id| *id == state.id);
+
+            if selected_still_in_view {
+                self.selected = Some(state.id);
+            } else {
+                match self.view.get(state.position) {
+                    Some(post_id) => {
+                        self.selected = Some(*post_id);
+                    }
+                    None => {
+                        self.selected = self.view.last().copied();
+                    }
+                }
+            }
+        } else {
+            self.selected = self.view.first().cloned();
         }
     }
 
@@ -1775,6 +1789,11 @@ impl TabPosts {
             None
         }
     }
+}
+
+struct SelectedState {
+    id: PostId,
+    position: usize,
 }
 
 fn inline_edit(
