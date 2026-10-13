@@ -22,6 +22,10 @@ struct Options {
     /// Year
     #[arg(value_name = "YEAR", long)]
     pub year: u16,
+
+    /// Tag name
+    #[arg(value_name = "YEAR", long, default_value = "wydruk")]
+    pub tag: String,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
@@ -36,8 +40,19 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
     let dst_dir = Path::new("/dev/shm/wydruk");
 
+    let mut printed = false;
+    for entry in dst_dir.read_dir()? {
+        let entry = entry?;
+        let path = entry.path();
+        if !printed {
+            println!("cleaning {}", dst_dir.display());
+            printed = true;
+        }
+        std::fs::remove_file(path)?;
+    }
+
     let pred = |post: &&Post| -> bool {
-        post.labels.iter().any(|s| s == "wydruk") && post.date.year == opts.year
+        post.labels.iter().any(|s| *s == opts.tag) && post.date.year == opts.year
     };
 
     for post in db.posts.iter().filter(pred) {
@@ -48,48 +63,34 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
             let stem = mk_dest_stem(&bare);
 
             let processed = path_str.replace("_small", "_processed");
-            let src3 = src_dir.join(&processed);
-            if src3.exists() {
-                let dst = dst_dir.join(&stem);
-                if !dst.exists() {
-                    println!("cp {} {}", src3.display(), dst.display());
-                    let data = std::fs::read(&src3)?;
-                    std::fs::write(dst, data)?;
-                }
 
-                continue;
+            let candidates = [
+                src_dir.join(&processed).with_extension("jpg"),
+                src_dir.join(&processed).with_extension("JPG"),
+                src_dir.join(&bare).with_extension("jpg"),
+                src_dir.join(&bare).with_extension("JPG"),
+            ];
+
+            let mut found = false;
+            for src in &candidates {
+                if src.exists() {
+                    let dst = dst_dir.join(&stem);
+                    println!("cp {} {}", src.display(), dst.display());
+                    let data = std::fs::read(&src)?;
+                    std::fs::write(dst, data)?;
+
+                    found = true;
+                    break;
+                }
             }
 
-            let src1 = src_dir.join(&bare);
-            if src1.exists() {
-                let dst = dst_dir.join(&stem);
-                if !dst.exists() {
-                    println!("cp {} {}", src1.display(), dst.display());
-                    let data = std::fs::read(&src1)?;
-                    std::fs::write(dst, data)?;
+            if !found {
+                eprintln!("{path_str}: source JPEG for not found",);
+
+                for (i, path) in candidates.iter().enumerate() {
+                    eprintln!("#{i}: {}", path.display());
                 }
-
-                continue;
             }
-
-            let src2 = src1.with_extension("JPG");
-            if src2.exists() {
-                let dst = dst_dir.join(&stem).with_extension("JPG");
-                if !dst.exists() {
-                    println!("cp {} {}", src2.display(), dst.display());
-                    let data = std::fs::read(&src2)?;
-                    std::fs::write(dst, data)?;
-                }
-
-                continue;
-            }
-
-            panic!(
-                "`{}`/`{}`/`{}` not found",
-                src1.display(),
-                src2.display(),
-                src3.display()
-            );
         }
     }
 
