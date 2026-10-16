@@ -30,6 +30,7 @@ use egui::TopBottomPanel;
 use egui::Ui;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
+use url::Url;
 
 use egui_material_icons::icons::ICON_CONTENT_PASTE;
 use egui_material_icons::icons::ICON_WARNING;
@@ -371,6 +372,12 @@ impl ModalEdit {
 
                     if is_hyperlink(&self.new.wikipedia_pl) {
                         ui.hyperlink_to("visit", &self.new.wikipedia_pl);
+                    } else {
+                        if let Some(url) =
+                            search_wiki("https://pl.wikipedia.org/w/index.php", &self.new.latin)
+                        {
+                            ui.hyperlink_to("search", url);
+                        }
                     }
                 });
                 ui.end_row();
@@ -383,6 +390,12 @@ impl ModalEdit {
 
                     if is_hyperlink(&self.new.insektarium_pl) {
                         ui.hyperlink_to("visit", &self.new.insektarium_pl);
+                    } else {
+                        if let Some(url) =
+                            search_insektarium("https://insektarium.net/", &self.new.latin)
+                        {
+                            ui.hyperlink_to("search", url);
+                        }
                     }
                 });
                 ui.end_row();
@@ -405,6 +418,12 @@ impl ModalEdit {
 
                     if is_hyperlink(&self.new.wikipedia_en) {
                         ui.hyperlink_to("visit", &self.new.wikipedia_en);
+                    } else {
+                        if let Some(url) =
+                            search_wiki("https://en.wikipedia.org/w/index.php", &self.new.latin)
+                        {
+                            ui.hyperlink_to("search", url);
+                        }
                     }
                 });
                 ui.end_row();
@@ -504,4 +523,30 @@ fn taxonomic_rank_label(tr: TaxonomicRank) -> String {
     let pl = tr.pl_name();
 
     format!("{en} ({pl})")
+}
+
+fn search_wiki(url: &str, latin: &Latin) -> Option<Url> {
+    let latin = latin.as_str();
+    if latin.is_empty() {
+        return None;
+    }
+
+    let mut url = Url::parse(url).ok()?;
+
+    url.query_pairs_mut().append_pair("search", latin);
+
+    Some(url)
+}
+
+fn search_insektarium(url: &str, latin: &Latin) -> Option<Url> {
+    let latin = latin.as_str();
+    if latin.is_empty() {
+        return None;
+    }
+
+    let mut url = Url::parse(url).ok()?;
+
+    url.query_pairs_mut().append_pair("q", latin);
+
+    Some(url)
 }
