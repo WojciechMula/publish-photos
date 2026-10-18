@@ -96,10 +96,13 @@ use egui_material_icons::icons::ICON_UNDO;
 
 const ID_PREFIX: &str = "tab-posts";
 
+type GroupedView = Vec<(Selector, Vec<PostId>)>;
+
 pub struct TabPosts {
     version: u64,
     view: Vec<PostId>,
     view_expanded: Vec<ExpandedView>,
+    view_grouped: GroupedView,
     hovered: Option<PostId>,
     selected: Option<PostId>,
     scroll_to_selected: bool,
@@ -398,6 +401,7 @@ impl TabPosts {
         Self {
             view: Vec::new(),
             view_expanded: Vec::new(),
+            view_grouped: Vec::new(),
             hovered: None,
             selected: None,
             scroll_to_selected: false,
@@ -522,6 +526,7 @@ impl TabPosts {
                 let state = self.save_selected();
                 self.view = self.filter.make_view(db);
                 self.view_expanded = mk_expanded_view(&self.view, db);
+                self.view_grouped = mk_grouped_view(&self.view, db, self.filter.get_current());
                 self.restore_selected(state);
             }
             Message::EditTags(id) => {
@@ -1650,53 +1655,57 @@ impl TabPosts {
                     queue.push_back(Message::SetGridColumns(n));
                 }
 
-                let mut it = self.view.iter().filter(|id| {
-                    if let Some(group) = &self.group {
-                        !group.contains(id)
-                    } else {
-                        true
-                    }
-                });
-
-                let mut empty = false;
-                while !empty {
-                    ui.horizontal(|ui| {
-                        for _ in 0..n {
-                            if let Some(id) = it.next() {
-                                let post = db.post(id);
-                                let fill = self.fill(post, style);
-
-                                let resp = tight_frame(ui, fill, |ui| {
-                                    self.draw_image(
-                                        ui,
-                                        image_cache,
-                                        style,
-                                        post,
-                                        queue,
-                                        ImageViewKind::First,
-                                    );
-                                });
-
-                                if self.scroll_to_selected && self.selected == Some(post.id) {
-                                    ui.scroll_to_rect(resp.rect, Some(Align::Center));
-                                }
-
-                                if resp.contains_pointer() {
-                                    hovered = Some(*id);
-                                }
-                                if resp.clicked() {
-                                    queue.push_back(Message::Select(post.id));
-                                }
-                                if resp.double_clicked() {
-                                    queue.push_back(Message::View(post.id));
-                                }
-                                resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
-                            } else {
-                                empty = true;
-                                break;
-                            }
+                for (selector, view) in self.view_grouped.iter() {
+                    let mut it = view.iter().filter(|id| {
+                        if let Some(group) = &self.group {
+                            !group.contains(id)
+                        } else {
+                            true
                         }
                     });
+
+                    ui.heading(format_selector(selector, view.len()));
+
+                    let mut empty = false;
+                    while !empty {
+                        ui.horizontal(|ui| {
+                            for _ in 0..n {
+                                if let Some(id) = it.next() {
+                                    let post = db.post(id);
+                                    let fill = self.fill(post, style);
+
+                                    let resp = tight_frame(ui, fill, |ui| {
+                                        self.draw_image(
+                                            ui,
+                                            image_cache,
+                                            style,
+                                            post,
+                                            queue,
+                                            ImageViewKind::First,
+                                        );
+                                    });
+
+                                    if self.scroll_to_selected && self.selected == Some(post.id) {
+                                        ui.scroll_to_rect(resp.rect, Some(Align::Center));
+                                    }
+
+                                    if resp.contains_pointer() {
+                                        hovered = Some(*id);
+                                    }
+                                    if resp.clicked() {
+                                        queue.push_back(Message::Select(post.id));
+                                    }
+                                    if resp.double_clicked() {
+                                        queue.push_back(Message::View(post.id));
+                                    }
+                                    resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
+                                } else {
+                                    empty = true;
+                                    break;
+                                }
+                            }
+                        });
+                    }
                 }
 
                 if hovered != self.hovered {
@@ -1788,6 +1797,19 @@ impl TabPosts {
         } else {
             None
         }
+    }
+}
+
+fn format_selector(selector: &Selector, count: usize) -> String {
+    match selector {
+        Selector::ByYear(year) => format!("{year} ({count} images)"),
+        Selector::ByMonth(year, month) => format!("{month} {year} ({count} images)"),
+        Selector::ByDate(date) => format!(
+            "{}-{:02}-{:02} ({count} images)",
+            date.year,
+            date.month.as_u8(),
+            date.day.as_u8()
+        ),
     }
 }
 
@@ -1900,6 +1922,44 @@ fn mk_expanded_view(view: &[PostId], db: &Database) -> Vec<ExpandedView> {
                 image_id,
             });
         }
+    }
+
+    res
+}
+
+fn mk_grouped_view(view: &[PostId], db: &Database, main: Selector) -> GroupedView {
+    let mut res = GroupedView::new();
+
+    if matches!(main, Selector::ByDate(_)) {
+        res.push((main, view.to_owned()));
+        return res;
+    }
+
+    let mut current_selector = Selector::ByYear(0);
+    let mut group = Vec::<PostId>::new();
+    for id in view {
+        let post = db.post(id);
+        let selector = match main {
+            Selector::ByYear(_) => Selector::ByMonth(post.date.year, post.date.month),
+            Selector::ByMonth(_, _) => Selector::ByDate(post.date),
+            Selector::ByDate(_) => unreachable!(),
+        };
+
+        if selector != current_selector {
+            if !group.is_empty() {
+                let mut tmp = Vec::<PostId>::new();
+                std::mem::swap(&mut tmp, &mut group);
+                res.push((current_selector, tmp));
+            }
+
+            current_selector = selector;
+        }
+
+        group.push(*id);
+    }
+
+    if !group.is_empty() {
+        res.push((current_selector, group));
     }
 
     res
