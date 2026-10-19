@@ -17,4 +17,13 @@ impl LabelList {
     pub fn iter(&self) -> impl Iterator<Item = &String> {
         self.0.iter()
     }
+
+    pub fn remove(&mut self, label: &str) -> bool {
+        if let Some(pos) = self.0.iter().position(|s| label == s) {
+            self.0.remove(pos);
+            true
+        } else {
+            false
+        }
+    }
 }
