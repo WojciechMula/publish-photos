@@ -1,5 +1,11 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/gui", "crates/db", "crates/check", "crates/query", "crates/tool", "crates/mkpost", "crates/droplabel",
+    "crates/gui",
+    "crates/db",
+    "crates/check",
+    "crates/query",
+    "tools/copylabelled",
+    "tools/mkpost",
+    "tools/droplabel",
 ]
