@@ -40,6 +40,7 @@ use crate::image_cache::ImageCache;
 use crate::keyboard::KeyboardMapping;
 use crate::labels::LabelEntry;
 use crate::style::Style;
+use crate::tab_posts::filter::render_selector;
 use crate::tab_species::Message as TabSpeciesMessage;
 use crate::widgets::checkmark;
 use crate::widgets::clickable_label_button;
@@ -114,6 +115,7 @@ pub struct TabPosts {
     modal_window: ModalWindow,
     view_kind: ViewKind,
     image_view_kind: ImageViewKind,
+    show_selectors: bool,
 
     keyboard_mapping: KeyboardMapping,
     labels_version: u64,
@@ -275,6 +277,8 @@ pub enum Message {
     EditSpeciesDetails(SpeciesId),
     AddNewSpecies(String),
     SearchBoxAction(HistoryInputAction),
+    ChangeSelector(Selector),
+    ToggleSelectorList,
 }
 
 impl Message {
@@ -337,6 +341,8 @@ impl Message {
             Self::AddNewSpecies(_) => "add new species",
             Self::SearchBoxAction(_) => unreachable!(),
             Self::ToggleLabelCurrent(_) => "toggle label",
+            Self::ChangeSelector(_) => unreachable!(),
+            Self::ToggleSelectorList => "toggle selector list",
         }
     }
 }
@@ -413,6 +419,7 @@ impl TabPosts {
             modal_window: ModalWindow::None,
             view_kind: ViewKind::List,
             image_view_kind: ImageViewKind::First,
+            show_selectors: true,
             label_width: 0.0,
             group: None,
             keyboard_mapping: Self::create_mapping(),
@@ -432,12 +439,21 @@ impl TabPosts {
         if let Some(view_kind) = eframe::get_value(storage, fmt!("{ID_PREFIX}-view-kind")) {
             self.view_kind = view_kind;
         }
+        if let Some(show_selectors) = eframe::get_value(storage, fmt!("{ID_PREFIX}-show-selectors"))
+        {
+            self.show_selectors = show_selectors;
+        }
     }
 
     pub fn save(&self, _db_id: &str, storage: &mut dyn eframe::Storage) {
         self.filter.save(storage);
         eframe::set_value(storage, fmt!("{ID_PREFIX}-selected-post"), &self.selected);
         eframe::set_value(storage, fmt!("{ID_PREFIX}-view-kind"), &self.view_kind);
+        eframe::set_value(
+            storage,
+            fmt!("{ID_PREFIX}-show-selectors"),
+            &self.show_selectors,
+        );
     }
 
     pub fn update(
@@ -818,6 +834,13 @@ impl TabPosts {
             Message::SearchBoxAction(action) => {
                 self.filter.search_box.update(action);
             }
+            Message::ChangeSelector(selector) => {
+                self.filter.set_current(selector);
+                queue.push_back(Message::RefreshView);
+            }
+            Message::ToggleSelectorList => {
+                self.show_selectors = !self.show_selectors;
+            }
         }
     }
 
@@ -920,6 +943,7 @@ impl TabPosts {
             .key(Key::End, msg(Message::SelectLast))
             .ctrl(Key::L, msg(Message::ToggleViewKind))
             .ctrl(Key::E, msg(Message::ToggleImageViewKind))
+            .key(Key::L, msg(Message::ToggleSelectorList))
     }
 
     pub fn modal_opened(&self) -> bool {
@@ -995,6 +1019,12 @@ impl TabPosts {
                 self.label_width = crate::gui::max_size(&["tags", "species", "labels"], ui);
             }
         });
+
+        if self.show_selectors {
+            SidePanel::left(fmt!("{ID_PREFIX}-list")).show(ctx, |ui| {
+                self.draw_selectors(ui, db, queue);
+            });
+        }
 
         if let Some(group) = &self.group {
             SidePanel::left(fmt!("{ID_PREFIX}-group"))
@@ -1098,6 +1128,28 @@ impl TabPosts {
         resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
 
         resp.contains_pointer()
+    }
+
+    fn draw_selectors(&self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
+        ScrollArea::vertical()
+            .id_salt(fmt!("{ID_PREFIX}-list-scroll"))
+            .show(ui, |ui| {
+                let mut current = self.filter.get_current();
+                for selector in &db.picture_views.selectors {
+                    render_selector(
+                        ui,
+                        db,
+                        10.0,
+                        self.filter.get_image_state(),
+                        selector,
+                        &mut current,
+                    );
+                }
+
+                if current != self.filter.get_current() {
+                    queue.push_back(Message::ChangeSelector(current));
+                }
+            });
     }
 
     fn post_context_menu(&self, ui: &mut Ui, post: &Post, queue: &mut MessageQueue) {

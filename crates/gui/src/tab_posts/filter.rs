@@ -60,6 +60,10 @@ impl Filter {
         self.filter.current
     }
 
+    pub fn get_image_state(&self) -> &ImageState {
+        &self.filter.image_state
+    }
+
     pub fn is_extra_filter_enabled(&self) -> bool {
         self.filter.extra
     }
@@ -209,7 +213,7 @@ impl Filter {
     }
 }
 
-fn render_selector(
+pub fn render_selector(
     ui: &mut Ui,
     db: &Database,
     icon_width: f32,
