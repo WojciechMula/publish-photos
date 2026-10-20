@@ -830,7 +830,7 @@ impl TabPosts {
 
     fn restore_selected(&mut self, state: Option<SelectedState>) {
         if let Some(state) = state {
-            let selected_still_in_view = self.view.iter().any(|id| *id == state.id);
+            let selected_still_in_view = self.view.contains(&state.id);
 
             if selected_still_in_view {
                 self.selected = Some(state.id);

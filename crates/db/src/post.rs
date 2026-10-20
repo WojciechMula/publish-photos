@@ -58,7 +58,7 @@ impl Post {
             self.search_parts.add(&format!("#{tag}"));
         }
         for label in self.labels.iter() {
-            self.search_parts.add(&label);
+            self.search_parts.add(label);
         }
     }
 
@@ -129,7 +129,7 @@ pub fn render_text(post: &Post, db: &Database) -> String {
             f.writeln(format!(
                 "{PL_EMOJI} {} ({})",
                 species.pl,
-                &species.latin.as_str()
+                species.latin.as_str()
             ));
             if !species.en.is_empty() {
                 f.writeln(format!("{EN_EMOJI} {}", species.en));

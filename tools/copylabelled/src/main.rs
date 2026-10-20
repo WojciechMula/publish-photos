@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
                 if src.exists() {
                     let dst = dst_dir.join(&stem);
                     println!("cp {} {}", src.display(), dst.display());
-                    let data = std::fs::read(&src)?;
+                    let data = std::fs::read(src)?;
                     std::fs::write(dst, data)?;
 
                     found = true;
@@ -124,13 +124,13 @@ fn find_source_dir(rootdir: &Path, year: u16) -> Result<PathBuf, Error> {
 
 fn mk_dest_stem(path: &str) -> String {
     let mut res = String::new();
-    let mut iter = path.split("/").skip(2).filter(|part| *part != "publish");
+    let iter = path.split("/").skip(2).filter(|part| *part != "publish");
 
     for part in iter {
         if !res.is_empty() {
             res += "-";
         }
-        res += &part;
+        res += part;
     }
 
     res

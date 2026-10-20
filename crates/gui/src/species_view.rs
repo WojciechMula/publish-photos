@@ -375,7 +375,7 @@ pub fn format_pl(ui: &mut Ui, species: &Species) -> Option<ClipboardValue> {
         if !species.pl.is_empty() {
             resp.context_menu(|ui| {
                 if ui.button("Copy to clipboard").clicked() {
-                    result = Some(ClipboardValue::generic(species.pl.to_string()).into());
+                    result = Some(ClipboardValue::generic(species.pl.to_string()));
                 }
             });
         }
