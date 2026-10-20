@@ -82,6 +82,7 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 
 use egui_material_icons::icons::ICON_ADD;
+use egui_material_icons::icons::ICON_BACKSPACE;
 use egui_material_icons::icons::ICON_CHECK;
 use egui_material_icons::icons::ICON_CLOSE;
 use egui_material_icons::icons::ICON_CONTENT_COPY;
@@ -116,6 +117,7 @@ pub struct TabPosts {
     view_kind: ViewKind,
     image_view_kind: ImageViewKind,
     show_selectors: bool,
+    selector_filter: String,
 
     keyboard_mapping: KeyboardMapping,
     labels_version: u64,
@@ -278,6 +280,7 @@ pub enum Message {
     AddNewSpecies(String),
     SearchBoxAction(HistoryInputAction),
     ChangeSelector(Selector),
+    ChangeSelectorFilter(String),
     ToggleSelectorList,
 }
 
@@ -342,6 +345,7 @@ impl Message {
             Self::SearchBoxAction(_) => unreachable!(),
             Self::ToggleLabelCurrent(_) => "toggle label",
             Self::ChangeSelector(_) => unreachable!(),
+            Self::ChangeSelectorFilter(_) => unreachable!(),
             Self::ToggleSelectorList => "toggle selector list",
         }
     }
@@ -420,6 +424,7 @@ impl TabPosts {
             view_kind: ViewKind::List,
             image_view_kind: ImageViewKind::First,
             show_selectors: true,
+            selector_filter: String::new(),
             label_width: 0.0,
             group: None,
             keyboard_mapping: Self::create_mapping(),
@@ -838,6 +843,9 @@ impl TabPosts {
                 self.filter.set_current(selector);
                 queue.push_back(Message::RefreshView);
             }
+            Message::ChangeSelectorFilter(phrase) => {
+                self.selector_filter = phrase;
+            }
             Message::ToggleSelectorList => {
                 self.show_selectors = !self.show_selectors;
             }
@@ -1131,11 +1139,34 @@ impl TabPosts {
     }
 
     fn draw_selectors(&self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
+        let mut filter = self.selector_filter.clone();
+
+        ui.horizontal(|ui| {
+            ui.set_max_width(200.0);
+            ui.text_edit_singleline(&mut filter);
+
+            let enabled = !filter.is_empty();
+            let button = Button::new(ICON_BACKSPACE);
+            if ui.add_enabled(enabled, button).clicked() {
+                filter.clear();
+            }
+        });
+
+        if filter != self.selector_filter {
+            queue.push_back(Message::ChangeSelectorFilter(filter.clone()));
+        }
+
+        ui.separator();
+
         ScrollArea::vertical()
             .id_salt(fmt!("{ID_PREFIX}-list-scroll"))
             .show(ui, |ui| {
                 let mut current = self.filter.get_current();
                 for selector in &db.picture_views.selectors {
+                    if !filter.is_empty() && !selector.as_iso_date().contains(&filter) {
+                        continue;
+                    }
+
                     render_selector(
                         ui,
                         db,

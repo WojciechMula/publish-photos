@@ -28,6 +28,19 @@ impl Selector {
             Self::ByYear(year) => (*year, u8::MAX, u8::MAX),
         }
     }
+
+    pub fn as_iso_date(&self) -> String {
+        match self {
+            Self::ByMonth(year, month) => format!("{}-{:02}", year, month.as_u8()),
+            Self::ByDate(date) => format!(
+                "{}-{:02}-{:02}",
+                date.year,
+                date.month.as_u8(),
+                date.day.as_u8()
+            ),
+            Self::ByYear(year) => year.to_string(),
+        }
+    }
 }
 
 impl Ord for Selector {
