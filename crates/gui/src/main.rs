@@ -1,11 +1,11 @@
 use clap::Parser;
 use db::Database;
 use env_logger::Builder;
-use log::error;
 use log::info;
 use log::LevelFilter;
 use photos::application::Application;
 use photos::cmdline::Options;
+use photos::err;
 use std::path::absolute;
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
@@ -13,12 +13,12 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     builder.filter_level(LevelFilter::Info).init();
 
     let opts = Options::parse();
-    let rootdir = match absolute(&opts.rootdir) {
-        Ok(path) => path,
-        Err(_) => opts.rootdir.to_path_buf(),
+    let path = absolute(&opts.path).unwrap_or_else(|_| opts.path.to_path_buf());
+    let rootdir = match path.parent() {
+        Some(path) => path,
+        None => return err!("'{}' doesn't have parent directory", path.display()),
     };
 
-    let path = rootdir.join("db.toml");
     let mut db = if path.is_file() {
         Database::from_file(&path)?
     } else {
@@ -27,10 +27,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
             path.display()
         );
         let mut db = Database::new(&path);
-        let count = photos::sync_db::perform(&rootdir, &mut db)?;
+        let count = photos::sync_db::perform(rootdir, &mut db)?;
         if count == 0 {
-            error!("No photos matching the program criteria was found");
-            return Ok(());
+            return err!("No photos matching the program criteria was found");
         }
 
         info!("Imported {count} image(s)");
@@ -42,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     };
 
     if opts.update_db {
-        let new = photos::sync_db::perform(&rootdir, &mut db)?;
+        let new = photos::sync_db::perform(rootdir, &mut db)?;
         db.refresh_all_records();
         db.force_refresh_caches();
         if new > 0 {
