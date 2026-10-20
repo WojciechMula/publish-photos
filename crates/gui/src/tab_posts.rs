@@ -118,6 +118,7 @@ pub struct TabPosts {
     image_view_kind: ImageViewKind,
     show_selectors: bool,
     selector_filter: String,
+    selector_granurality: SelectorGranurality,
 
     keyboard_mapping: KeyboardMapping,
     labels_version: u64,
@@ -176,6 +177,26 @@ impl ImageViewKind {
         match self {
             Self::First => Self::Expanded,
             Self::Expanded => Self::First,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Default, Copy, Debug)]
+pub enum SelectorGranurality {
+    Year,
+    Month,
+    #[default]
+    Day,
+}
+
+impl SelectorGranurality {
+    const ALL: [Self; 3] = [Self::Year, Self::Month, Self::Day];
+
+    const fn name(&self) -> &str {
+        match self {
+            Self::Year => "Year",
+            Self::Month => "Month",
+            Self::Day => "Day",
         }
     }
 }
@@ -281,6 +302,7 @@ pub enum Message {
     SearchBoxAction(HistoryInputAction),
     ChangeSelector(Selector),
     ChangeSelectorFilter(String),
+    ChangeSelectorGranurality(SelectorGranurality),
     ToggleSelectorList,
 }
 
@@ -346,6 +368,7 @@ impl Message {
             Self::ToggleLabelCurrent(_) => "toggle label",
             Self::ChangeSelector(_) => unreachable!(),
             Self::ChangeSelectorFilter(_) => unreachable!(),
+            Self::ChangeSelectorGranurality(_) => unreachable!(),
             Self::ToggleSelectorList => "toggle selector list",
         }
     }
@@ -425,6 +448,7 @@ impl TabPosts {
             image_view_kind: ImageViewKind::First,
             show_selectors: true,
             selector_filter: String::new(),
+            selector_granurality: SelectorGranurality::default(),
             label_width: 0.0,
             group: None,
             keyboard_mapping: Self::create_mapping(),
@@ -434,20 +458,15 @@ impl TabPosts {
         }
     }
 
+    #[allow(clippy::option_map_unit_fn)]
     pub fn load(&mut self, _db_id: &str, storage: &dyn eframe::Storage) {
         self.filter.load(storage);
-        if let Some(value) =
-            eframe::get_value::<Option<PostId>>(storage, fmt!("{ID_PREFIX}-selected-post"))
-        {
-            self.selected = value;
-        }
-        if let Some(view_kind) = eframe::get_value(storage, fmt!("{ID_PREFIX}-view-kind")) {
-            self.view_kind = view_kind;
-        }
-        if let Some(show_selectors) = eframe::get_value(storage, fmt!("{ID_PREFIX}-show-selectors"))
-        {
-            self.show_selectors = show_selectors;
-        }
+        eframe::get_value(storage, fmt!("{ID_PREFIX}-selected-post")).map(|v| self.selected = v);
+        eframe::get_value(storage, fmt!("{ID_PREFIX}-view-kind")).map(|v| self.view_kind = v);
+        eframe::get_value(storage, fmt!("{ID_PREFIX}-show-selectors"))
+            .map(|v| self.show_selectors = v);
+        eframe::get_value(storage, fmt!("{ID_PREFIX}-selector-granurality"))
+            .map(|v| self.selector_granurality = v);
     }
 
     pub fn save(&self, _db_id: &str, storage: &mut dyn eframe::Storage) {
@@ -458,6 +477,11 @@ impl TabPosts {
             storage,
             fmt!("{ID_PREFIX}-show-selectors"),
             &self.show_selectors,
+        );
+        eframe::set_value(
+            storage,
+            fmt!("{ID_PREFIX}-selector-granurality"),
+            &self.selector_granurality,
         );
     }
 
@@ -843,8 +867,11 @@ impl TabPosts {
                 self.filter.set_current(selector);
                 queue.push_back(Message::RefreshView);
             }
-            Message::ChangeSelectorFilter(phrase) => {
-                self.selector_filter = phrase;
+            Message::ChangeSelectorFilter(val) => {
+                self.selector_filter = val;
+            }
+            Message::ChangeSelectorGranurality(val) => {
+                self.selector_granurality = val;
             }
             Message::ToggleSelectorList => {
                 self.show_selectors = !self.show_selectors;
@@ -1158,12 +1185,38 @@ impl TabPosts {
 
         ui.separator();
 
+        let mut selector_granurality = self.selector_granurality;
+
+        ui.horizontal(|ui| {
+            for dsg in SelectorGranurality::ALL {
+                ui.selectable_value(&mut selector_granurality, dsg, dsg.name());
+            }
+        });
+
+        if selector_granurality != self.selector_granurality {
+            queue.push_back(Message::ChangeSelectorGranurality(selector_granurality));
+        }
+
+        ui.separator();
+
         ScrollArea::vertical()
             .id_salt(fmt!("{ID_PREFIX}-list-scroll"))
             .show(ui, |ui| {
                 let mut current = self.filter.get_current();
                 for selector in &db.picture_views.selectors {
-                    if !filter.is_empty() && !selector.as_iso_date().contains(&filter) {
+                    if filter.is_empty() {
+                        let valid = match selector_granurality {
+                            SelectorGranurality::Year => matches!(selector, Selector::ByYear(_)),
+                            SelectorGranurality::Month => {
+                                matches!(selector, Selector::ByYear(_) | Selector::ByMonth(..))
+                            }
+                            SelectorGranurality::Day => true,
+                        };
+
+                        if !valid {
+                            continue;
+                        }
+                    } else if !selector.as_iso_date().contains(&filter) {
                         continue;
                     }
 
