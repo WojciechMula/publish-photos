@@ -370,11 +370,9 @@ impl Database {
             let species = post.species.as_ref().unwrap();
             tmp.entry(species.clone())
                 .and_modify(|list| {
-                    for file in &post.files {
-                        list.push(file.clone());
-                    }
+                    list.push(post.file.clone());
                 })
-                .or_insert_with(|| post.files.clone());
+                .or_insert_with(|| vec![post.file.clone()]);
         }
 
         for species in self.species.iter_mut() {
@@ -481,10 +479,8 @@ impl Database {
     pub fn refresh_all_records(&mut self) {
         for (id, entry) in self.posts.0.iter_mut().enumerate() {
             entry.id = PostId(id);
-            for entry in &mut entry.files {
-                entry.full_path = self.rootdir.join(&entry.rel_path);
-                entry.uri = format!("file://{}", entry.full_path.display());
-            }
+            entry.file.full_path = self.rootdir.join(&entry.file.rel_path);
+            entry.file.uri = format!("file://{}", entry.file.full_path.display());
 
             entry.refresh();
         }

@@ -12,10 +12,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct Post {
     pub published: PublishedState,
-    pub files: Vec<FileMetadata>,
+    pub file: FileMetadata,
     pub date: Date,
     #[serde(default)]
     pub pl: String,
