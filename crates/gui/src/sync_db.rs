@@ -3,7 +3,6 @@ use db::Database;
 use db::Date;
 use db::FileMetadata;
 use db::Post;
-use db::PublishedState;
 use log::info;
 use std::collections::BTreeSet;
 use std::fs::read_dir;
@@ -17,63 +16,17 @@ pub fn perform(
     let all_files = collect_paths(rootdir)?;
     let mut managed_files = collect_managed_paths(db);
 
-    mark_as_published(rootdir, &all_files, db)?;
     let mut count = 0;
-
     for path in all_files {
         if !managed_files.remove(&path) {
             info!("importing {}", path.display());
-            let mut post = mk_post(&path);
-            if is_published(rootdir, &path) {
-                post.published = PublishedState::Published;
-            }
+            let post = mk_post(&path);
             db.posts.push(post);
             count += 1;
         }
     }
 
     Ok(count)
-}
-
-fn mark_as_published(
-    rootdir: &Path,
-    all_files: &BTreeSet<PathBuf>,
-    db: &mut Database,
-) -> Result<(), Box<dyn std::error::Error + 'static>> {
-    let mut marked_as_published = BTreeSet::<PathBuf>::new();
-    for path in all_files {
-        if is_published(rootdir, path) {
-            marked_as_published.insert(path.to_path_buf());
-        }
-    }
-
-    for post in db.posts.iter_mut().filter(|post| !post.published.as_bool()) {
-        let metadata = &post.file;
-        if marked_as_published.remove(&metadata.rel_path) {
-            log::info!(
-                "{} is marked as published, fixing",
-                metadata.rel_path.display()
-            );
-            post.published = PublishedState::Published;
-            db.current_version.photos += 1;
-        }
-    }
-
-    Ok(())
-}
-
-fn is_published(rootdir: &Path, path: &Path) -> bool {
-    let full_path = rootdir.join(path);
-    is_published_aux(&full_path).unwrap_or_default()
-}
-
-fn is_published_aux(path: &Path) -> Option<bool> {
-    let parent = path.parent()?;
-
-    let name = path.file_name()?;
-    let link = parent.join("facebook").join("published").join(name);
-
-    Some(link.exists())
 }
 
 fn date_from_path(path: &Path) -> Date {
