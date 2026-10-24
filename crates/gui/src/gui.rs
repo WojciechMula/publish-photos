@@ -146,33 +146,6 @@ pub fn add_image(
     }
 }
 
-pub fn add_image_with_tint(
-    ui: &mut Ui,
-    meta: &FileMetadata,
-    image_cache: &mut ImageCache,
-    size: f32,
-    radius: f32,
-    tint: Color32,
-) -> Response {
-    if image_cache.is_cached(&meta.uri) {
-        ui.add(
-            Image::from_uri(meta.uri.clone())
-                .maintain_aspect_ratio(true)
-                .fit_to_exact_size(Vec2::splat(size))
-                .show_loading_spinner(false)
-                .tint(tint)
-                .corner_radius(radius),
-        )
-    } else {
-        let resp = ui.add_sized(Vec2::splat(size), Label::new(&meta.uri));
-        if ui.is_rect_visible(resp.rect) {
-            image_cache.request(meta.uri.clone(), ui.ctx());
-        }
-
-        resp
-    }
-}
-
 // --------------------------------------------------
 
 const PL_ICON: ImageSource = egui::include_image!("../../../assets/pl.png");

@@ -52,33 +52,17 @@ struct Entry {
 #[derive(Clone)]
 pub enum Message {
     Publish,
-    Copy1,
-    Copy2,
-    Copy3,
-    Copy4,
-    Copy5,
-    Copy6,
-    Copy7,
-    Copy8,
-    Copy9,
+    CopyText,
+    CopyPath,
     Cancel,
-    PublishOnSocialMedia,
 }
 
 impl Message {
     pub const fn name(&self) -> &str {
         match self {
             Self::Publish => "mark post as published and close window",
-            Self::PublishOnSocialMedia => unreachable!(),
-            Self::Copy1 => "copy text to clipboard",
-            Self::Copy2 => "copy path of 1st photo",
-            Self::Copy3 => "copy path of 2nd photo",
-            Self::Copy4 => "copy path of 3rd photo",
-            Self::Copy5 => "copy path of 4th photo",
-            Self::Copy6 => "copy path of 5th photo",
-            Self::Copy7 => "copy path of 6th photo",
-            Self::Copy8 => "copy path of 7th photo",
-            Self::Copy9 => "copy path of 8th photo",
+            Self::CopyText => "copy text to clipboard",
+            Self::CopyPath => "copy path of photo",
             Self::Cancel => "cancel publishing",
         }
     }
@@ -89,19 +73,20 @@ impl ModalPublish {
         let post = db.post(&id);
 
         let text = render_text(post, db);
-        let mut entries = vec![Entry {
-            copied: false,
-            label: "Copy text".to_owned(),
-            text,
-        }];
-        for item in &post.files {
-            let full_path = item.full_path.display().to_string();
-            entries.push(Entry {
+        let full_path = post.file.full_path.display().to_string();
+
+        let entries = vec![
+            Entry {
+                copied: false,
+                label: "Copy text".to_owned(),
+                text,
+            },
+            Entry {
+                copied: false,
                 label: full_path.clone(),
                 text: full_path,
-                copied: false,
-            });
-        }
+            },
+        ];
 
         Self {
             id,
@@ -118,15 +103,8 @@ impl ModalPublish {
 
         KeyboardMapping::default()
             .key(Key::Escape, msg(Message::Cancel))
-            .key(Key::Num1, msg(Message::Copy1))
-            .key(Key::Num2, msg(Message::Copy2))
-            .key(Key::Num3, msg(Message::Copy3))
-            .key(Key::Num4, msg(Message::Copy4))
-            .key(Key::Num5, msg(Message::Copy5))
-            .key(Key::Num6, msg(Message::Copy6))
-            .key(Key::Num7, msg(Message::Copy7))
-            .key(Key::Num8, msg(Message::Copy8))
-            .key(Key::Num9, msg(Message::Copy9))
+            .key(Key::Num1, msg(Message::CopyText))
+            .key(Key::Num2, msg(Message::CopyPath))
             .ctrl(Key::S, msg(Message::Publish))
             .ctrl(Key::P, msg(Message::Publish))
     }
@@ -136,56 +114,14 @@ impl ModalPublish {
             Message::Cancel => {
                 tab_queue.push_back(TabMessage::CloseModal);
             }
-            Message::Copy1 => {
+            Message::CopyText => {
                 if let Some(entry) = self.entries.get_mut(0) {
                     entry.copied = true;
                     tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
             }
-            Message::Copy2 => {
+            Message::CopyPath => {
                 if let Some(entry) = self.entries.get_mut(1) {
-                    entry.copied = true;
-                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
-                }
-            }
-            Message::Copy3 => {
-                if let Some(entry) = self.entries.get_mut(2) {
-                    entry.copied = true;
-                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
-                }
-            }
-            Message::Copy4 => {
-                if let Some(entry) = self.entries.get_mut(3) {
-                    entry.copied = true;
-                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
-                }
-            }
-            Message::Copy5 => {
-                if let Some(entry) = self.entries.get_mut(4) {
-                    entry.copied = true;
-                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
-                }
-            }
-            Message::Copy6 => {
-                if let Some(entry) = self.entries.get_mut(5) {
-                    entry.copied = true;
-                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
-                }
-            }
-            Message::Copy7 => {
-                if let Some(entry) = self.entries.get_mut(6) {
-                    entry.copied = true;
-                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
-                }
-            }
-            Message::Copy8 => {
-                if let Some(entry) = self.entries.get_mut(7) {
-                    entry.copied = true;
-                    tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
-                }
-            }
-            Message::Copy9 => {
-                if let Some(entry) = self.entries.get_mut(8) {
                     entry.copied = true;
                     tab_queue.push_back(ClipboardValue::generic(entry.text.clone()).into());
                 }
@@ -194,10 +130,6 @@ impl ModalPublish {
                 tab_queue.push_back(
                     EditDetails::SetPublished(self.id, PublishedState::timestamp_now()).into(),
                 );
-                tab_queue.push_back(TabMessage::CloseModal);
-            }
-            Message::PublishOnSocialMedia => {
-                tab_queue.push_back(TabMessage::StartPublishing(self.id));
                 tab_queue.push_back(TabMessage::CloseModal);
             }
         }
@@ -223,15 +155,13 @@ impl ModalPublish {
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
-                        for meta in &post.files {
-                            add_image(
-                                ui,
-                                meta,
-                                image_cache,
-                                style.image.preview_width,
-                                style.image.radius,
-                            );
-                        }
+                        add_image(
+                            ui,
+                            &post.file,
+                            image_cache,
+                            style.image.preview_width,
+                            style.image.radius,
+                        );
                     });
             });
 

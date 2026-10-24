@@ -108,14 +108,12 @@ fn main() -> Result<(), Error> {
             result += &latin.as_str().to_lowercase();
         }
 
-        for (k, file) in post.files.iter().enumerate() {
-            let src = &file.full_path;
-            let dst = dst_dir.join(format!("{n}-{k:02}.jpg"));
+        let src = &post.file.full_path;
+        let dst = dst_dir.join(format!("{n}.jpg"));
 
-            println!("copying {} to {}", src.display(), dst.display());
-            let buf = std::fs::read(src)?;
-            std::fs::write(dst, buf)?;
-        }
+        println!("copying {} to {}", src.display(), dst.display());
+        let buf = std::fs::read(src)?;
+        std::fs::write(dst, buf)?;
     }
 
     for post in db.posts.iter().filter(pred) {
@@ -125,14 +123,12 @@ fn main() -> Result<(), Error> {
 
         n += 1;
 
-        for (k, file) in post.files.iter().enumerate() {
-            let src = &file.full_path;
-            let dst = dst_dir.join(format!("{n}-{k:02}.jpg"));
+        let src = &post.file.full_path;
+        let dst = dst_dir.join(format!("{n}.jpg"));
 
-            println!("copying {} to {}", src.display(), dst.display());
-            let buf = std::fs::read(src)?;
-            std::fs::write(dst, buf)?;
-        }
+        println!("copying {} to {}", src.display(), dst.display());
+        let buf = std::fs::read(src)?;
+        std::fs::write(dst, buf)?;
     }
 
     println!();

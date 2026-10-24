@@ -261,15 +261,13 @@ impl ModalTags {
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
                         let post = db.post(&self.id);
-                        for meta in &post.files {
-                            add_image(
-                                ui,
-                                meta,
-                                image_cache,
-                                style.image.preview_width,
-                                style.image.radius,
-                            );
-                        }
+                        add_image(
+                            ui,
+                            &post.file,
+                            image_cache,
+                            style.image.preview_width,
+                            style.image.radius,
+                        );
                     });
             });
 

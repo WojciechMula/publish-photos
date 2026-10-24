@@ -47,13 +47,8 @@ fn mark_as_published(
         }
     }
 
-    for post in db
-        .posts
-        .iter_mut()
-        .filter(|post| !post.published.as_bool())
-        .filter(|post| post.files.len() == 1)
-    {
-        let metadata = &post.files[0];
+    for post in db.posts.iter_mut().filter(|post| !post.published.as_bool()) {
+        let metadata = &post.file;
         if marked_as_published.remove(&metadata.rel_path) {
             log::info!(
                 "{} is marked as published, fixing",
@@ -105,7 +100,7 @@ fn mk_post(path: &Path) -> Post {
     };
 
     Post {
-        files: vec![md],
+        file: md,
         date: date_from_path(path),
         ..Default::default()
     }
@@ -114,9 +109,7 @@ fn mk_post(path: &Path) -> Post {
 fn collect_managed_paths(db: &Database) -> BTreeSet<PathBuf> {
     let mut result = BTreeSet::<PathBuf>::new();
     for post in db.posts.iter() {
-        for entry in &post.files {
-            result.insert(entry.rel_path.to_path_buf());
-        }
+        result.insert(post.file.rel_path.to_path_buf());
     }
 
     result

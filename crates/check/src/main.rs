@@ -8,10 +8,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         println!("loading {}", path.display());
         let db = Database::from_file(&path)?;
         for post in db.posts.iter() {
-            for file in &post.files {
-                if !file.full_path.exists() {
-                    println!("{} not found", file.full_path.display());
-                }
+            let path = &post.file.full_path;
+            if !path.exists() {
+                println!("{} not found", path.display());
             }
 
             if let Some(name) = &post.species {

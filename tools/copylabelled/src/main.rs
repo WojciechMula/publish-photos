@@ -56,40 +56,38 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     };
 
     for post in db.posts.iter().filter(pred) {
-        for file in &post.files {
-            let path_str = format!("{}", file.rel_path.display());
-            let bare = path_str.replace("_small", "");
+        let path_str = format!("{}", post.file.rel_path.display());
+        let bare = path_str.replace("_small", "");
 
-            let stem = mk_dest_stem(&bare);
+        let stem = mk_dest_stem(&bare);
 
-            let processed = path_str.replace("_small", "_processed");
+        let processed = path_str.replace("_small", "_processed");
 
-            let candidates = [
-                src_dir.join(&processed).with_extension("jpg"),
-                src_dir.join(&processed).with_extension("JPG"),
-                src_dir.join(&bare).with_extension("jpg"),
-                src_dir.join(&bare).with_extension("JPG"),
-            ];
+        let candidates = [
+            src_dir.join(&processed).with_extension("jpg"),
+            src_dir.join(&processed).with_extension("JPG"),
+            src_dir.join(&bare).with_extension("jpg"),
+            src_dir.join(&bare).with_extension("JPG"),
+        ];
 
-            let mut found = false;
-            for src in &candidates {
-                if src.exists() {
-                    let dst = dst_dir.join(&stem);
-                    println!("cp {} {}", src.display(), dst.display());
-                    let data = std::fs::read(src)?;
-                    std::fs::write(dst, data)?;
+        let mut found = false;
+        for src in &candidates {
+            if src.exists() {
+                let dst = dst_dir.join(&stem);
+                println!("cp {} {}", src.display(), dst.display());
+                let data = std::fs::read(src)?;
+                std::fs::write(dst, data)?;
 
-                    found = true;
-                    break;
-                }
+                found = true;
+                break;
             }
+        }
 
-            if !found {
-                eprintln!("{path_str}: source JPEG for not found",);
+        if !found {
+            eprintln!("{path_str}: source JPEG for not found",);
 
-                for (i, path) in candidates.iter().enumerate() {
-                    eprintln!("#{i}: {}", path.display());
-                }
+            for (i, path) in candidates.iter().enumerate() {
+                eprintln!("#{i}: {}", path.display());
             }
         }
     }

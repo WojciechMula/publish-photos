@@ -200,7 +200,7 @@ impl Filter {
                 })
             })
         {
-            let stem = file_stem(&post.files[0].rel_path);
+            let stem = file_stem(&post.file.rel_path);
             let item = (post.id, (post.date, stem));
             tmp.push(item);
         }
