@@ -817,7 +817,7 @@ impl TabPosts {
         self.labels.clear();
         self.enabled_labels_count = 0;
 
-        for entry in crate::labels::from_db(db) {
+        for (_, entry) in crate::labels::from_db(db) {
             if let Some(shortcut) = entry.shortcut.as_ref() {
                 if entry.enabled {
                     self.keyboard_mapping.add(

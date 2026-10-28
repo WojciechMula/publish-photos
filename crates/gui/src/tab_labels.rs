@@ -14,6 +14,7 @@ use egui::Key;
 use egui::KeyboardShortcut;
 use egui::ScrollArea;
 use egui::Ui;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 
 use egui_material_icons::icons::ICON_DELETE;
@@ -24,10 +25,10 @@ const ID_PREFIX: &str = "tab-labels";
 pub struct TabLabels {
     pub keyboard_mapping: KeyboardMapping,
     show_only_enabled: bool,
-    cache: Vec<LabelEntry>,
+    cache: BTreeMap<String, LabelEntry>,
     needs_sync: bool,
     new: String,
-    wait_for_key: Option<usize>,
+    wait_for_key: Option<String>,
     taken_shortcuts: HashSet<KeyboardShortcut>,
     shortcut_error: Option<String>,
 }
@@ -49,10 +50,11 @@ impl TabLabels {
         CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(&mut self.new);
-                let enabled = !self.new.trim().is_empty();
+                let new = self.new.trim();
+                let enabled = !new.is_empty();
                 let button = Button::new("➕Add new");
                 if ui.add_enabled(enabled, button).clicked() {
-                    self.cache.push(LabelEntry::new(&self.new));
+                    self.cache.insert(new.to_owned(), LabelEntry::new(new));
                     self.new.clear();
                 }
 
@@ -82,8 +84,8 @@ impl TabLabels {
 
         enum Action {
             None,
-            Remove(usize),
-            Enabled(usize, bool),
+            Remove(String),
+            Enabled(String, bool),
         }
 
         let mut action = Action::None;
@@ -92,7 +94,7 @@ impl TabLabels {
         Grid::new((ID_PREFIX, "grid"))
             .num_columns(7)
             .show(ui, |ui| {
-                for (id, entry) in self.cache.iter_mut().enumerate() {
+                for (id, entry) in self.cache.iter_mut() {
                     if self.show_only_enabled && !entry.enabled {
                         continue;
                     }
@@ -110,11 +112,11 @@ impl TabLabels {
                     });
 
                     // column #3
-                    ui.horizontal(|ui| match self.wait_for_key {
+                    ui.horizontal(|ui| match &mut self.wait_for_key {
                         None => {
                             if ui.button("change shortcut").clicked() {
                                 self.shortcut_error = None;
-                                self.wait_for_key = Some(id);
+                                self.wait_for_key = Some(id.clone());
                             }
                         }
                         Some(index) => {
@@ -140,13 +142,13 @@ impl TabLabels {
 
                     // column #6
                     if ui.button(ICON_DELETE).clicked() {
-                        action = Action::Remove(id);
+                        action = Action::Remove(id.clone());
                     }
 
                     // column #7
                     let mut flag = entry.enabled;
                     if ui.checkbox(&mut flag, "enabled").changed() {
-                        action = Action::Enabled(id, flag);
+                        action = Action::Enabled(id.clone(), flag);
                     }
 
                     ui.end_row();
@@ -159,13 +161,15 @@ impl TabLabels {
 
         match action {
             Action::None => {}
-            Action::Remove(idx) => {
-                self.cache.remove(idx);
+            Action::Remove(id) => {
+                self.cache.remove(&id);
                 self.needs_sync = true;
             }
-            Action::Enabled(idx, flag) => {
-                self.cache[idx].enabled = flag;
-                self.needs_sync = true;
+            Action::Enabled(id, flag) => {
+                if let Some(entry) = self.cache.get_mut(&id) {
+                    entry.enabled = flag;
+                    self.needs_sync = true;
+                }
             }
         }
     }
@@ -179,9 +183,9 @@ impl TabLabels {
     }
 
     fn read_key(&mut self, ctx: &Context) {
-        let Some(id) = self.wait_for_key else {
+        if self.wait_for_key.is_none() {
             return;
-        };
+        }
 
         let Some(shortcut) = ctx.input(|i| {
             for event in &i.events {
@@ -207,9 +211,11 @@ impl TabLabels {
         }
 
         if shortcut.logical_key == Key::Delete {
-            self.wait_for_key = None;
-            self.cache[id].shortcut = None;
-            self.needs_sync = true;
+            let id = self.wait_for_key.take().unwrap();
+            if let Some(entry) = self.cache.get_mut(&id) {
+                entry.shortcut = None;
+                self.needs_sync = true;
+            }
             return;
         }
 
@@ -218,15 +224,15 @@ impl TabLabels {
             return;
         }
 
-        for (k, entry) in self.cache.iter_mut().enumerate() {
-            if k == id {
+        let id = self.wait_for_key.take().unwrap();
+        for (k, entry) in self.cache.iter_mut() {
+            if *k == id {
                 entry.shortcut = Some(shortcut);
             } else if entry.shortcut == Some(shortcut) {
                 entry.shortcut = None;
             }
         }
 
-        self.wait_for_key = None;
         self.needs_sync = true;
     }
 

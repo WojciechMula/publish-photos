@@ -2,6 +2,7 @@ use db::Database;
 use db::LabelConfig;
 use egui::Color32;
 use egui::KeyboardShortcut;
+use std::collections::BTreeMap;
 
 pub struct LabelEntry {
     pub label: String,
@@ -11,20 +12,21 @@ pub struct LabelEntry {
     pub enabled: bool,
 }
 
-pub fn from_db(db: &Database) -> Vec<LabelEntry> {
-    let mut result = Vec::<LabelEntry>::with_capacity(db.labels.len());
+pub fn from_db(db: &Database) -> BTreeMap<String, LabelEntry> {
+    let mut result = BTreeMap::<String, LabelEntry>::new();
     for config in db.labels.iter() {
-        result.push(config.into());
+        let label: LabelEntry = config.into();
+        result.insert(label.label.clone(), label);
     }
 
     result
 }
 
-pub fn update_db(db: &mut Database, entries: &[LabelEntry]) {
+pub fn update_db(db: &mut Database, entries: &BTreeMap<String, LabelEntry>) {
     db.labels.clear();
     db.current_version.labels += 1;
 
-    for entry in entries {
+    for entry in entries.values() {
         db.labels.push(entry.into());
     }
 }
