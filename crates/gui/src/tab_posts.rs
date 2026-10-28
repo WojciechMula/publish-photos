@@ -968,7 +968,7 @@ impl TabPosts {
         clipboard: &Clipboard,
     ) {
         ScrollArea::both()
-            .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
+            .id_salt((ID_PREFIX, "scroll-main-list", self.filter.get_current()))
             .show(ui, |ui| {
                 let mut hovered: Option<PostId> = None;
                 for id in self.view.iter() {
@@ -1052,7 +1052,7 @@ impl TabPosts {
         ui.separator();
 
         ScrollArea::vertical()
-            .id_salt(fmt!("{ID_PREFIX}-list-scroll"))
+            .id_salt((ID_PREFIX, "selectors"))
             .show(ui, |ui| {
                 let mut current = self.filter.get_current();
                 for selector in &db.picture_views.selectors {
@@ -1441,7 +1441,7 @@ impl TabPosts {
         queue: &mut MessageQueue,
     ) {
         ScrollArea::both()
-            .id_salt(fmt!("{ID_PREFIX}-scroll-main"))
+            .id_salt((ID_PREFIX, "scroll-main-grid", self.filter.get_current()))
             .show(ui, |ui| {
                 let mut hovered: Option<PostId> = None;
                 let width = ui.available_size().x;
