@@ -7,5 +7,5 @@ members = [
     "crates/query",
     "tools/copylabelled",
     "tools/mkpost",
-    "tools/droplabel",
+    "tools/droplabel", "tools/fh500px",
 ]

@@ -18,6 +18,15 @@ impl LabelList {
         self.0.iter()
     }
 
+    pub fn add(&mut self, label: &str) -> bool {
+        if self.0.iter().any(|s| s == label) {
+            return false;
+        }
+
+        self.0.push(label.to_owned());
+        true
+    }
+
     pub fn remove(&mut self, label: &str) -> bool {
         if let Some(pos) = self.0.iter().position(|s| label == s) {
             self.0.remove(pos);

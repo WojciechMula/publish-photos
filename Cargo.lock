@@ -1302,6 +1302,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fh500px"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "db",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
