@@ -21,6 +21,7 @@ pub use post::render_text;
 pub use search_parts::SearchParts;
 pub use species::Latin;
 pub use species::Species;
+pub use species::SpeciesId;
 pub use tag_group::TagGroup;
 pub use tag_group::TagGroupId;
 pub use tag_group::TagGroupList;
@@ -84,7 +85,7 @@ pub struct Database {
     tags_views: BTreeMap<Selector, TranslatedTagsView>,
 
     #[serde(skip)]
-    latin2id: BTreeMap<Latin, SpeciesId>,
+    species2index: BTreeMap<SpeciesId, SpeciesIndex>,
 
     #[serde(skip)]
     pub tag_hints: TagHints,
@@ -156,7 +157,7 @@ impl PostList {
 pub struct PostId(pub usize);
 
 #[derive(Default, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct SpeciesId(pub usize);
+pub struct SpeciesIndex(pub usize);
 
 pub enum Language {
     None,
@@ -212,10 +213,10 @@ impl Database {
     }
 
     pub fn add_species(&mut self, data: &Species) {
-        let id = self.species.len();
+        let index = SpeciesIndex(self.species.len());
 
         let mut entry = Species {
-            id: SpeciesId(id),
+            index,
             ..Species::default()
         };
         entry.update(data);
@@ -226,7 +227,7 @@ impl Database {
     }
 
     pub fn update_species(&mut self, data: &Species) {
-        let entry = &mut self.species[data.id.0];
+        let entry = &mut self.species[data.index.0];
         if entry.update(data) {
             entry.refresh();
             self.current_version.species += 1;
@@ -281,21 +282,21 @@ impl Database {
         self.posts.0.get_mut(id.0).unwrap()
     }
 
-    pub fn species_by_latin(&self, key: &Latin) -> Option<&Species> {
-        let id = self.latin2id.get(key)?;
+    pub fn species_by_id(&self, key: &SpeciesId) -> Option<&Species> {
+        let index = self.species2index.get(key)?;
+        self.species.get(index.0)
+    }
+
+    pub fn species_mut_by_id(&mut self, key: &SpeciesId) -> Option<&mut Species> {
+        let index = self.species2index.get(key)?;
+        self.species.get_mut(index.0)
+    }
+
+    pub fn species_by_index(&self, id: &SpeciesIndex) -> Option<&Species> {
         self.species.get(id.0)
     }
 
-    pub fn species_mut_by_latin(&mut self, key: &Latin) -> Option<&mut Species> {
-        let id = self.latin2id.get(key)?;
-        self.species.get_mut(id.0)
-    }
-
-    pub fn species_by_id(&self, id: &SpeciesId) -> Option<&Species> {
-        self.species.get(id.0)
-    }
-
-    pub fn species_mut_by_id(&mut self, id: &SpeciesId) -> Option<&mut Species> {
+    pub fn species_mut_by_index(&mut self, id: &SpeciesIndex) -> Option<&mut Species> {
         self.species.get_mut(id.0)
     }
 
@@ -360,14 +361,14 @@ impl Database {
 
         self.cache_versions.species_examples = self.current_version.posts;
 
-        let mut tmp = HashMap::<Latin, Vec<FileMetadata>>::new();
+        let mut tmp = HashMap::<SpeciesId, Vec<FileMetadata>>::new();
         for post in self
             .posts
             .iter()
             .filter(|post| post.is_example)
-            .filter(|post| post.species.is_some())
+            .filter(|post| post.species_id.is_some())
         {
-            let species = post.species.as_ref().unwrap();
+            let species = post.species_id.as_ref().unwrap();
             tmp.entry(species.clone())
                 .and_modify(|list| {
                     list.push(post.file.clone());
@@ -376,7 +377,8 @@ impl Database {
         }
 
         for species in self.species.iter_mut() {
-            if let Some(examples) = tmp.remove(&species.latin) {
+            let id = species.id();
+            if let Some(examples) = tmp.remove(&id) {
                 species.examples = examples;
             } else {
                 species.examples.clear();
@@ -411,15 +413,11 @@ impl Database {
         }
 
         self.cache_versions.latin2id = self.current_version.species;
-        self.latin2id.clear();
+        self.species2index.clear();
 
         for species in &self.species {
-            let inserted = self.latin2id.insert(species.latin.clone(), species.id);
-            assert!(
-                inserted.is_none(),
-                "species with latin name '{}' repeated",
-                species.latin.as_str()
-            );
+            let inserted = self.species2index.insert(species.id(), species.index);
+            assert!(inserted.is_none(), "species '{}' repeated", species.id());
         }
     }
 
@@ -486,7 +484,7 @@ impl Database {
         }
 
         for (id, entry) in self.species.iter_mut().enumerate() {
-            entry.id = SpeciesId(id);
+            entry.index = SpeciesIndex(id);
 
             entry.refresh();
         }

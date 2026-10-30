@@ -1,6 +1,6 @@
 use super::FileMetadata;
 use super::SearchParts;
-use super::SpeciesId;
+use super::SpeciesIndex;
 use super::TaxonomicRank;
 use serde::Deserialize;
 use serde::Serialize;
@@ -8,8 +8,39 @@ use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct Species {
+    pub latin: Latin,
+    pub taxonomic_rank: TaxonomicRank,
+    pub pl: String,
+    pub wikipedia_pl: String,
+    pub insektarium_pl: String,
+    pub en: String,
+    pub wikipedia_en: String,
+    pub category: Option<String>,
+
+    #[serde(skip)]
+    pub index: SpeciesIndex,
+
+    #[serde(skip)]
+    pub search_parts: SearchParts,
+
+    #[serde(skip)]
+    pub examples: Vec<FileMetadata>,
+
+    #[serde(skip)]
+    pub current_example: usize,
+}
+
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Latin(String);
+
+#[derive(Default, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[serde(into = "String", try_from = "String")]
+pub struct SpeciesId {
+    pub latin: Latin,
+    pub taxonomic_rank: TaxonomicRank,
+}
 
 impl Latin {
     pub fn contains(&self, s: &str) -> bool {
@@ -49,34 +80,16 @@ impl From<String> for Latin {
     }
 }
 
+impl From<&str> for Latin {
+    fn from(val: &str) -> Self {
+        Self(val.to_owned())
+    }
+}
+
 impl Display for Latin {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         f.write_str(&self.0)
     }
-}
-
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct Species {
-    pub latin: Latin,
-    pub taxonomic_rank: TaxonomicRank,
-    pub pl: String,
-    pub wikipedia_pl: String,
-    pub insektarium_pl: String,
-    pub en: String,
-    pub wikipedia_en: String,
-    pub category: Option<String>,
-
-    #[serde(skip)]
-    pub id: SpeciesId,
-
-    #[serde(skip)]
-    pub search_parts: SearchParts,
-
-    #[serde(skip)]
-    pub examples: Vec<FileMetadata>,
-
-    #[serde(skip)]
-    pub current_example: usize,
 }
 
 impl Species {
@@ -169,6 +182,59 @@ impl Species {
             self.current_example -= 1;
         } else {
             self.current_example = n - 1;
+        }
+    }
+
+    pub fn id(&self) -> SpeciesId {
+        SpeciesId {
+            latin: self.latin.clone(),
+            taxonomic_rank: self.taxonomic_rank,
+        }
+    }
+}
+
+impl From<SpeciesId> for String {
+    fn from(s: SpeciesId) -> Self {
+        if s.taxonomic_rank.is_species() {
+            s.latin.to_string()
+        } else {
+            format!("{}#{}", s.latin, s.taxonomic_rank.latin_name())
+        }
+    }
+}
+
+impl From<&SpeciesId> for String {
+    fn from(s: &SpeciesId) -> Self {
+        if s.taxonomic_rank.is_species() {
+            s.latin.to_string()
+        } else {
+            format!("{}#{}", s.latin, s.taxonomic_rank.latin_name())
+        }
+    }
+}
+
+impl Display for SpeciesId {
+    fn fmt(&self, w: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(w, "{} {}", self.taxonomic_rank.latin_name(), self.latin)
+    }
+}
+
+impl TryFrom<String> for SpeciesId {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if let Some((latin, taxonomic_rank)) = value.split_once('#') {
+            let taxonomic_rank = TaxonomicRank::try_from(taxonomic_rank)?;
+
+            Ok(SpeciesId {
+                latin: latin.into(),
+                taxonomic_rank,
+            })
+        } else {
+            Ok(SpeciesId {
+                latin: value.into(),
+                taxonomic_rank: TaxonomicRank::default(),
+            })
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::Database;
-use crate::Latin;
 use crate::Post;
 use crate::PostId;
+use crate::SpeciesId;
 use crate::TagList;
 use crate::post::PublishedState;
 
@@ -12,7 +12,7 @@ pub enum EditDetails {
     SetPolish(PostId, String),
     SetEnglish(PostId, String),
     SetTags(PostId, TagList),
-    SetSpecies(PostId, Option<Latin>),
+    SetSpecies(PostId, Option<SpeciesId>),
     SetSocialMediaLink(PostId, String, SocialMediaLink),
     ToggleLabel(PostId, String),
     Undo(PostId),
@@ -90,9 +90,9 @@ pub fn apply_aux(action: EditDetails, post: &mut Post) -> Option<EditDetails> {
             }
         }
         EditDetails::SetSpecies(id, maybe_species) => {
-            if post.species != maybe_species {
-                let prev = post.species.clone();
-                post.species = maybe_species;
+            if post.species_id != maybe_species {
+                let prev = post.species_id.clone();
+                post.species_id = maybe_species;
 
                 Some(EditDetails::SetSpecies(id, prev))
             } else {

@@ -1,10 +1,10 @@
 use crate::Database;
 use crate::Date;
 use crate::LabelList;
-use crate::Latin;
 use crate::LocalDateTime;
 use crate::PostId;
 use crate::SearchParts;
+use crate::SpeciesId;
 use crate::TagList;
 use crate::edit_details::EditDetails;
 use chrono::Local;
@@ -22,7 +22,7 @@ pub struct Post {
     #[serde(default)]
     pub en: String,
     pub tags: TagList,
-    pub species: Option<Latin>,
+    pub species_id: Option<SpeciesId>,
     #[serde(default)]
     pub is_example: bool,
     #[serde(default)]
@@ -104,12 +104,13 @@ pub fn render_text(post: &Post, db: &Database) -> String {
         f.writeln(format!("{EN_EMOJI} {}", post.en));
     }
 
-    if post.species.is_some() && !f.is_empty() {
+    if let Some(species_id) = post.species_id.as_ref()
+        && !f.is_empty()
+    {
         f.newline();
 
-        let latin = post.species.as_ref().unwrap();
-        let species = db.species_by_latin(latin).unwrap();
-        let latin = latin.as_str();
+        let species = db.species_by_id(species_id).unwrap();
+        let latin = species_id.latin.as_str();
 
         let pl = format_species(PL_EMOJI, &species.pl);
         let en = format_species(EN_EMOJI, &species.en);
@@ -121,9 +122,10 @@ pub fn render_text(post: &Post, db: &Database) -> String {
         });
     }
 
-    if f.is_empty() && post.species.is_some() {
-        let latin = post.species.as_ref().unwrap();
-        let species = db.species_by_latin(latin).unwrap();
+    if let Some(species_id) = post.species_id.as_ref()
+        && f.is_empty()
+    {
+        let species = db.species_by_id(species_id).unwrap();
 
         if !species.pl.is_empty() {
             f.writeln(format!(

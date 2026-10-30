@@ -177,3 +177,43 @@ impl TaxonomicRank {
         }
     }
 }
+
+impl TryFrom<&str> for TaxonomicRank {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "regnum" => Ok(Self::Regnum),
+            "subregnum" => Ok(Self::Subregnum),
+            "superphylum" => Ok(Self::Superphylum),
+            "phylum" => Ok(Self::Phylum),
+            "subphylum" => Ok(Self::Subphylum),
+            "infraphylum" => Ok(Self::Infraphylum),
+            "superclassis" => Ok(Self::Superclassis),
+            "classis" => Ok(Self::Classis),
+            "subclassis" => Ok(Self::Subclassis),
+            "infraclassis" => Ok(Self::Infraclassis),
+            "superordo" => Ok(Self::Superordo),
+            "ordo" => Ok(Self::Ordo),
+            "subordo" => Ok(Self::Subordo),
+            "infraordo" => Ok(Self::Infraordo),
+            "superfamilia" => Ok(Self::Superfamilia),
+            "epifamilia" => Ok(Self::Epifamilia),
+            "familia" => Ok(Self::Familia),
+            "subfamilia" => Ok(Self::Subfamilia),
+            "infrafamilia" => Ok(Self::Infrafamilia),
+            "supertribus" => Ok(Self::Supertribus),
+            "tribus" => Ok(Self::Tribus),
+            "subtribus" => Ok(Self::Subtribus),
+            "infratribus" => Ok(Self::Infratribus),
+            "supergenus" => Ok(Self::Supergenus),
+            "genus" => Ok(Self::Genus),
+            "subgenus" => Ok(Self::Subgenus),
+            "infragenus" => Ok(Self::Infragenus),
+            "species" => Ok(Self::Species),
+            "subspecies" => Ok(Self::Subspecies),
+            "complex" => Ok(Self::Complex),
+            _ => Err("wrong taxonomic rank name"),
+        }
+    }
+}
