@@ -22,6 +22,7 @@ pub struct Post {
     #[serde(default)]
     pub en: String,
     pub tags: TagList,
+    #[serde(rename = "species")]
     pub species_id: Option<SpeciesId>,
     #[serde(default)]
     pub is_example: bool,

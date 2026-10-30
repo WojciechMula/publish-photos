@@ -5,6 +5,7 @@ use std::fmt::Formatter;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(into = "String", try_from = "String")]
 pub struct Date {
     pub year: Year,
     pub month: Month,
@@ -13,10 +14,24 @@ pub struct Date {
 
 pub type Year = u16;
 
+impl From<Date> for String {
+    fn from(d: Date) -> Self {
+        format!("{:04}-{:02}-{:02}", d.year, d.month.as_u8(), d.day.as_u8())
+    }
+}
+
+impl TryFrom<String> for Date {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
+
 impl FromStr for Date {
     type Err = &'static str;
 
-    fn from_str(s: &str) -> Result<Date, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes = s.as_bytes();
         if bytes.len() != "xxxx-xx-xx".len() {
             return Err("wrong number of characters");
