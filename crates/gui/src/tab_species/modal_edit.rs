@@ -16,6 +16,7 @@ use db::Database;
 use db::Latin;
 use db::Species;
 use db::SpeciesId;
+use db::SpeciesIndex;
 use db::TaxonomicRank;
 use egui::Align;
 use egui::CentralPanel;
@@ -119,6 +120,10 @@ impl ModalEdit {
             categories: BTreeSet::new(),
             keyboard_mapping: Self::create_mapping(),
         }
+    }
+
+    pub fn species_index(&self) -> Option<SpeciesIndex> {
+        self.original.as_ref().map(|species| species.index)
     }
 
     pub fn update(

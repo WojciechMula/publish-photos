@@ -35,7 +35,7 @@ const ID_PREFIX: &str = "tab-species";
 pub struct TabSpecies {
     list: SpeciesList,
     search_box: SearchBox,
-    modal_window: ModalWindow,
+    modal_windows: Vec<ModalEdit>,
     first_run: bool,
 
     pub queue: MessageQueue,
@@ -43,17 +43,6 @@ pub struct TabSpecies {
 }
 
 pub type MessageQueue = VecDeque<Message>;
-
-pub enum ModalWindow {
-    None,
-    ModalEdit(Box<ModalEdit>),
-}
-
-impl ModalWindow {
-    fn is_none(&self) -> bool {
-        matches!(self, Self::None)
-    }
-}
 
 #[derive(Clone)]
 pub enum Message {
@@ -113,7 +102,7 @@ impl Default for TabSpecies {
             queue: MessageQueue::new(),
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-search")),
             keyboard_mapping: Self::create_mapping(),
-            modal_window: ModalWindow::None,
+            modal_windows: Vec::new(),
             first_run: true,
         };
 
@@ -148,11 +137,10 @@ impl TabSpecies {
         }
 
         let mut queue = MessageQueue::new();
-        match &mut self.modal_window {
-            ModalWindow::None => self.draw(ctx, image_cache, style, db, &mut queue),
-            ModalWindow::ModalEdit(window) => {
-                window.update(ctx, image_cache, style, db, &mut queue);
-            }
+        if let Some(window) = self.modal_windows.last_mut() {
+            window.update(ctx, image_cache, style, db, &mut queue);
+        } else {
+            self.draw(ctx, image_cache, style, db, &mut queue);
         }
 
         while let Some(msg) = queue.pop_front() {
@@ -181,20 +169,20 @@ impl TabSpecies {
     }
 
     pub fn modal_opened(&self) -> bool {
-        !matches!(self.modal_window, ModalWindow::None)
+        !self.modal_windows.is_empty()
     }
 
     pub fn try_close_modal(&mut self) {
-        match &mut self.modal_window {
-            ModalWindow::None => (),
-            ModalWindow::ModalEdit(window) => window.try_close(),
+        if let Some(window) = self.modal_windows.last_mut() {
+            window.try_close();
         }
     }
 
     pub fn get_keyboard_mapping(&self) -> &KeyboardMapping {
-        match &self.modal_window {
-            ModalWindow::None => &self.keyboard_mapping,
-            ModalWindow::ModalEdit(window) => &window.keyboard_mapping,
+        if let Some(window) = self.modal_windows.last() {
+            &window.keyboard_mapping
+        } else {
+            &self.keyboard_mapping
         }
     }
 
@@ -216,13 +204,12 @@ impl TabSpecies {
                 self.list.set_sort_order(sort_order, db);
             }
             Message::AddNew => {
-                assert!(self.modal_window.is_none());
                 let window = ModalEdit::new();
-                self.modal_window = ModalWindow::ModalEdit(Box::new(window));
+                self.modal_windows.push(window);
             }
             Message::AddNewFrom(fragment) => {
                 let window = ModalEdit::new_with_hint(capitalize_first(fragment));
-                self.modal_window = ModalWindow::ModalEdit(Box::new(window));
+                self.modal_windows.push(window);
             }
             Message::EditCurrent => {
                 if let Some(id) = self.list.hovered {
@@ -236,20 +223,28 @@ impl TabSpecies {
                 self.list.hovered = hovered;
             }
             Message::ModalEdit(msg) => {
-                if let ModalWindow::ModalEdit(window) = &mut self.modal_window {
+                if let Some(window) = self.modal_windows.last_mut() {
                     window.queue.push_back(msg);
                 }
             }
             Message::OpenModalEdit(index) => {
-                if let Some(species) = db.species_by_index(&index) {
+                let window_idx = self
+                    .modal_windows
+                    .iter()
+                    .position(|window| window.species_index() == Some(index));
+
+                if let Some(window_idx) = window_idx {
+                    if window_idx < self.modal_windows.len() - 1 {
+                        let window = self.modal_windows.remove(window_idx);
+                        self.modal_windows.push(window);
+                    }
+                } else if let Some(species) = db.species_by_index(&index) {
                     let window = ModalEdit::edit(species.id(), db);
-                    assert!(self.modal_window.is_none());
-                    self.modal_window = ModalWindow::ModalEdit(Box::new(window));
+                    self.modal_windows.push(window);
                 }
             }
             Message::CloseModal => {
-                assert!(!self.modal_window.is_none());
-                self.modal_window = ModalWindow::None;
+                self.modal_windows.pop();
             }
             Message::Confirm(confirm) => {
                 main_queue.push_back(MainMessage::Confirm(confirm));
