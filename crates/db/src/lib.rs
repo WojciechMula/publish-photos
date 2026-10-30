@@ -1,41 +1,3 @@
-mod date;
-pub mod edit_details;
-pub mod edit_tags;
-mod post;
-mod search_parts;
-mod species;
-mod tag_group;
-mod tag_hints;
-mod tag_list;
-mod tag_translations;
-
-pub use date::Date;
-pub use date::Day;
-pub use date::Month;
-pub use date::Year;
-pub use post::FileMetadata;
-pub use post::Post;
-pub use post::PublishedState;
-pub use post::SocialMediaState;
-pub use post::render_text;
-pub use search_parts::SearchParts;
-pub use species::Latin;
-pub use species::Species;
-pub use species::SpeciesId;
-pub use tag_group::TagGroup;
-pub use tag_group::TagGroupId;
-pub use tag_group::TagGroupList;
-pub use tag_list::TagList;
-pub use tag_translations::TagTranslations;
-pub use tag_translations::TranslatedTag;
-pub use tag_translations::Translation;
-
-mod label_list;
-pub use label_list::LabelList;
-
-mod label_config;
-pub use label_config::LabelConfig;
-
 use crate::tag_hints::Builder;
 use crate::tag_hints::TagHints;
 use chrono::DateTime;
@@ -48,6 +10,49 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+
+mod date;
+pub use date::Date;
+pub use date::Day;
+pub use date::Month;
+pub use date::Year;
+pub mod edit_details;
+pub mod edit_tags;
+
+mod post;
+pub use post::FileMetadata;
+pub use post::Post;
+pub use post::PublishedState;
+pub use post::SocialMediaState;
+pub use post::render_text;
+
+mod search_parts;
+pub use search_parts::SearchParts;
+
+mod species;
+pub use species::Latin;
+pub use species::Species;
+pub use species::SpeciesId;
+
+mod tag_group;
+pub use tag_group::TagGroup;
+pub use tag_group::TagGroupId;
+pub use tag_group::TagGroupList;
+
+mod tag_hints;
+mod tag_list;
+pub use tag_list::TagList;
+
+mod tag_translations;
+pub use tag_translations::TagTranslations;
+pub use tag_translations::TranslatedTag;
+pub use tag_translations::Translation;
+
+mod label_list;
+pub use label_list::LabelList;
+
+mod label_config;
+pub use label_config::LabelConfig;
 
 mod picture_views;
 pub use picture_views::PictureViews;
@@ -117,7 +122,7 @@ struct CacheVersion {
     tags_views_tag_translations: u64,
     tags_views_tag_groups: u64,
     tag_hints: u64,
-    latin2id: u64,
+    species_lookup: u64,
 }
 
 impl Default for CacheVersion {
@@ -129,7 +134,7 @@ impl Default for CacheVersion {
             tags_views_tag_translations: u64::MAX,
             tags_views_tag_groups: u64::MAX,
             tag_hints: u64::MAX,
-            latin2id: u64::MAX,
+            species_lookup: u64::MAX,
         }
     }
 }
@@ -228,6 +233,24 @@ impl Database {
 
     pub fn update_species(&mut self, data: &Species) {
         let entry = &mut self.species[data.index.0];
+        let old_id = entry.id();
+        let new_id = data.id();
+        if new_id != old_id {
+            let mut changed = false;
+            let old_id = Some(old_id);
+            for post in self
+                .posts
+                .iter_mut()
+                .filter(|post| post.species_id == old_id)
+            {
+                post.species_id = Some(new_id.clone());
+                changed = true;
+            }
+
+            if changed {
+                self.current_version.posts += 1;
+            }
+        }
         if entry.update(data) {
             entry.refresh();
             self.current_version.species += 1;
@@ -403,16 +426,16 @@ impl Database {
         self.refresh_picture_views();
         self.refresh_tags_views();
         self.refresh_tag_hints();
-        self.refresh_latin2id();
+        self.refresh_species_lookup();
         self.refresh_species_examples();
     }
 
-    fn refresh_latin2id(&mut self) {
-        if self.cache_versions.latin2id == self.current_version.species {
+    fn refresh_species_lookup(&mut self) {
+        if self.cache_versions.species_lookup == self.current_version.species {
             return;
         }
 
-        self.cache_versions.latin2id = self.current_version.species;
+        self.cache_versions.species_lookup = self.current_version.species;
         self.species2index.clear();
 
         for species in &self.species {
@@ -485,7 +508,6 @@ impl Database {
 
         for (id, entry) in self.species.iter_mut().enumerate() {
             entry.index = SpeciesIndex(id);
-
             entry.refresh();
         }
 
