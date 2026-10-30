@@ -80,11 +80,11 @@ fn main() -> Result<(), Error> {
 
     let mut n = 0;
     for post in db.posts.iter().filter(pred) {
-        let Some(latin) = post.species.as_ref() else {
+        let Some(species_id) = post.species_id.as_ref() else {
             continue;
         };
 
-        let species = db.species_by_latin(latin).unwrap();
+        let species = db.species_by_id(species_id).unwrap();
 
         if n == 0 {
             result += ": ";
@@ -105,7 +105,7 @@ fn main() -> Result<(), Error> {
                 result += species.taxonomic_rank.pl_name();
                 result += " ";
             }
-            result += &latin.as_str().to_lowercase();
+            result += &species_id.latin.as_str().to_lowercase();
         }
 
         let src = &post.file.full_path;
@@ -117,7 +117,7 @@ fn main() -> Result<(), Error> {
     }
 
     for post in db.posts.iter().filter(pred) {
-        if post.species.is_some() {
+        if post.species_id.is_some() {
             continue;
         }
 

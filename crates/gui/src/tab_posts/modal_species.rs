@@ -20,9 +20,9 @@ use crate::widgets::HistoryInputAction;
 use const_format::formatcp as fmt;
 use db::edit_details::EditDetails;
 use db::Database;
-use db::Latin;
 use db::PostId;
 use db::SpeciesId;
+use db::SpeciesIndex;
 use egui::CentralPanel;
 use egui::Context;
 use egui::Frame;
@@ -44,12 +44,12 @@ const ID_PREFIX: &str = "modal-post-species";
 
 pub struct ModalSpecies {
     id: PostId,
-    new: Option<Latin>,
-    original: Option<Latin>,
+    new: Option<SpeciesId>,
+    original: Option<SpeciesId>,
     recent_species: RecentSpecies,
     recent_species_version: u64,
     search_box: SearchBox,
-    species_hovered: Option<SpeciesId>,
+    species_hovered: Option<SpeciesIndex>,
     species_thumbnail_size: ThumbnailSize,
     first_run: bool,
 
@@ -85,9 +85,9 @@ type MessageQueue = VecDeque<Message>;
 #[derive(Clone)]
 pub enum Message {
     RefreshView,
-    SpeciesHovered(Option<SpeciesId>),
-    SpeciesViewAction(SpeciesViewAction, SpeciesId),
-    SetSpecies(SpeciesId),
+    SpeciesHovered(Option<SpeciesIndex>),
+    SpeciesViewAction(SpeciesViewAction, SpeciesIndex),
+    SetSpecies(SpeciesIndex),
     FilterByName(String),
     UnsetSpecies,
     SoftClose,
@@ -132,7 +132,7 @@ impl From<HistoryInputAction> for Message {
 impl ModalSpecies {
     pub fn new(id: PostId, db: &Database) -> Self {
         let post = db.post(&id);
-        let original = post.species.clone();
+        let original = post.species_id.clone();
         let new = original.clone();
         let recent_species = RecentSpecies::new(id, db);
         let recent_species_version = db.current_version.species;
@@ -257,9 +257,9 @@ impl ModalSpecies {
                     view.image_width = self.species_thumbnail_size.width(style);
                 }
             }
-            Message::SetSpecies(id) => {
-                if let Some(species) = db.species_by_id(&id) {
-                    self.new = Some(species.latin.clone());
+            Message::SetSpecies(index) => {
+                if let Some(species) = db.species_by_index(&index) {
+                    self.new = Some(species.id());
                 }
             }
             Message::UnsetSpecies => {
@@ -302,8 +302,8 @@ impl ModalSpecies {
             Message::FocusSearch => {
                 self.search_box.take_focus(ctx);
             }
-            Message::SpeciesViewAction(action, id) => {
-                if let Some(species) = db.species_mut_by_id(&id) {
+            Message::SpeciesViewAction(action, index) => {
+                if let Some(species) = db.species_mut_by_index(&index) {
                     match action {
                         SpeciesViewAction::SelectNext => species.next_example(),
                         SpeciesViewAction::SelectPrev => species.prev_example(),
@@ -311,7 +311,7 @@ impl ModalSpecies {
                             tab_queue.push_back(TabMessage::Copy(val));
                         }
                         SpeciesViewAction::Edit => {
-                            tab_queue.push_back(TabMessage::EditSpeciesDetails(id));
+                            tab_queue.push_back(TabMessage::EditSpeciesDetails(index));
                         }
                     }
                 }
@@ -446,7 +446,7 @@ impl ModalSpecies {
             return;
         };
 
-        if let Some(species) = db.species_by_latin(selected_species) {
+        if let Some(species) = db.species_by_id(selected_species) {
             ui.horizontal(|ui| {
                 if ui.button("🗙 Clear").clicked() {
                     queue.push_back(Message::UnsetSpecies);
@@ -524,7 +524,7 @@ impl ModalSpecies {
         ui.style_mut().interaction.selectable_labels = false;
 
         let mut hovered_set = false;
-        let mut hovered_species: Option<SpeciesId> = None;
+        let mut hovered_species: Option<SpeciesIndex> = None;
         for (label, collection) in items {
             if collection.is_empty() {
                 continue;

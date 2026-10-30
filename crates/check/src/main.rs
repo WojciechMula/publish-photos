@@ -13,9 +13,9 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
                 println!("{} not found", path.display());
             }
 
-            if let Some(name) = &post.species {
-                if db.species_by_latin(name).is_none() {
-                    println!("species {name} not found");
+            if let Some(species_id) = &post.species_id {
+                if db.species_by_id(species_id).is_none() {
+                    println!("species {species_id} not found");
                 }
             }
         }

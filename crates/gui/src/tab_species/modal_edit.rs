@@ -243,11 +243,13 @@ impl ModalEdit {
         let duplicated_name = db
             .species
             .iter()
-            .filter(|species| species.latin == self.new.latin)
+            .filter(|species| {
+                species.taxonomic_rank == self.new.taxonomic_rank && species.latin == self.new.latin
+            })
             .any(|other| {
                 self.original
                     .as_ref()
-                    .is_none_or(|species| species.id != other.id)
+                    .is_none_or(|species| species.index != other.index)
             });
 
         if duplicated_name {

@@ -9,7 +9,7 @@ use crate::style::Style;
 use crate::ImageCounter;
 use db::Database;
 use db::Species;
-use db::SpeciesId;
+use db::SpeciesIndex;
 use db::TaxonomicRank;
 use egui::Align;
 use egui::Label;
@@ -25,13 +25,13 @@ use egui_material_icons::icons::ICON_PLAY_ARROW;
 
 #[derive(Default)]
 pub struct SpeciesList {
-    ids: Option<Vec<SpeciesId>>,
-    view: Vec<SpeciesId>,
+    ids: Option<Vec<SpeciesIndex>>,
+    view: Vec<SpeciesIndex>,
     phrase: String,
     fragments: Vec<String>,
     pub sort_order: SortOrder,
     pub image_width: f32,
-    pub hovered: Option<SpeciesId>,
+    pub hovered: Option<SpeciesIndex>,
 }
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
@@ -48,7 +48,7 @@ pub enum SortOrder {
 }
 
 impl SpeciesList {
-    pub fn with_custom_list(mut self, ids: Vec<SpeciesId>) -> Self {
+    pub fn with_custom_list(mut self, ids: Vec<SpeciesIndex>) -> Self {
         self.ids = Some(ids);
         self
     }
@@ -62,7 +62,7 @@ impl SpeciesList {
         self.view.clear();
         if let Some(ids) = &self.ids {
             for id in ids {
-                let species = db.species_by_id(id).unwrap();
+                let species = db.species_by_index(id).unwrap();
                 if self.match_phrase(species) {
                     self.view.push(*id);
                 }
@@ -70,7 +70,7 @@ impl SpeciesList {
         } else {
             for species in db.species.iter() {
                 if self.match_phrase(species) {
-                    self.view.push(species.id);
+                    self.view.push(species.index);
                 }
             }
         }
@@ -118,11 +118,11 @@ impl SpeciesList {
             }
             SortOrder::LatinAsc | SortOrder::LatinDesc => {
                 self.view
-                    .sort_by_key(|id| db.species_by_id(id).as_ref().unwrap().latin.as_str());
+                    .sort_by_key(|id| db.species_by_index(id).as_ref().unwrap().latin.as_str());
             }
             SortOrder::PolishAsc | SortOrder::PolishDesc => {
                 self.view.sort_by_key(|id| {
-                    let tmp = db.species_by_id(id);
+                    let tmp = db.species_by_index(id);
                     let species = tmp.as_ref().unwrap();
                     if species.pl.is_empty() {
                         species.latin.as_str()
@@ -133,7 +133,7 @@ impl SpeciesList {
             }
             SortOrder::EnglishAsc | SortOrder::EnglishDesc => {
                 self.view.sort_by_key(|id| {
-                    let tmp = db.species_by_id(id);
+                    let tmp = db.species_by_index(id);
                     let species = tmp.as_ref().unwrap();
                     if species.en.is_empty() {
                         species.latin.as_str()
@@ -164,7 +164,7 @@ impl SpeciesList {
     ) -> SpeciesListResponse {
         let mut result = SpeciesListResponse::default();
 
-        let mut hovered: Option<SpeciesId> = None;
+        let mut hovered: Option<SpeciesIndex> = None;
         for id in self.view.iter() {
             let species = &db.species[id.0];
 
@@ -203,10 +203,10 @@ impl SpeciesList {
 
 #[derive(Default)]
 pub struct SpeciesListResponse {
-    pub hovered: Option<Option<SpeciesId>>,
-    pub clicked: Option<SpeciesId>,
-    pub double_clicked: Option<SpeciesId>,
-    pub species_view_action: Option<(SpeciesViewAction, SpeciesId)>,
+    pub hovered: Option<Option<SpeciesIndex>>,
+    pub clicked: Option<SpeciesIndex>,
+    pub double_clicked: Option<SpeciesIndex>,
+    pub species_view_action: Option<(SpeciesViewAction, SpeciesIndex)>,
 }
 
 #[derive(Clone)]

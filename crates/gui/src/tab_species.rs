@@ -17,7 +17,7 @@ use crate::style::Style;
 use crate::widgets::HistoryInputAction;
 use const_format::formatcp as fmt;
 use db::Database;
-use db::SpeciesId;
+use db::SpeciesIndex;
 use egui::CentralPanel;
 use egui::Context;
 use egui::Key;
@@ -58,19 +58,19 @@ impl ModalWindow {
 #[derive(Clone)]
 pub enum Message {
     ModalEdit(ModalEditMessage),
-    OpenModalEdit(SpeciesId),
+    OpenModalEdit(SpeciesIndex),
     AddNew,
     AddNewFrom(String),
     EditCurrent,
-    Edit(SpeciesId),
+    Edit(SpeciesIndex),
     FilterByName(String),
     SortBy(SortOrder),
     RefreshView,
-    Hovered(Option<SpeciesId>),
+    Hovered(Option<SpeciesIndex>),
     Confirm(Confirm),
     CloseModal,
     FocusSearch,
-    SpeciesViewAction(SpeciesViewAction, SpeciesId),
+    SpeciesViewAction(SpeciesViewAction, SpeciesIndex),
     SelectPrevExample,
     SelectNextExample,
     SearchBoxAction(HistoryInputAction),
@@ -240,10 +240,12 @@ impl TabSpecies {
                     window.queue.push_back(msg);
                 }
             }
-            Message::OpenModalEdit(id) => {
-                assert!(self.modal_window.is_none());
-                let window = ModalEdit::edit(id, db);
-                self.modal_window = ModalWindow::ModalEdit(Box::new(window));
+            Message::OpenModalEdit(index) => {
+                if let Some(species) = db.species_by_index(&index) {
+                    let window = ModalEdit::edit(species.id(), db);
+                    assert!(self.modal_window.is_none());
+                    self.modal_window = ModalWindow::ModalEdit(Box::new(window));
+                }
             }
             Message::CloseModal => {
                 assert!(!self.modal_window.is_none());
@@ -255,8 +257,8 @@ impl TabSpecies {
             Message::FocusSearch => {
                 self.search_box.take_focus(ctx);
             }
-            Message::SpeciesViewAction(action, id) => {
-                if let Some(species) = db.species_mut_by_id(&id) {
+            Message::SpeciesViewAction(action, index) => {
+                if let Some(species) = db.species_mut_by_index(&index) {
                     match action {
                         SpeciesViewAction::SelectNext => species.next_example(),
                         SpeciesViewAction::SelectPrev => species.prev_example(),
@@ -264,21 +266,21 @@ impl TabSpecies {
                             main_queue.push_back(MainMessage::Copy(val));
                         }
                         SpeciesViewAction::Edit => {
-                            self.queue.push_back(Message::OpenModalEdit(id));
+                            self.queue.push_back(Message::OpenModalEdit(index));
                         }
                     }
                 }
             }
             Message::SelectPrevExample => {
-                if let Some(id) = self.list.hovered.as_ref() {
-                    if let Some(species) = db.species_mut_by_id(id) {
+                if let Some(idx) = self.list.hovered.as_ref() {
+                    if let Some(species) = db.species_mut_by_index(idx) {
                         species.prev_example();
                     }
                 }
             }
             Message::SelectNextExample => {
-                if let Some(id) = self.list.hovered.as_ref() {
-                    if let Some(species) = db.species_mut_by_id(id) {
+                if let Some(idx) = self.list.hovered.as_ref() {
+                    if let Some(species) = db.species_mut_by_index(idx) {
                         species.next_example();
                     }
                 }

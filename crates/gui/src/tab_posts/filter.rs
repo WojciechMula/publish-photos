@@ -188,8 +188,8 @@ impl Filter {
             .filter(|post| self.filter.matches(post))
             .filter(|post| {
                 self.filter.query.as_ref().is_none_or(|query| {
-                    if let Some(latin) = &post.species {
-                        if let Some(species) = db.species_by_latin(latin) {
+                    if let Some(species_id) = &post.species_id {
+                        if let Some(species) = db.species_by_id(species_id) {
                             query.matches_chain(post.search_parts.get(), species.search_parts.get())
                         } else {
                             query.matches(post.search_parts.get())

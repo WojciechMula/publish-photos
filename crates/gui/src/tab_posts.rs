@@ -51,6 +51,7 @@ use db::Post;
 use db::PostId;
 use db::Selector;
 use db::SpeciesId;
+use db::SpeciesIndex;
 use db::TagList;
 use db::Year;
 use egui::Align;
@@ -248,7 +249,7 @@ pub enum Message {
     ToggleViewKind,
     SetGridColumns(isize),
 
-    EditSpeciesDetails(SpeciesId),
+    EditSpeciesDetails(SpeciesIndex),
     AddNewSpecies(String),
     SearchBoxAction(HistoryInputAction),
     ChangeSelector(Selector),
@@ -501,10 +502,12 @@ impl TabPosts {
 
                 main_queue.push_back(edit_details.into());
             }
-            Message::PasteSpecies(post_id, latin) => {
-                let edit_details = EditDetails::SetSpecies(post_id, Some(latin.into()));
+            Message::PasteSpecies(post_id, species_text) => {
+                if let Ok(species_id) = SpeciesId::try_from(species_text) {
+                    let edit_details = EditDetails::SetSpecies(post_id, Some(species_id));
 
-                main_queue.push_back(edit_details.into());
+                    main_queue.push_back(edit_details.into());
+                }
             }
             Message::RefreshView => {
                 let state = self.save_selected();
@@ -1364,12 +1367,12 @@ impl TabPosts {
             if ui.button(ICON_EDIT).clicked() {
                 queue.push_back(Message::EditSpecies(post.id));
             }
-            if button::copy(ui, post.species.is_some()) {
-                let latin = post.species.as_ref().unwrap().clone();
-                queue.push_back(ClipboardValue::species(latin.into()).into());
+            if button::copy(ui, post.species_id.is_some()) {
+                let species_text = String::from(post.species_id.as_ref().unwrap());
+                queue.push_back(ClipboardValue::species(species_text).into());
             }
-            if let Some(latin) = &post.species {
-                let species = db.species_by_latin(latin).unwrap();
+            if let Some(species_id) = &post.species_id {
+                let species = db.species_by_id(species_id).unwrap();
                 let action = crate::species_view::singleline(ui, species);
                 if let Some(action) = action {
                     queue.push_back(action.into());
@@ -1388,7 +1391,7 @@ impl TabPosts {
                 }
 
                 if ui.button("Edit species").clicked() {
-                    queue.push_back(Message::EditSpeciesDetails(species.id));
+                    queue.push_back(Message::EditSpeciesDetails(species.index));
                 }
             } else {
                 if clipboard.available(ClipboardKind::Species) {
