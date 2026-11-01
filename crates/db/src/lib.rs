@@ -108,7 +108,6 @@ pub struct Database {
 #[derive(Default, Clone)]
 pub struct Version {
     pub posts: u64,
-    pub photos: u64,
     pub species: u64,
     pub tag_groups: u64,
     pub tag_translations: u64,
@@ -267,14 +266,8 @@ impl Database {
     }
 
     pub fn is_dirty(&self) -> bool {
-        const fn mktuple(v: &Version) -> (u64, u64, u64, u64, u64) {
-            (
-                v.photos,
-                v.species,
-                v.tag_groups,
-                v.tag_translations,
-                v.labels,
-            )
+        const fn mktuple(v: &Version) -> (u64, u64, u64, u64) {
+            (v.species, v.tag_groups, v.tag_translations, v.labels)
         }
 
         if mktuple(&self.current_version) != mktuple(&self.saved_version) {

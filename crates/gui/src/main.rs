@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
         db.refresh_all_records();
         db.force_refresh_caches();
         if new > 0 {
-            db.current_version.photos += 1;
+            db.current_version.posts += 1;
         }
     }
 
