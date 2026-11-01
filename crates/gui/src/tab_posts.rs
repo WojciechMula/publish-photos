@@ -87,6 +87,7 @@ use egui_material_icons::icons::ICON_FULLSCREEN;
 use egui_material_icons::icons::ICON_GRID_ON;
 use egui_material_icons::icons::ICON_LIST;
 use egui_material_icons::icons::ICON_UNDO;
+use egui_material_icons::icons::ICON_VIEW_DAY;
 
 const ID_PREFIX: &str = "tab-posts";
 
@@ -121,22 +122,25 @@ pub struct TabPosts {
 pub enum ViewKind {
     List,
     Grid,
+    GridGrouped,
 }
 
 impl ViewKind {
-    const ALL: [Self; 2] = [Self::List, Self::Grid];
+    const ALL: [Self; 3] = [Self::List, Self::Grid, Self::GridGrouped];
 
     const fn name(&self) -> &str {
         match self {
             Self::List => fmt!("{ICON_LIST} list"),
             Self::Grid => fmt!("{ICON_GRID_ON} grid"),
+            Self::GridGrouped => fmt!("{ICON_VIEW_DAY} grouped"),
         }
     }
 
     fn next(&self) -> Self {
         match self {
             Self::List => Self::Grid,
-            Self::Grid => Self::List,
+            Self::Grid => Self::GridGrouped,
+            Self::GridGrouped => Self::List,
         }
     }
 }
@@ -957,6 +961,7 @@ impl TabPosts {
             match self.view_kind {
                 ViewKind::List => self.draw_main_list(ui, image_cache, style, db, queue, clipboard),
                 ViewKind::Grid => self.draw_grid(ui, image_cache, style, db, queue),
+                ViewKind::GridGrouped => self.draw_grid_grouped(ui, image_cache, style, db, queue),
             };
         });
     }
@@ -1435,6 +1440,54 @@ impl TabPosts {
         });
     }
 
+    fn draw_grid_row<'a>(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+        grid_columns: isize,
+        mut iter: impl Iterator<Item = &'a PostId>,
+    ) -> bool {
+        let mut empty = false;
+        ui.horizontal(|ui| {
+            for _ in 0..grid_columns {
+                let Some(id) = iter.next() else {
+                    empty = true;
+                    break;
+                };
+
+                let post = db.post(id);
+                let fill = self.fill(post, style);
+
+                let resp = tight_frame(ui, fill, |ui| {
+                    self.draw_image(ui, image_cache, style, post);
+                });
+
+                if self.scroll_to_selected && self.selected == Some(post.id) {
+                    ui.scroll_to_rect(resp.rect, Some(Align::Center));
+                }
+
+                if resp.contains_pointer() {
+                    let hovered = Some(*id);
+                    if hovered != self.hovered {
+                        queue.push_back(Message::Hovered(hovered));
+                    }
+                }
+                if resp.clicked() {
+                    queue.push_back(Message::Select(post.id));
+                }
+                if resp.double_clicked() {
+                    queue.push_back(Message::View(post.id));
+                }
+                resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
+            }
+        });
+
+        empty
+    }
+
     fn draw_grid(
         &self,
         ui: &mut Ui,
@@ -1446,7 +1499,32 @@ impl TabPosts {
         ScrollArea::both()
             .id_salt((ID_PREFIX, "scroll-main-grid", self.filter.get_current()))
             .show(ui, |ui| {
-                let mut hovered: Option<PostId> = None;
+                let width = ui.available_size().x;
+                let n = (width / (style.image.preview_width + 8.0)) as isize;
+                if n != self.grid_columns {
+                    queue.push_back(Message::SetGridColumns(n));
+                }
+
+                let mut it = self.view.iter();
+
+                let mut empty = false;
+                while !empty {
+                    empty = self.draw_grid_row(ui, image_cache, style, db, queue, n, &mut it);
+                }
+            });
+    }
+
+    fn draw_grid_grouped(
+        &self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
+        ScrollArea::both()
+            .id_salt((ID_PREFIX, "scroll-main-grid", self.filter.get_current()))
+            .show(ui, |ui| {
                 let width = ui.available_size().x;
                 let n = (width / (style.image.preview_width + 8.0)) as isize;
                 if n != self.grid_columns {
@@ -1460,41 +1538,8 @@ impl TabPosts {
 
                     let mut empty = false;
                     while !empty {
-                        ui.horizontal(|ui| {
-                            for _ in 0..n {
-                                if let Some(id) = it.next() {
-                                    let post = db.post(id);
-                                    let fill = self.fill(post, style);
-
-                                    let resp = tight_frame(ui, fill, |ui| {
-                                        self.draw_image(ui, image_cache, style, post);
-                                    });
-
-                                    if self.scroll_to_selected && self.selected == Some(post.id) {
-                                        ui.scroll_to_rect(resp.rect, Some(Align::Center));
-                                    }
-
-                                    if resp.contains_pointer() {
-                                        hovered = Some(*id);
-                                    }
-                                    if resp.clicked() {
-                                        queue.push_back(Message::Select(post.id));
-                                    }
-                                    if resp.double_clicked() {
-                                        queue.push_back(Message::View(post.id));
-                                    }
-                                    resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
-                                } else {
-                                    empty = true;
-                                    break;
-                                }
-                            }
-                        });
+                        empty = self.draw_grid_row(ui, image_cache, style, db, queue, n, &mut it);
                     }
-                }
-
-                if hovered != self.hovered {
-                    queue.push_back(Message::Hovered(hovered));
                 }
             });
     }
