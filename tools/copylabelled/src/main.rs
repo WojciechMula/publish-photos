@@ -1,6 +1,8 @@
 use clap::Parser;
 use db::Database;
+use db::Month;
 use db::Post;
+use db::Selector;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -23,16 +25,37 @@ struct Options {
     #[arg(value_name = "YEAR", long)]
     pub year: u16,
 
+    /// Month
+    #[arg(value_name = "MONTH", long)]
+    pub month: Option<usize>,
+
     /// Tag name
     #[arg(value_name = "YEAR", long, default_value = "wydruk")]
     pub tag: String,
+
+    /// Source directory
+    #[arg(value_name = "DIR", long)]
+    pub src_dir: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let opts = Options::parse();
 
-    let src_dir = find_source_dir(Path::new("/mnt/"), opts.year)?;
-    println!("found source for {}: {}", opts.year, src_dir.display());
+    let src_dir = if let Some(src_dir) = opts.src_dir {
+        src_dir.clone()
+    } else {
+        let src_dir = find_source_dir(Path::new("/mnt/"), opts.year)?;
+        println!("found source for {}: {}", opts.year, src_dir.display());
+        src_dir
+    };
+
+    let sel = if let Some(val) = &opts.month {
+        let month = Month::new(*val)?;
+
+        Selector::ByMonth(opts.year, month)
+    } else {
+        Selector::ByYear(opts.year)
+    };
 
     let path = PathBuf::from(opts.path);
     println!("loading {}", path.display());
@@ -52,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     }
 
     let pred = |post: &&Post| -> bool {
-        post.labels.iter().any(|s| *s == opts.tag) && post.date.year == opts.year
+        sel.matches(&post.date) && post.labels.iter().any(|s| *s == opts.tag)
     };
 
     for post in db.posts.iter().filter(pred) {
