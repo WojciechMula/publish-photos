@@ -260,6 +260,9 @@ pub enum Message {
     ChangeSelectorFilter(String),
     ChangeSelectorGranurality(SelectorGranurality),
     ToggleSelectorList,
+    NextSelector,
+    PrevSelector,
+    ParentSelector,
 }
 
 impl Message {
@@ -318,6 +321,9 @@ impl Message {
             Self::ChangeSelectorFilter(_) => unreachable!(),
             Self::ChangeSelectorGranurality(_) => unreachable!(),
             Self::ToggleSelectorList => "toggle selector list",
+            Self::NextSelector => "next selector",
+            Self::PrevSelector => "previous selector",
+            Self::ParentSelector => "parent selector",
         }
     }
 }
@@ -784,6 +790,46 @@ impl TabPosts {
             Message::ToggleSelectorList => {
                 self.show_selectors = !self.show_selectors;
             }
+            Message::NextSelector => {
+                let curr = self.filter.get_current();
+                let pos = db
+                    .picture_views
+                    .selectors
+                    .iter()
+                    .position(|selector| *selector == curr);
+                if let Some(pos) = pos {
+                    let tail = &db.picture_views.selectors[pos + 1..];
+                    let new = tail
+                        .iter()
+                        .find(|selector| selector.level() == curr.level());
+                    if let Some(new) = new {
+                        queue.push_back(Message::ChangeSelector(*new));
+                    }
+                }
+            }
+            Message::PrevSelector => {
+                let curr = self.filter.get_current();
+                let pos = db
+                    .picture_views
+                    .selectors
+                    .iter()
+                    .position(|selector| *selector == curr);
+                if let Some(pos) = pos {
+                    let head = &db.picture_views.selectors[..pos];
+                    let new = head
+                        .iter()
+                        .rev()
+                        .find(|selector| selector.level() == curr.level());
+                    if let Some(new) = new {
+                        queue.push_back(Message::ChangeSelector(*new));
+                    }
+                }
+            }
+            Message::ParentSelector => {
+                if let Some(new) = self.filter.get_current().parent() {
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
         }
     }
 
@@ -885,6 +931,9 @@ impl TabPosts {
             .key(Key::End, msg(Message::SelectLast))
             .ctrl(Key::L, msg(Message::ToggleViewKind))
             .key(Key::L, msg(Message::ToggleSelectorList))
+            .ctrl(Key::N, msg(Message::NextSelector))
+            .ctrl(Key::P, msg(Message::PrevSelector))
+            .ctrl(Key::U, msg(Message::ParentSelector))
     }
 
     pub fn modal_opened(&self) -> bool {

@@ -29,6 +29,22 @@ impl Selector {
         }
     }
 
+    pub const fn level(&self) -> u8 {
+        match self {
+            Self::ByYear(..) => 0,
+            Self::ByMonth(..) => 1,
+            Self::ByDate(..) => 2,
+        }
+    }
+
+    pub fn parent(&self) -> Option<Self> {
+        match self {
+            Self::ByYear(..) => None,
+            Self::ByMonth(year, _) => Some(Self::ByYear(*year)),
+            Self::ByDate(date) => Some(Self::ByMonth(date.year, date.month)),
+        }
+    }
+
     pub fn as_iso_date(&self) -> String {
         match self {
             Self::ByMonth(year, month) => format!("{}-{:02}", year, month.as_u8()),
