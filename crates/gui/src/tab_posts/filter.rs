@@ -1,4 +1,5 @@
 use super::Message;
+use super::MessageQueue;
 use super::ID_PREFIX;
 use crate::file_stem;
 use crate::gui::text_size;
@@ -68,7 +69,7 @@ impl Filter {
         self.filter.extra
     }
 
-    pub fn view(&mut self, ui: &mut Ui, db: &Database, queue: &mut VecDeque<Message>) {
+    pub fn view(&mut self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
         if self.icon_width == 0.0 {
             self.icon_width = text_size(ICON_CALENDAR_MONTH, ui).x;
         }
@@ -170,7 +171,7 @@ impl Filter {
         }
     }
 
-    pub fn view_extra(&mut self, ui: &mut Ui, queue: &mut VecDeque<Message>) {
+    pub fn view_extra(&mut self, ui: &mut Ui, queue: &mut MessageQueue) {
         ui.label("tags:");
         for val in TagState::ALL {
             let resp = ui.radio_value(&mut self.filter.tag_state, val, val.name());
