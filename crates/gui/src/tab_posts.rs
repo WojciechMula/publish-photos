@@ -145,7 +145,7 @@ impl ViewKind {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Default, Copy, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Default, Copy, Debug, Hash)]
 pub enum SelectorGranurality {
     Year,
     Month,
@@ -1109,7 +1109,7 @@ impl TabPosts {
         ui.separator();
 
         ScrollArea::vertical()
-            .id_salt((ID_PREFIX, "selectors"))
+            .id_salt((ID_PREFIX, "selectors", selector_granurality))
             .show(ui, |ui| {
                 let mut current = self.filter.get_current();
                 for selector in &db.picture_views.selectors {
