@@ -179,6 +179,16 @@ impl Filter {
                 queue.push_back(Message::RefreshView);
             }
         }
+
+        ui.separator();
+
+        ui.label("species:");
+        for val in SpeciesState::ALL {
+            let resp = ui.radio_value(&mut self.filter.species_state, val, val.name());
+            if resp.changed() {
+                queue.push_back(Message::RefreshView);
+            }
+        }
     }
 
     pub fn make_view(&mut self, db: &Database) -> Vec<PostId> {
@@ -327,11 +337,41 @@ impl TagState {
 
 // --------------------------------------------------
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize)]
+pub enum SpeciesState {
+    Any,
+    Empty,
+    Present,
+}
+
+impl SpeciesState {
+    pub const ALL: [Self; 3] = [Self::Any, Self::Empty, Self::Present];
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Any => "any",
+            Self::Empty => "not set",
+            Self::Present => "set",
+        }
+    }
+
+    fn matches(&self, post: &Post) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Empty => post.species_id.is_none(),
+            Self::Present => post.species_id.is_some(),
+        }
+    }
+}
+
+// --------------------------------------------------
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FilterState {
     image_state: ImageState,
     pub extra: bool,
     tag_state: TagState,
+    species_state: SpeciesState,
     pub current: Selector,
     phrase: String,
     selector_history: VecDeque<Selector>,
@@ -352,6 +392,7 @@ impl Default for FilterState {
             image_state: ImageState::Unpublished,
             extra: false,
             tag_state: TagState::Any,
+            species_state: SpeciesState::Any,
             current: Selector::ByYear(0),
             count: ImageCounter(0),
             phrase: String::new(),
@@ -413,6 +454,10 @@ impl FilterState {
 
         if self.extra {
             if !self.tag_state.matches(post) {
+                return false;
+            }
+
+            if !self.species_state.matches(post) {
                 return false;
             }
         }
