@@ -1426,26 +1426,30 @@ impl TabPosts {
                 queue.push_back(ClipboardValue::species(species_text).into());
             }
             if let Some(species_id) = &post.species_id {
-                let species = db.species_by_id(species_id).unwrap();
-                let action = crate::species_view::singleline(ui, species);
-                if let Some(action) = action {
-                    queue.push_back(action.into());
-                }
+                if let Some(species) = db.species_by_id(species_id) {
+                    let action = crate::species_view::singleline(ui, species);
+                    if let Some(action) = action {
+                        queue.push_back(action.into());
+                    }
 
-                if post.is_example {
-                    if ui.button("🗙 Not a good example").clicked() {
-                        let msg = EditDetails::Example(post.id, false);
-                        queue.push_back(msg.into());
+                    if post.is_example {
+                        if ui.button("🗙 Not a good example").clicked() {
+                            let msg = EditDetails::Example(post.id, false);
+                            queue.push_back(msg.into());
+                        }
+                    } else {
+                        if ui.button("✔ Set as an example").clicked() {
+                            let msg = EditDetails::Example(post.id, true);
+                            queue.push_back(msg.into());
+                        }
+                    }
+
+                    if ui.button("Edit species").clicked() {
+                        queue.push_back(Message::EditSpeciesDetails(species.index));
                     }
                 } else {
-                    if ui.button("✔ Set as an example").clicked() {
-                        let msg = EditDetails::Example(post.id, true);
-                        queue.push_back(msg.into());
-                    }
-                }
-
-                if ui.button("Edit species").clicked() {
-                    queue.push_back(Message::EditSpeciesDetails(species.index));
+                    let color = ui.visuals().error_fg_color;
+                    ui.colored_label(color, format!("{species_id} does not exist"));
                 }
             } else {
                 if clipboard.available(ClipboardKind::Species) {

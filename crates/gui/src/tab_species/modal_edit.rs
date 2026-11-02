@@ -109,16 +109,20 @@ impl ModalEdit {
     }
 
     pub fn edit(id: SpeciesId, db: &Database) -> Self {
-        let original = db.species_by_id(&id).unwrap().clone();
-        let new = original.clone();
+        if let Some(original) = db.species_by_id(&id) {
+            let original = original.clone();
+            let new = original.clone();
 
-        Self {
-            can_save: Ok(false),
-            original: Some(original),
-            new,
-            queue: MessageQueue::new(),
-            categories: BTreeSet::new(),
-            keyboard_mapping: Self::create_mapping(),
+            Self {
+                can_save: Ok(false),
+                original: Some(original),
+                new,
+                queue: MessageQueue::new(),
+                categories: BTreeSet::new(),
+                keyboard_mapping: Self::create_mapping(),
+            }
+        } else {
+            Self::new()
         }
     }
 

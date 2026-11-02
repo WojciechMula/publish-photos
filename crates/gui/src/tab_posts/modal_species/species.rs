@@ -31,13 +31,15 @@ impl RecentSpecies {
             };
 
             if match_day(&this.date, &item.date) {
-                let species = db.species_by_id(species_id).unwrap();
-                day.insert(species_id.clone(), species.index);
+                if let Some(species) = db.species_by_id(species_id) {
+                    day.insert(species_id.clone(), species.index);
+                }
             }
 
             if match_month(&this.date, &item.date) {
-                let species = db.species_by_id(species_id).unwrap();
-                month.insert(species_id.clone(), species.index);
+                if let Some(species) = db.species_by_id(species_id) {
+                    month.insert(species_id.clone(), species.index);
+                }
             }
         }
 
