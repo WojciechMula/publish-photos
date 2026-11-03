@@ -60,6 +60,7 @@ use picture_views::PictureViewsBuilder;
 
 mod selector;
 pub use selector::Selector;
+pub use selector::SelectorLevel;
 
 mod taxonomic_rank;
 pub use taxonomic_rank::TaxonomicRank;

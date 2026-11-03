@@ -5,6 +5,9 @@ mod modal_species;
 mod modal_tags;
 mod modal_view;
 
+mod selector_nav;
+use selector_nav::SelectorNavigation;
+
 use filter::Filter;
 use modal_desc::Message as ModalDescriptionMessage;
 use modal_desc::ModalDescription;
@@ -50,6 +53,7 @@ use db::Month;
 use db::Post;
 use db::PostId;
 use db::Selector;
+use db::SelectorLevel;
 use db::SpeciesId;
 use db::SpeciesIndex;
 use db::TagList;
@@ -106,11 +110,13 @@ pub struct TabPosts {
     label_width: f32,
     modal_window: ModalWindow,
     view_kind: ViewKind,
+    selectors_has_focus: bool,
     show_selectors: bool,
     selector_filter: String,
-    selector_granurality: SelectorGranurality,
-
-    keyboard_mapping: KeyboardMapping,
+    selector_level: SelectorLevel,
+    selector_scroll_to: bool,
+    main_keyboard_mapping: KeyboardMapping,
+    selectors_keyboard_mapping: KeyboardMapping,
     labels_version: u64,
     enabled_labels_count: usize,
     labels: BTreeMap<String, LabelEntry>,
@@ -141,26 +147,6 @@ impl ViewKind {
             Self::List => Self::Grid,
             Self::Grid => Self::GridGrouped,
             Self::GridGrouped => Self::List,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Default, Copy, Debug, Hash)]
-pub enum SelectorGranurality {
-    Year,
-    Month,
-    #[default]
-    Day,
-}
-
-impl SelectorGranurality {
-    const ALL: [Self; 3] = [Self::Year, Self::Month, Self::Day];
-
-    const fn name(&self) -> &str {
-        match self {
-            Self::Year => "Year",
-            Self::Month => "Month",
-            Self::Day => "Day",
         }
     }
 }
@@ -258,11 +244,20 @@ pub enum Message {
     SearchBoxAction(HistoryInputAction),
     ChangeSelector(Selector),
     ChangeSelectorFilter(String),
-    ChangeSelectorGranurality(SelectorGranurality),
+    ChangeSelectorLevel(SelectorLevel),
+
     ToggleSelectorList,
+    SelectorListHasFocus(bool),
+    FirstSelector,
+    LastSelector,
+    FirstSameLevelSelector,
+    LastSameLevelSelector,
     NextSelector,
     PrevSelector,
+    NextSameLevelSelector,
+    PrevSameLevelSelector,
     ParentSelector,
+    FirstChildSelector,
 }
 
 impl Message {
@@ -319,11 +314,19 @@ impl Message {
             Self::ToggleLabelCurrent(_) => "toggle label",
             Self::ChangeSelector(_) => unreachable!(),
             Self::ChangeSelectorFilter(_) => unreachable!(),
-            Self::ChangeSelectorGranurality(_) => unreachable!(),
+            Self::ChangeSelectorLevel(_) => unreachable!(),
             Self::ToggleSelectorList => "toggle selector list",
+            Self::SelectorListHasFocus(_) => unreachable!(),
+            Self::FirstSelector => "first selector",
+            Self::LastSelector => "last selector",
+            Self::FirstSameLevelSelector => "first selector at that level",
+            Self::LastSameLevelSelector => "last selector at that level",
             Self::NextSelector => "next selector",
             Self::PrevSelector => "previous selector",
+            Self::NextSameLevelSelector => "next selector at that level",
+            Self::PrevSameLevelSelector => "previous selector at that level",
             Self::ParentSelector => "parent selector",
+            Self::FirstChildSelector => "first child selector",
         }
     }
 }
@@ -398,10 +401,13 @@ impl TabPosts {
             modal_window: ModalWindow::None,
             view_kind: ViewKind::List,
             show_selectors: true,
+            selectors_has_focus: false,
             selector_filter: String::new(),
-            selector_granurality: SelectorGranurality::default(),
+            selector_level: SelectorLevel::Day,
+            selector_scroll_to: true,
             label_width: 0.0,
-            keyboard_mapping: Self::create_mapping(),
+            main_keyboard_mapping: Self::create_main_mapping(),
+            selectors_keyboard_mapping: Self::create_selectors_mapping(),
             labels_version: u64::MAX,
             labels: BTreeMap::new(),
             enabled_labels_count: 0,
@@ -415,8 +421,8 @@ impl TabPosts {
         eframe::get_value(storage, fmt!("{ID_PREFIX}-view-kind")).map(|v| self.view_kind = v);
         eframe::get_value(storage, fmt!("{ID_PREFIX}-show-selectors"))
             .map(|v| self.show_selectors = v);
-        eframe::get_value(storage, fmt!("{ID_PREFIX}-selector-granurality"))
-            .map(|v| self.selector_granurality = v);
+        eframe::get_value(storage, fmt!("{ID_PREFIX}-selector-level"))
+            .map(|v| self.selector_level = v);
     }
 
     pub fn save(&self, _db_id: &str, storage: &mut dyn eframe::Storage) {
@@ -430,8 +436,8 @@ impl TabPosts {
         );
         eframe::set_value(
             storage,
-            fmt!("{ID_PREFIX}-selector-granurality"),
-            &self.selector_granurality,
+            fmt!("{ID_PREFIX}-selector-level"),
+            &self.selector_level,
         );
     }
 
@@ -489,6 +495,7 @@ impl TabPosts {
         }
 
         self.scroll_to_selected = false;
+        self.selector_scroll_to = false;
     }
 
     fn handle_message(
@@ -784,49 +791,96 @@ impl TabPosts {
             Message::ChangeSelectorFilter(val) => {
                 self.selector_filter = val;
             }
-            Message::ChangeSelectorGranurality(val) => {
-                self.selector_granurality = val;
+            Message::ChangeSelectorLevel(val) => {
+                if self.selector_level > val {
+                    self.selector_scroll_to = true;
+                }
+                self.selector_level = val;
             }
             Message::ToggleSelectorList => {
                 self.show_selectors = !self.show_selectors;
             }
+            Message::SelectorListHasFocus(focused) => {
+                self.selectors_has_focus = focused;
+            }
+            Message::FirstSelector => {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.first() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
+            Message::LastSelector => {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.last() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
             Message::NextSelector => {
-                let curr = self.filter.get_current();
-                let pos = db
-                    .picture_views
-                    .selectors
-                    .iter()
-                    .position(|selector| *selector == curr);
-                if let Some(pos) = pos {
-                    let tail = &db.picture_views.selectors[pos + 1..];
-                    let new = tail
-                        .iter()
-                        .find(|selector| selector.level() == curr.level());
-                    if let Some(new) = new {
-                        queue.push_back(Message::ChangeSelector(*new));
-                    }
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.next() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
                 }
             }
             Message::PrevSelector => {
-                let curr = self.filter.get_current();
-                let pos = db
-                    .picture_views
-                    .selectors
-                    .iter()
-                    .position(|selector| *selector == curr);
-                if let Some(pos) = pos {
-                    let head = &db.picture_views.selectors[..pos];
-                    let new = head
-                        .iter()
-                        .rev()
-                        .find(|selector| selector.level() == curr.level());
-                    if let Some(new) = new {
-                        queue.push_back(Message::ChangeSelector(*new));
-                    }
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.prev() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
+            Message::FirstSameLevelSelector => {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.first_same_level() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
+            Message::LastSameLevelSelector => {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.last_same_level() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
+            Message::NextSameLevelSelector => {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.next_same_level() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
+            Message::PrevSameLevelSelector => {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.prev_same_level() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
                 }
             }
             Message::ParentSelector => {
-                if let Some(new) = self.filter.get_current().parent() {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+
+                if let Some(new) = nav.parent() {
+                    self.selector_scroll_to = true;
+                    queue.push_back(Message::ChangeSelector(new));
+                }
+            }
+            Message::FirstChildSelector => {
+                let nav =
+                    SelectorNavigation::new(self.filter.get_current(), &db.picture_views.selectors);
+                if let Some(new) = nav.first_child_selector() {
+                    self.selector_scroll_to = true;
                     queue.push_back(Message::ChangeSelector(new));
                 }
             }
@@ -866,14 +920,14 @@ impl TabPosts {
             return;
         }
 
-        self.keyboard_mapping = Self::create_mapping();
+        self.main_keyboard_mapping = Self::create_main_mapping();
         self.labels.clear();
         self.enabled_labels_count = 0;
 
         for (_, entry) in crate::labels::from_db(db) {
             if let Some(shortcut) = entry.shortcut.as_ref() {
                 if entry.enabled {
-                    self.keyboard_mapping.add(
+                    self.main_keyboard_mapping.add(
                         shortcut.logical_key,
                         shortcut.modifiers,
                         Message::ToggleLabelCurrent(entry.label.clone()).into(),
@@ -888,7 +942,7 @@ impl TabPosts {
         self.labels_version = db.current_version.labels;
     }
 
-    fn create_mapping() -> KeyboardMapping {
+    fn create_main_mapping() -> KeyboardMapping {
         const fn msg(msg: Message) -> MainMessage {
             MainMessage::TabPosts(msg)
         }
@@ -931,9 +985,25 @@ impl TabPosts {
             .key(Key::End, msg(Message::SelectLast))
             .ctrl(Key::L, msg(Message::ToggleViewKind))
             .key(Key::L, msg(Message::ToggleSelectorList))
-            .ctrl(Key::N, msg(Message::NextSelector))
-            .ctrl(Key::P, msg(Message::PrevSelector))
-            .ctrl(Key::U, msg(Message::ParentSelector))
+    }
+
+    fn create_selectors_mapping() -> KeyboardMapping {
+        const fn msg(msg: Message) -> MainMessage {
+            MainMessage::TabPosts(msg)
+        }
+
+        KeyboardMapping::default()
+            .key(Key::L, msg(Message::ToggleSelectorList))
+            .key(Key::Home, msg(Message::FirstSelector))
+            .key(Key::End, msg(Message::LastSelector))
+            .ctrl(Key::Home, msg(Message::FirstSameLevelSelector))
+            .ctrl(Key::End, msg(Message::LastSameLevelSelector))
+            .key(Key::ArrowDown, msg(Message::NextSelector))
+            .key(Key::ArrowUp, msg(Message::PrevSelector))
+            .ctrl(Key::ArrowDown, msg(Message::NextSameLevelSelector))
+            .ctrl(Key::ArrowUp, msg(Message::PrevSameLevelSelector))
+            .key(Key::ArrowLeft, msg(Message::ParentSelector))
+            .key(Key::ArrowRight, msg(Message::FirstChildSelector))
     }
 
     pub fn modal_opened(&self) -> bool {
@@ -958,7 +1028,13 @@ impl TabPosts {
             ModalWindow::ModalPublish(window) => &window.keyboard_mapping,
             ModalWindow::ModalView(window) => &window.keyboard_mapping,
             ModalWindow::ModalDescription(window) => &window.keyboard_mapping,
-            ModalWindow::None => &self.keyboard_mapping,
+            ModalWindow::None => {
+                if self.selectors_has_focus {
+                    &self.selectors_keyboard_mapping
+                } else {
+                    &self.main_keyboard_mapping
+                }
+            }
         }
     }
 
@@ -1000,10 +1076,16 @@ impl TabPosts {
             }
         });
 
+        let mut selectors_has_focus = false;
         if self.show_selectors {
-            SidePanel::left(fmt!("{ID_PREFIX}-list")).show(ctx, |ui| {
+            let resp = SidePanel::left(fmt!("{ID_PREFIX}-list")).show(ctx, |ui| {
                 self.draw_selectors(ui, db, queue);
             });
+            selectors_has_focus = resp.response.hovered();
+        }
+
+        if selectors_has_focus != self.selectors_has_focus {
+            queue.push_back(Message::SelectorListHasFocus(selectors_has_focus));
         }
 
         CentralPanel::default().show(ctx, |ui| {
@@ -1058,7 +1140,7 @@ impl TabPosts {
         });
 
         if self.scroll_to_selected && self.selected == Some(post.id) {
-            ui.scroll_to_rect(resp.rect, Some(Align::Center));
+            resp.scroll_to_me(Some(Align::Center));
         }
 
         if resp.double_clicked() {
@@ -1094,42 +1176,34 @@ impl TabPosts {
 
         ui.separator();
 
-        let mut selector_granurality = self.selector_granurality;
+        let mut selector_level = self.selector_level;
 
         ui.horizontal(|ui| {
-            for dsg in SelectorGranurality::ALL {
-                ui.selectable_value(&mut selector_granurality, dsg, dsg.name());
+            for dsg in SelectorLevel::ALL {
+                ui.selectable_value(&mut selector_level, dsg, dsg.name());
             }
         });
 
-        if selector_granurality != self.selector_granurality {
-            queue.push_back(Message::ChangeSelectorGranurality(selector_granurality));
+        if selector_level != self.selector_level {
+            queue.push_back(Message::ChangeSelectorLevel(selector_level));
         }
 
         ui.separator();
 
         ScrollArea::vertical()
-            .id_salt((ID_PREFIX, "selectors", selector_granurality))
+            .id_salt((ID_PREFIX, "selectors", selector_level))
             .show(ui, |ui| {
                 let mut current = self.filter.get_current();
                 for selector in &db.picture_views.selectors {
                     if filter.is_empty() {
-                        let valid = match selector_granurality {
-                            SelectorGranurality::Year => matches!(selector, Selector::ByYear(_)),
-                            SelectorGranurality::Month => {
-                                matches!(selector, Selector::ByYear(_) | Selector::ByMonth(..))
-                            }
-                            SelectorGranurality::Day => true,
-                        };
-
-                        if !valid {
+                        if selector.level() < selector_level {
                             continue;
                         }
                     } else if !selector.as_iso_date().contains(&filter) {
                         continue;
                     }
 
-                    render_selector(
+                    let resp = render_selector(
                         ui,
                         db,
                         10.0,
@@ -1137,6 +1211,10 @@ impl TabPosts {
                         selector,
                         &mut current,
                     );
+
+                    if self.selector_scroll_to && *selector == self.filter.get_current() {
+                        resp.inner.scroll_to_me(None);
+                    }
                 }
 
                 if current != self.filter.get_current() {
@@ -1519,7 +1597,7 @@ impl TabPosts {
                 });
 
                 if self.scroll_to_selected && self.selected == Some(post.id) {
-                    ui.scroll_to_rect(resp.rect, Some(Align::Center));
+                    resp.scroll_to_me(Some(Align::Center));
                 }
 
                 if resp.contains_pointer() {

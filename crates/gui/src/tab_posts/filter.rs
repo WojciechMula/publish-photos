@@ -11,7 +11,10 @@ use db::Date;
 use db::Post;
 use db::PostId;
 use db::Selector;
+use egui::Button;
 use egui::ComboBox;
+use egui::InnerResponse;
+use egui::Response;
 use egui::Ui;
 use query::Expr;
 use serde::Deserialize;
@@ -110,9 +113,10 @@ impl Filter {
         ComboBox::from_id_salt("tab-images-filter-combo-box")
             .selected_text(selected_text)
             .show_ui(ui, |ui| {
-                let mut current = self.filter.current;
-
                 if !self.filter.selector_history.is_empty() {
+                    ui.label(egui::RichText::new("History").italics());
+
+                    let mut current = self.filter.current;
                     for selector in self.filter.selector_history.iter() {
                         render_selector(
                             ui,
@@ -124,23 +128,10 @@ impl Filter {
                         );
                     }
 
-                    ui.separator();
-                }
-
-                for selector in &db.picture_views.selectors {
-                    render_selector(
-                        ui,
-                        db,
-                        self.icon_width,
-                        &self.filter.image_state,
-                        selector,
-                        &mut current,
-                    );
-                }
-
-                if current != self.filter.current {
-                    self.set_current(current);
-                    queue.push_back(Message::RefreshView);
+                    if current != self.filter.current {
+                        self.set_current(current);
+                        queue.push_back(Message::RefreshView);
+                    }
                 }
             });
 
@@ -231,11 +222,12 @@ pub fn render_selector(
     image_state: &ImageState,
     selector: &Selector,
     current: &mut Selector,
-) {
-    let Some(view) = db.picture_views.views.get(selector) else {
-        return;
+) -> InnerResponse<Response> {
+    let label = if let Some(view) = db.picture_views.views.get(selector) {
+        format_selector(selector, count_pictures(view, db, image_state))
+    } else {
+        "".to_owned()
     };
-    let label = format_selector(selector, count_pictures(view, db, image_state));
 
     ui.horizontal(|ui| {
         match selector {
@@ -247,8 +239,22 @@ pub fn render_selector(
                 ui.add_space(2.0 * icon_width);
             }
         }
-        ui.selectable_value(current, *selector, label);
-    });
+        let selected = current == selector;
+        let mut button = Button::selectable(selected, label);
+        if selector.level() > current.level()
+            && current.trim_to(selector.level()) == Some(*selector)
+        {
+            button = button.frame_when_inactive(true);
+        }
+
+        let mut resp = ui.add(button);
+        if resp.clicked() && !selected {
+            *current = *selector;
+            resp.mark_changed();
+        }
+
+        resp
+    })
 }
 
 fn format_selector(selector: &Selector, count: usize) -> String {
@@ -404,7 +410,7 @@ impl Default for FilterState {
 }
 
 impl FilterState {
-    const SELECTOR_HISTORY_SIZE: usize = 10;
+    const SELECTOR_HISTORY_SIZE: usize = 50;
 
     fn refresh_query(&mut self) -> bool {
         if self.phrase.is_empty() {
