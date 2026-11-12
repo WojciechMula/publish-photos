@@ -18,8 +18,12 @@ impl LabelList {
         self.0.iter()
     }
 
+    pub fn contains(&self, label: &str) -> bool {
+        self.0.iter().any(|s| s == label)
+    }
+
     pub fn add(&mut self, label: &str) -> bool {
-        if self.0.iter().any(|s| s == label) {
+        if self.contains(label) {
             return false;
         }
 

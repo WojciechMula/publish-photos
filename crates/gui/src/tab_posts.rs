@@ -1286,17 +1286,28 @@ impl TabPosts {
             ui.separator();
             ui.menu_button("Label...", |ui| {
                 for entry in self.labels.values().filter(|entry| entry.enabled) {
-                    if ui
-                        .add(clickable_label_button(
-                            &entry.label,
-                            entry.color,
-                            entry.text_color,
-                        ))
-                        .clicked()
-                    {
-                        let action = EditDetails::ToggleLabel(post.id, entry.label.clone());
-                        queue.push_back(action.into());
-                    }
+                    ui.horizontal(|ui| {
+                        let mut checked = post.labels.contains(&entry.label);
+                        let f1 = ui.checkbox(&mut checked, "").changed();
+
+                        let background = if checked {
+                            entry.text_color
+                        } else {
+                            entry.text_color.gamma_multiply(0.5)
+                        };
+                        let f2 = ui
+                            .add(clickable_label_button(
+                                &entry.label,
+                                entry.color,
+                                background,
+                            ))
+                            .clicked();
+
+                        if f1 || f2 {
+                            let action = EditDetails::ToggleLabel(post.id, entry.label.clone());
+                            queue.push_back(action.into());
+                        }
+                    });
                 }
             });
         }
