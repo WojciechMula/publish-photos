@@ -21,6 +21,7 @@ use std::ops::RangeInclusive;
 
 const ID_PREFIX: &str = "modal-settings";
 
+#[derive(Debug)]
 pub struct ModalSettings {
     new: Style,
     original: Style,

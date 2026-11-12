@@ -51,7 +51,7 @@ enum ModalState {
     TagError(String),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     TagAction(SelectTagsAction),
     SetName(String),

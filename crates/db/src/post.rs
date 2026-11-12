@@ -195,7 +195,7 @@ impl Builder {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum PublishedState {
     #[default]
     None,

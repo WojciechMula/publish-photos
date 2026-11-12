@@ -57,7 +57,7 @@ pub struct ModalSpecies {
     pub keyboard_mapping: KeyboardMapping,
 }
 
-#[derive(Default, PartialEq, Eq, Clone, Copy)]
+#[derive(Default, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum ThumbnailSize {
     #[default]
     Small,
@@ -82,7 +82,7 @@ impl ThumbnailSize {
 
 type MessageQueue = VecDeque<Message>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     RefreshView,
     SpeciesHovered(Option<SpeciesIndex>),

@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Default, Serialize, Deserialize, Debug)]
 pub struct TagList(pub Vec<String>);
 
 impl TagList {

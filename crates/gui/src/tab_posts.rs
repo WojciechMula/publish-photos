@@ -3,7 +3,6 @@ mod modal_desc;
 pub mod modal_publish;
 mod modal_species;
 mod modal_tags;
-mod modal_view;
 
 mod selector_nav;
 use selector_nav::SelectorNavigation;
@@ -17,8 +16,6 @@ use modal_species::Message as ModalSpeciesMessage;
 use modal_species::ModalSpecies;
 use modal_tags::Message as ModalTagsMessage;
 use modal_tags::ModalTags;
-use modal_view::Message as ModalViewMessage;
-use modal_view::ModalView;
 
 use crate::application::Message as MainMessage;
 use crate::application::MessageQueue as MainMessageQueue;
@@ -43,6 +40,7 @@ use crate::tab_posts::filter::render_selector;
 use crate::tab_species::Message as TabSpeciesMessage;
 use crate::widgets::checkmark;
 use crate::widgets::clickable_label_button;
+use crate::widgets::filled_label;
 use crate::widgets::label_button;
 use crate::widgets::HistoryInputAction;
 use const_format::formatcp as fmt;
@@ -64,6 +62,7 @@ use egui::CentralPanel;
 use egui::Color32;
 use egui::Context;
 use egui::Id;
+use egui::Image;
 use egui::Key;
 use egui::KeyboardShortcut;
 use egui::Label;
@@ -111,10 +110,12 @@ pub struct TabPosts {
     modal_window: ModalWindow,
     view_kind: ViewKind,
     selectors_has_focus: bool,
+    fullscreen: FullScreenView,
     show_selectors: bool,
     selector_filter: String,
     selector_level: SelectorLevel,
     selector_scroll_to: bool,
+    fullscreen_keyboard_mapping: KeyboardMapping,
     main_keyboard_mapping: KeyboardMapping,
     selectors_keyboard_mapping: KeyboardMapping,
     labels_version: u64,
@@ -156,7 +157,6 @@ pub enum ModalWindow {
     ModalTags(Box<ModalTags>),
     ModalSpecies(Box<ModalSpecies>),
     ModalPublish(Box<ModalPublish>),
-    ModalView(Box<ModalView>),
     ModalDescription(Box<ModalDescription>),
 }
 
@@ -173,13 +173,12 @@ struct InlineEditor {
 
 pub type MessageQueue = VecDeque<Message>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     FocusItem(Id),
     EditDescription(PostId),
     EditTags(PostId),
     EditSpecies(PostId),
-    View(PostId),
     Select(PostId),
     Publish(PostId),
     StartPublishing(PostId),
@@ -207,7 +206,6 @@ pub enum Message {
 
     ModalTags(ModalTagsMessage),
     ModalSpecies(ModalSpeciesMessage),
-    ModalView(ModalViewMessage),
     ModalDescription(ModalDescriptionMessage),
     ModalPublish(ModalPublishMessage),
     CloseModal,
@@ -222,7 +220,10 @@ pub enum Message {
     EditTagsCurrent,
     EditSpeciesCurrent,
     ToggleLabelCurrent(String),
-    ViewCurrent,
+    PublishSelected,
+    EditDescriptionSelected,
+    EditTagsSelected,
+    EditSpeciesSelected,
     SelectNext,
     SelectPrev,
     SelectNextRow,
@@ -258,6 +259,10 @@ pub enum Message {
     PrevSameLevelSelector,
     ParentSelector,
     FirstChildSelector,
+
+    EnterFullScreen,
+    ExitFullScreen,
+    FullScreenToogleShowFilename,
 }
 
 impl Message {
@@ -266,7 +271,6 @@ impl Message {
             Self::EditDescription(_) => unreachable!(),
             Self::EditTags(_) => unreachable!(),
             Self::EditSpecies(_) => unreachable!(),
-            Self::View(_) => unreachable!(),
             Self::Select(_) => unreachable!(),
             Self::Publish(_) => unreachable!(),
             Self::StartPublishing(..) => unreachable!(),
@@ -279,7 +283,6 @@ impl Message {
             Self::PasteSpecies(..) => unreachable!(),
             Self::ModalTags(msg) => msg.name(),
             Self::ModalSpecies(msg) => msg.name(),
-            Self::ModalView(msg) => msg.name(),
             Self::ModalDescription(msg) => msg.name(),
             Self::ModalPublish(msg) => msg.name(),
             Self::CloseModal => unreachable!(),
@@ -291,7 +294,10 @@ impl Message {
             Self::EditDescriptionCurrent => "edit description of the highlighted post",
             Self::EditTagsCurrent => "edit tags of the highlighted post",
             Self::EditSpeciesCurrent => "edit species of the highlighted post",
-            Self::ViewCurrent => "fullscreen view of photos from the highlighted post",
+            Self::PublishSelected => "publish the selected post",
+            Self::EditDescriptionSelected => "edit description of the selected post",
+            Self::EditTagsSelected => "edit tags of the selected post",
+            Self::EditSpeciesSelected => "edit species of the selected post",
             Self::SelectNext => "select the next post",
             Self::SelectPrev => "select the previous post",
             Self::SelectNextRow => "select the next post",
@@ -327,6 +333,9 @@ impl Message {
             Self::PrevSameLevelSelector => "previous selector at that level",
             Self::ParentSelector => "parent selector",
             Self::FirstChildSelector => "first child selector",
+            Self::EnterFullScreen => "enter fullscreen mode",
+            Self::ExitFullScreen => "exit fullscreen mode",
+            Self::FullScreenToogleShowFilename => "show/hide path",
         }
     }
 }
@@ -377,9 +386,7 @@ mod shortcut {
     pub const EDIT_SPECIES: KeyboardShortcut = key(Key::S);
     pub const UNDO: KeyboardShortcut = ctrl(Key::Z);
     pub const PUBLISH: KeyboardShortcut = key(Key::P);
-    pub const PREVIEW_1: KeyboardShortcut = key(Key::F);
-    pub const PREVIEW_2: KeyboardShortcut = key(Key::V);
-    pub const PREVIEW_3: KeyboardShortcut = key(Key::Space);
+    pub const FULLSCREEN: KeyboardShortcut = key(Key::F);
 }
 
 impl TabPosts {
@@ -400,6 +407,7 @@ impl TabPosts {
             inline_editors: BTreeMap::new(),
             modal_window: ModalWindow::None,
             view_kind: ViewKind::List,
+            fullscreen: FullScreenView::new(),
             show_selectors: true,
             selectors_has_focus: false,
             selector_filter: String::new(),
@@ -408,6 +416,7 @@ impl TabPosts {
             label_width: 0.0,
             main_keyboard_mapping: Self::create_main_mapping(),
             selectors_keyboard_mapping: Self::create_selectors_mapping(),
+            fullscreen_keyboard_mapping: Self::create_fullscreen_mapping(),
             labels_version: u64::MAX,
             labels: BTreeMap::new(),
             enabled_labels_count: 0,
@@ -423,6 +432,7 @@ impl TabPosts {
             .map(|v| self.show_selectors = v);
         eframe::get_value(storage, fmt!("{ID_PREFIX}-selector-level"))
             .map(|v| self.selector_level = v);
+        eframe::get_value(storage, fmt!("{ID_PREFIX}-fullscreen")).map(|v| self.fullscreen = v);
     }
 
     pub fn save(&self, _db_id: &str, storage: &mut dyn eframe::Storage) {
@@ -439,6 +449,7 @@ impl TabPosts {
             fmt!("{ID_PREFIX}-selector-level"),
             &self.selector_level,
         );
+        eframe::set_value(storage, fmt!("{ID_PREFIX}-fullscreen"), &self.fullscreen);
     }
 
     pub fn update(
@@ -481,9 +492,6 @@ impl TabPosts {
             }
             ModalWindow::ModalPublish(window) => {
                 window.update(ctx, image_cache, style, db, &mut queue);
-            }
-            ModalWindow::ModalView(window) => {
-                window.update(ctx, image_cache, db, &mut queue);
             }
             ModalWindow::ModalDescription(window) => {
                 window.update(ctx, image_cache, style, db, &mut queue);
@@ -614,11 +622,6 @@ impl TabPosts {
                 self.scroll_to_selected = self.selected != Some(id);
                 self.selected = Some(id);
             }
-            Message::View(id) => {
-                assert!(self.modal_window.is_none());
-                let window = ModalView::new(id);
-                self.modal_window = ModalWindow::ModalView(Box::new(window));
-            }
             Message::Publish(id) => {
                 assert!(self.modal_window.is_none());
                 let window = ModalPublish::new(id, db);
@@ -652,11 +655,6 @@ impl TabPosts {
                     window.queue.push_back(msg);
                 }
             }
-            Message::ModalView(msg) => {
-                if let ModalWindow::ModalView(window) = &mut self.modal_window {
-                    window.queue.push_back(msg);
-                }
-            }
             Message::ModalDescription(msg) => {
                 if let ModalWindow::ModalDescription(window) = &mut self.modal_window {
                     window.queue.push_back(msg);
@@ -678,6 +676,11 @@ impl TabPosts {
                     queue.push_back(Message::Publish(id));
                 }
             }
+            Message::PublishSelected => {
+                if let Some(id) = self.selected {
+                    queue.push_back(Message::Publish(id));
+                }
+            }
             Message::Undo => {
                 if let Some(id) = self.hovered {
                     queue.push_back(EditDetails::Undo(id).into());
@@ -688,8 +691,18 @@ impl TabPosts {
                     queue.push_back(Message::EditDescription(id));
                 }
             }
+            Message::EditDescriptionSelected => {
+                if let Some(id) = self.selected {
+                    queue.push_back(Message::EditDescription(id));
+                }
+            }
             Message::EditTagsCurrent => {
                 if let Some(id) = self.hovered {
+                    queue.push_back(Message::EditTags(id));
+                }
+            }
+            Message::EditTagsSelected => {
+                if let Some(id) = self.selected {
                     queue.push_back(Message::EditTags(id));
                 }
             }
@@ -698,9 +711,9 @@ impl TabPosts {
                     queue.push_back(Message::EditSpecies(id));
                 }
             }
-            Message::ViewCurrent => {
-                if let Some(id) = self.hovered {
-                    queue.push_back(Message::View(id));
+            Message::EditSpeciesSelected => {
+                if let Some(id) = self.selected {
+                    queue.push_back(Message::EditSpecies(id));
                 }
             }
             Message::ToggleLabelCurrent(label) => {
@@ -884,6 +897,29 @@ impl TabPosts {
                     queue.push_back(Message::ChangeSelector(new));
                 }
             }
+            Message::ExitFullScreen => {
+                if self.fullscreen.enabled {
+                    self.fullscreen.enabled = false;
+                    self.scroll_to_selected = true;
+                }
+            }
+            Message::EnterFullScreen => {
+                if !self.fullscreen.enabled {
+                    self.fullscreen.enabled = !self.view.is_empty();
+                    if self.fullscreen.enabled {
+                        if self.hovered.is_some() {
+                            self.selected = self.hovered.clone();
+                        } else if self.selected.is_none() {
+                            self.selected = self.view.first().cloned();
+                        }
+                    }
+                }
+            }
+            Message::FullScreenToogleShowFilename => {
+                if self.fullscreen.enabled {
+                    self.fullscreen.show_filename = !self.fullscreen.show_filename;
+                }
+            }
         }
     }
 
@@ -970,9 +1006,7 @@ impl TabPosts {
                 shortcut::EDIT_SPECIES.logical_key,
                 msg(Message::EditSpeciesCurrent),
             )
-            .shortcut(shortcut::PREVIEW_1, msg(Message::ViewCurrent))
-            .shortcut(shortcut::PREVIEW_2, msg(Message::ViewCurrent))
-            .shortcut(shortcut::PREVIEW_3, msg(Message::ViewCurrent))
+            .shortcut(shortcut::FULLSCREEN, msg(Message::EnterFullScreen))
             .key(Key::ArrowDown, msg(Message::SelectNextRow))
             .key(Key::ArrowUp, msg(Message::SelectPrevRow))
             .key(Key::ArrowLeft, msg(Message::SelectPrev))
@@ -1006,6 +1040,37 @@ impl TabPosts {
             .key(Key::ArrowRight, msg(Message::FirstChildSelector))
     }
 
+    fn create_fullscreen_mapping() -> KeyboardMapping {
+        const fn msg(msg: Message) -> MainMessage {
+            MainMessage::TabPosts(msg)
+        }
+
+        KeyboardMapping::default()
+            .shortcut(shortcut::PUBLISH, msg(Message::PublishSelected))
+            .shortcut(
+                shortcut::EDIT_DESCRIPTION,
+                msg(Message::EditDescriptionSelected),
+            )
+            .shortcut(shortcut::EDIT_TAGS, msg(Message::EditTagsSelected))
+            .shortcut(shortcut::EDIT_SPECIES, msg(Message::EditSpeciesSelected))
+            .key(Key::Escape, msg(Message::ExitFullScreen))
+            .shortcut(shortcut::FULLSCREEN, msg(Message::ExitFullScreen))
+            .key(Key::ArrowDown, msg(Message::SelectNextRow))
+            .key(Key::ArrowUp, msg(Message::SelectPrevRow))
+            .key(Key::ArrowUp, msg(Message::SelectPrevRow))
+            .key(Key::ArrowLeft, msg(Message::SelectPrev))
+            .key(Key::Backspace, msg(Message::SelectPrev))
+            .key(Key::ArrowRight, msg(Message::SelectNext))
+            .key(Key::Space, msg(Message::SelectNext))
+            .ctrl(Key::ArrowDown, msg(Message::SelectNextRowsMany))
+            .ctrl(Key::ArrowUp, msg(Message::SelectPrevRowsMany))
+            .key(Key::PageDown, msg(Message::SelectNextRowsMany))
+            .key(Key::PageUp, msg(Message::SelectPrevRowsMany))
+            .key(Key::Home, msg(Message::SelectFirst))
+            .key(Key::End, msg(Message::SelectLast))
+            .key(Key::O, msg(Message::FullScreenToogleShowFilename))
+    }
+
     pub fn modal_opened(&self) -> bool {
         !matches!(self.modal_window, ModalWindow::None)
     }
@@ -1015,7 +1080,6 @@ impl TabPosts {
             ModalWindow::ModalSpecies(window) => window.try_close(),
             ModalWindow::ModalTags(window) => window.try_close(),
             ModalWindow::ModalPublish(window) => window.try_close(),
-            ModalWindow::ModalView(window) => window.try_close(),
             ModalWindow::ModalDescription(window) => window.try_close(),
             ModalWindow::None => (),
         }
@@ -1026,10 +1090,11 @@ impl TabPosts {
             ModalWindow::ModalSpecies(window) => &window.keyboard_mapping,
             ModalWindow::ModalTags(window) => &window.keyboard_mapping,
             ModalWindow::ModalPublish(window) => &window.keyboard_mapping,
-            ModalWindow::ModalView(window) => &window.keyboard_mapping,
             ModalWindow::ModalDescription(window) => &window.keyboard_mapping,
             ModalWindow::None => {
-                if self.selectors_has_focus {
+                if self.fullscreen.enabled {
+                    &self.fullscreen_keyboard_mapping
+                } else if self.selectors_has_focus {
                     &self.selectors_keyboard_mapping
                 } else {
                     &self.main_keyboard_mapping
@@ -1039,6 +1104,81 @@ impl TabPosts {
     }
 
     fn draw(
+        &mut self,
+        ctx: &Context,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+        clipboard: &Clipboard,
+    ) {
+        if self.fullscreen.enabled {
+            self.draw_fullscreen(ctx, image_cache, style, db, queue);
+        } else {
+            self.draw_multiple(ctx, image_cache, style, db, queue, clipboard);
+        }
+    }
+
+    fn draw_fullscreen(
+        &self,
+        ctx: &Context,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &Database,
+        queue: &mut MessageQueue,
+    ) {
+        let Some(id) = self.selected else {
+            return;
+        };
+
+        let post = db.post(&id);
+
+        image_cache.request(post.file.uri.clone(), ctx);
+
+        CentralPanel::default().show(ctx, |ui| {
+            ui.centered_and_justified(|ui| {
+                let resp = ui.add(
+                    Image::from_uri(post.file.uri.clone())
+                        .maintain_aspect_ratio(true)
+                        .fit_to_exact_size(ui.available_size())
+                        .show_loading_spinner(false)
+                        .sense(Sense::CLICK),
+                );
+
+                if resp.clicked() {
+                    queue.push_back(Message::SelectNext);
+                }
+
+                resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
+
+                if self.fullscreen.show_filename {
+                    let bg = Color32::from_white_alpha(200);
+                    let fg = Color32::BLACK;
+                    let padding = 3.0;
+                    let rounding = 2.0;
+
+                    let k = self
+                        .view
+                        .iter()
+                        .position(|post_id| *post_id == id)
+                        .unwrap_or_default()
+                        + 1;
+                    let n = self.view.len();
+                    let label = format!("[{k}/{n}] {}", post.file.rel_path.display());
+
+                    add_overlay(
+                        ui,
+                        &resp,
+                        OverlayLocation::TopLeft,
+                        style.image.overlay.margin,
+                        |ui| ui.add(filled_label(&label, fg, bg, padding, rounding)),
+                    );
+                }
+            });
+        });
+    }
+
+    fn draw_multiple(
         &mut self,
         ctx: &Context,
         image_cache: &mut ImageCache,
@@ -1144,7 +1284,7 @@ impl TabPosts {
         }
 
         if resp.double_clicked() {
-            queue.push_back(Message::View(post.id));
+            queue.push_back(Message::EnterFullScreen);
         }
 
         if resp.clicked() {
@@ -1276,10 +1416,12 @@ impl TabPosts {
             queue.push_back(Message::Publish(post.id));
         }
 
-        let button = Button::new(fmt!("{ICON_FULLSCREEN} Show fullscreen"))
-            .shortcut_text(format_shortcut(shortcut::PREVIEW_1));
-        if ui.add(button).clicked() {
-            queue.push_back(Message::View(post.id));
+        if !self.fullscreen.enabled {
+            let button = Button::new(fmt!("{ICON_FULLSCREEN} Show fullscreen"))
+                .shortcut_text(format_shortcut(shortcut::FULLSCREEN));
+            if ui.add(button).clicked() {
+                queue.push_back(Message::EnterFullScreen);
+            }
         }
 
         if self.enabled_labels_count > 0 {
@@ -1621,7 +1763,7 @@ impl TabPosts {
                     queue.push_back(Message::Select(post.id));
                 }
                 if resp.double_clicked() {
-                    queue.push_back(Message::View(post.id));
+                    queue.push_back(Message::EnterFullScreen);
                 }
                 resp.context_menu(|ui| self.post_context_menu(ui, post, queue));
             }
@@ -1709,6 +1851,21 @@ fn format_selector(selector: &Selector, count: usize) -> String {
             date.month.as_u8(),
             date.day.as_u8()
         ),
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct FullScreenView {
+    enabled: bool,
+    show_filename: bool,
+}
+
+impl FullScreenView {
+    pub fn new() -> Self {
+        Self {
+            enabled: false,
+            show_filename: true,
+        }
     }
 }
 

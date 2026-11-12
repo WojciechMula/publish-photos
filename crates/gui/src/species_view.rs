@@ -34,7 +34,7 @@ pub struct SpeciesList {
     pub hovered: Option<SpeciesIndex>,
 }
 
-#[derive(PartialEq, Eq, Default, Clone, Copy)]
+#[derive(PartialEq, Eq, Default, Clone, Copy, Debug)]
 pub enum SortOrder {
     #[default]
     DateAddedAsc,
@@ -209,7 +209,7 @@ pub struct SpeciesListResponse {
     pub species_view_action: Option<(SpeciesViewAction, SpeciesIndex)>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SpeciesViewAction {
     SelectNext,
     SelectPrev,
@@ -256,7 +256,7 @@ pub fn image(
             if ui.button(ICON_ARROW_BACK_2).clicked() {
                 result = Some(SpeciesViewAction::SelectPrev);
             }
-            ui.add(overlay_label(ImageCounter(n).to_string(), style));
+            ui.add(overlay_label(&ImageCounter(n).to_string(), style));
         });
     }
 

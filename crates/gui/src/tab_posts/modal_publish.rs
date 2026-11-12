@@ -49,7 +49,7 @@ struct Entry {
     label: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     Publish,
     CopyText,

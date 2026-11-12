@@ -51,7 +51,7 @@ pub struct TranslatedTagGroup {
     pub tags: TranslatedTagsView,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SelectTagsAction {
     Action(Action),
     Undo,

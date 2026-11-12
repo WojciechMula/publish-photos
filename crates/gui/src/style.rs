@@ -3,7 +3,7 @@ use egui::Vec2;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct Style {
     pub modified: Color32,
     pub hovered_frame: Color32,
@@ -25,7 +25,7 @@ pub struct Style {
     pub error: Color32,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ImageStyle {
     pub radius: f32,
     pub preview_width: f32,
@@ -46,7 +46,7 @@ impl PartialEq for ImageStyle {
 
 impl Eq for ImageStyle {}
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct ButtonStyle {
     pub save: Color32,
     pub remove: Color32,
@@ -55,7 +55,7 @@ pub struct ButtonStyle {
     pub save_database: Color32,
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub struct OverlayStyle {
     pub margin: Vec2,
     pub fg: Color32,

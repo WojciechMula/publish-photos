@@ -7,7 +7,7 @@ use egui::Modifiers;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct KeyboardMapping {
     map: HashMap<Key, Vec<(Modifiers, Message)>>,
 }

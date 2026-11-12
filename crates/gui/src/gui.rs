@@ -1,7 +1,7 @@
 use crate::image_cache::CacheEntry;
 use crate::image_cache::ImageCache;
 use crate::style::Style;
-use crate::widgets::Label as CustomLabel;
+use crate::widgets::filled_label;
 use const_format::formatcp as fmt;
 use db::FileMetadata;
 use egui::Align;
@@ -175,24 +175,28 @@ pub fn icon_en(ui: &mut Ui) {
 
 // --------------------------------------------------
 
-pub fn tag(tag: &str, style: &Style) -> impl Widget {
-    let mut widget = CustomLabel::new(tag.to_owned());
-    widget.padding = 3.0;
-    widget.rounding = 6.0;
-    widget.color = style.tag_active_fg;
-    widget.background = style.tag_active_bg;
-
-    widget
+pub fn tag<'a>(tag: &'a str, style: &'a Style) -> impl Widget + 'a {
+    let padding = 3.0;
+    let rounding = 6.0;
+    filled_label(
+        tag,
+        style.tag_active_fg,
+        style.tag_active_bg,
+        padding,
+        rounding,
+    )
 }
 
-pub fn disabled_tag(tag: &str, style: &Style) -> impl Widget {
-    let mut widget = CustomLabel::new(tag.to_owned());
-    widget.padding = 3.0;
-    widget.rounding = 6.0;
-    widget.color = style.tag_disabled_fg;
-    widget.background = style.tag_disabled_bg;
-
-    widget
+pub fn disabled_tag<'a>(tag: &'a str, style: &'a Style) -> impl Widget + 'a {
+    let padding = 3.0;
+    let rounding = 6.0;
+    filled_label(
+        tag,
+        style.tag_disabled_fg,
+        style.tag_disabled_bg,
+        padding,
+        rounding,
+    )
 }
 
 // --------------------------------------------------
@@ -219,16 +223,16 @@ pub fn max_size(strings: &[&str], ui: &mut Ui) -> f32 {
 
 // --------------------------------------------------
 
-pub fn overlay_label(label: String, style: &Style) -> impl Widget {
-    use crate::widgets::Label;
-
-    let mut widget = Label::new(label);
-    widget.padding = 3.0;
-    widget.rounding = 5.0;
-    widget.color = style.image.overlay.fg;
-    widget.background = style.image.overlay.bg;
-
-    widget
+pub fn overlay_label<'a>(s: &'a str, style: &'a Style) -> impl Widget + 'a {
+    let padding = 3.0;
+    let rounding = 5.0;
+    filled_label(
+        s,
+        style.image.overlay.fg,
+        style.image.overlay.bg,
+        padding,
+        rounding,
+    )
 }
 
 pub mod button {

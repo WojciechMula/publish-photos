@@ -55,7 +55,7 @@ struct Description {
     instagram_url: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     FocusPolish,
     FocusEnglish,

@@ -55,7 +55,7 @@ pub struct ModalTags {
 
 type MessageQueue = VecDeque<Message>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     TagAction(SelectTagsAction),
     Undo,

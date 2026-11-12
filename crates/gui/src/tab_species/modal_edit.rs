@@ -50,7 +50,7 @@ pub struct ModalEdit {
 
 type MessageQueue = VecDeque<Message>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     SoftClose,
     SaveAndExit,

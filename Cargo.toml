@@ -9,3 +9,5 @@ members = [
     "tools/mkpost",
     "tools/droplabel",
 ]
+
+default-members = ["crates/gui"]

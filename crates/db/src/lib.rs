@@ -511,7 +511,7 @@ impl Database {
 
 // --------------------------------------------------
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct TranslatedTagsView(pub BTreeSet<TranslatedTag>);
 
 impl TranslatedTagsView {

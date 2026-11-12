@@ -5,7 +5,7 @@ use crate::SpeciesId;
 use crate::TagList;
 use crate::post::PublishedState;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum EditDetails {
     SetPublished(PostId, PublishedState),
     Example(PostId, bool),
@@ -18,7 +18,7 @@ pub enum EditDetails {
     Undo(PostId),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SocialMediaLink {
     Facebook,
     Instagram,

@@ -34,7 +34,7 @@ pub struct TabTagGroups {
     pub keyboard_mapping: KeyboardMapping,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     AddNew,
     Edit(TagGroupId),

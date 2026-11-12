@@ -4,7 +4,7 @@ use crate::TagList;
 use crate::TranslatedTag;
 use crate::TranslatedTagsView;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Action {
     FromString(String),
     FromTagGroup(TagGroupId),

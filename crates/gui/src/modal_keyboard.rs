@@ -13,6 +13,7 @@ use egui::Modifiers;
 use egui::ScrollArea;
 use egui::Ui;
 
+#[derive(Debug)]
 pub struct ModalKeyboard {
     keyboard_mapping: KeyboardMapping,
     mappings: Vec<KeyboardMappingHelp>,

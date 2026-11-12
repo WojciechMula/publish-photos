@@ -44,7 +44,7 @@ pub struct TabSpecies {
 
 pub type MessageQueue = VecDeque<Message>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     ModalEdit(ModalEditMessage),
     OpenModalEdit(SpeciesIndex),

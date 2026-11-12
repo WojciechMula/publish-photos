@@ -66,6 +66,7 @@ pub struct Application {
 
 pub type MessageQueue = VecDeque<Message>;
 
+#[derive(Debug)]
 pub enum Message {
     TabPosts(TabPostsMessage),
     TabSpecies(TabSpeciesMessage),

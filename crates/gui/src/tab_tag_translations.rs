@@ -24,7 +24,7 @@ pub struct TabTagTranslations {
     pub keyboard_mapping: KeyboardMapping,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Message {
     AddNew,
     ChangePolish { id: usize, text: String },

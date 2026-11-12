@@ -35,7 +35,7 @@ pub struct Species {
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Latin(String);
 
-#[derive(Default, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Default, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 #[serde(into = "String", try_from = "String")]
 pub struct SpeciesId {
     pub latin: Latin,

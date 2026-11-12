@@ -12,7 +12,7 @@ use egui::Key;
 use egui::Layout;
 use egui::Ui;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Confirm {
     pub text: String,
     pub options: Vec<ConfirmOption>,
@@ -91,7 +91,7 @@ impl ModalWindowTrait for Confirm {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConfirmOption {
     pub message: Option<Message>,
     pub label: String,

@@ -1,7 +1,9 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
+)]
 pub enum TaxonomicRank {
     Regnum,
     Subregnum,
