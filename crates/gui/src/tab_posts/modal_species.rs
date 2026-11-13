@@ -26,6 +26,7 @@ use db::SpeciesIndex;
 use egui::CentralPanel;
 use egui::Context;
 use egui::Frame;
+use egui::Id;
 use egui::Key;
 use egui::Label;
 use egui::Layout;
@@ -52,6 +53,9 @@ pub struct ModalSpecies {
     species_hovered: Option<SpeciesIndex>,
     species_thumbnail_size: ThumbnailSize,
     first_run: bool,
+
+    show_history: bool,
+    history: Vec<SpeciesId>,
 
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
@@ -134,21 +138,21 @@ impl ModalSpecies {
         let post = db.post(&id);
         let original = post.species_id.clone();
         let new = original.clone();
-        let recent_species = RecentSpecies::new(id, db);
-        let recent_species_version = db.current_version.species;
 
         let mut res = Self {
             id,
             new,
             original,
-            recent_species,
-            recent_species_version,
+            recent_species: RecentSpecies::default(),
+            recent_species_version: 0,
             search_box: SearchBox::new(fmt!("{ID_PREFIX}-phrase")),
             species_hovered: None,
             species_thumbnail_size: ThumbnailSize::Small,
             queue: MessageQueue::new(),
             keyboard_mapping: Self::create_mapping(),
             first_run: true,
+            show_history: true,
+            history: Vec::new(),
         };
 
         res.queue.push_back(Message::RefreshView);
@@ -165,14 +169,21 @@ impl ModalSpecies {
         tab_queue: &mut TabMessageQueue,
     ) {
         if self.first_run {
-            self.first_run = false;
             self.search_box.restore(ctx);
+            self.history = ctx.data_mut(|data| {
+                data.get_persisted(Id::new((ID_PREFIX, "history")))
+                    .unwrap_or_default()
+            });
         }
 
-        if self.recent_species_version != db.current_version.species {
-            self.recent_species = RecentSpecies::new(self.id, db);
+        if self.first_run || self.recent_species_version != db.current_version.species {
+            self.recent_species = RecentSpecies::new(self.id, &self.history, db);
             self.recent_species_version = db.current_version.species;
             self.queue.push_back(Message::RefreshView);
+        }
+
+        if self.first_run {
+            self.first_run = false;
         }
 
         while let Some(message) = self.queue.pop_front() {
@@ -210,52 +221,28 @@ impl ModalSpecies {
     ) {
         match message {
             Message::SpeciesHovered(hovered) => {
-                let views = [
-                    &mut self.recent_species.day,
-                    &mut self.recent_species.month,
-                    &mut self.recent_species.remaining,
-                ];
-
-                for view in views {
+                self.recent_species.for_each(|view| {
                     view.hovered = hovered;
-                }
+                });
             }
             Message::RefreshView => {
-                let views = [
-                    &mut self.recent_species.day,
-                    &mut self.recent_species.month,
-                    &mut self.recent_species.remaining,
-                ];
-
-                for view in views {
+                self.recent_species.for_each(|view| {
                     view.image_width = self.species_thumbnail_size.width(style);
                     view.set_filter(self.search_box.phrase().to_string(), db);
                     view.refresh_view(db);
-                }
+                });
             }
             Message::FilterByName(value) => {
-                let views = [
-                    &mut self.recent_species.day,
-                    &mut self.recent_species.month,
-                    &mut self.recent_species.remaining,
-                ];
-
-                for view in views {
+                self.recent_species.for_each(|view| {
                     view.set_filter(value.clone(), db);
                     view.refresh_view(db);
-                }
+                });
             }
             Message::ThumbnailSize(ts) => {
-                let views = [
-                    &mut self.recent_species.day,
-                    &mut self.recent_species.month,
-                    &mut self.recent_species.remaining,
-                ];
-
                 self.species_thumbnail_size = ts;
-                for view in views {
+                self.recent_species.for_each(|view| {
                     view.image_width = self.species_thumbnail_size.width(style);
-                }
+                });
             }
             Message::SetSpecies(index) => {
                 if let Some(species) = db.species_by_index(&index) {
@@ -295,6 +282,7 @@ impl ModalSpecies {
                 self.search_box.persist(ctx);
                 tab_queue.push_back(TabMessage::CloseModal);
                 if self.is_modified() {
+                    self.persist_history(ctx);
                     let msg = EditDetails::SetSpecies(self.id, self.new.clone());
                     tab_queue.push_back(msg.into());
                 }
@@ -326,6 +314,23 @@ impl ModalSpecies {
         }
     }
 
+    fn persist_history(&mut self, ctx: &Context) {
+        let Some(id) = self.new.as_ref() else {
+            return;
+        };
+
+        if let Some(pos) = self.history.iter().position(|species_id| species_id == id) {
+            let hit = self.history.remove(pos);
+            self.history.push(hit);
+        } else {
+            self.history.push(id.clone());
+        }
+
+        ctx.data_mut(|data| {
+            data.insert_persisted(Id::new((ID_PREFIX, "history")), self.history.clone())
+        });
+    }
+
     fn draw(
         &mut self,
         ctx: &Context,
@@ -336,7 +341,7 @@ impl ModalSpecies {
         queue: &mut MessageQueue,
     ) {
         SidePanel::left(fmt!("{ID_PREFIX}-left"))
-            .resizable(false)
+            .resizable(true)
             .show(ctx, |ui| {
                 self.draw_header(ui, image_cache, style, db, tab_queue, queue);
             });
@@ -516,17 +521,18 @@ impl ModalSpecies {
         queue: &mut MessageQueue,
     ) {
         let items = [
-            ("This day", &self.recent_species.day),
-            ("This month", &self.recent_species.month),
-            ("All else", &self.recent_species.remaining),
+            ("History", &self.recent_species.history, self.show_history),
+            ("This day", &self.recent_species.day, true),
+            ("This month", &self.recent_species.month, true),
+            ("All else", &self.recent_species.remaining, true),
         ];
 
         ui.style_mut().interaction.selectable_labels = false;
 
         let mut hovered_set = false;
         let mut hovered_species: Option<SpeciesIndex> = None;
-        for (label, collection) in items {
-            if collection.is_empty() {
+        for (label, collection, visible) in items {
+            if collection.is_empty() || !visible {
                 continue;
             }
 

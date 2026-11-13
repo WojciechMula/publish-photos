@@ -29,6 +29,7 @@ pub struct SpeciesList {
     view: Vec<SpeciesIndex>,
     phrase: String,
     fragments: Vec<String>,
+    disable_sorting: bool,
     pub sort_order: SortOrder,
     pub image_width: f32,
     pub hovered: Option<SpeciesIndex>,
@@ -55,6 +56,11 @@ impl SpeciesList {
 
     pub fn with_width(mut self, width: f32) -> Self {
         self.image_width = width;
+        self
+    }
+
+    pub fn with_disabled_sorting(mut self) -> Self {
+        self.disable_sorting = true;
         self
     }
 
@@ -112,6 +118,10 @@ impl SpeciesList {
     }
 
     fn sort(&mut self, db: &Database) {
+        if self.disable_sorting {
+            return;
+        }
+
         match self.sort_order {
             SortOrder::DateAddedAsc | SortOrder::DateAddedDesc => {
                 self.view.sort();
