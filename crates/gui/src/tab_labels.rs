@@ -31,9 +31,19 @@ pub struct TabLabels {
     wait_for_key: Option<String>,
     taken_shortcuts: HashSet<KeyboardShortcut>,
     shortcut_error: Option<String>,
+
+    posts_version: u64,
+    used_labels: HashSet<String>,
 }
 
 impl TabLabels {
+    pub fn new() -> Self {
+        Self {
+            posts_version: u64::MAX,
+            ..Default::default()
+        }
+    }
+
     pub fn register_taken_shortcuts(&mut self, km: &KeyboardMapping) {
         for (key, list) in km.iter() {
             for (modifiers, _) in list.iter() {
@@ -45,6 +55,7 @@ impl TabLabels {
 
     pub fn update(&mut self, ctx: &Context, db: &mut Database) {
         self.refresh_cache(db);
+        self.refresh_used_labels(db);
         self.read_key(ctx);
 
         CentralPanel::default().show(ctx, |ui| {
@@ -141,7 +152,9 @@ impl TabLabels {
                     }
 
                     // column #6
-                    if ui.button(ICON_DELETE).clicked() {
+                    let enabled = !self.used_labels.contains(&entry.label);
+                    let btn = Button::new(ICON_DELETE);
+                    if ui.add_enabled(enabled, btn).clicked() {
                         action = Action::Remove(id.clone());
                     }
 
@@ -180,6 +193,22 @@ impl TabLabels {
         }
 
         self.cache = crate::labels::from_db(db);
+    }
+
+    fn refresh_used_labels(&mut self, db: &Database) {
+        if self.posts_version == db.current_version.posts {
+            return;
+        }
+
+        self.posts_version = db.current_version.posts;
+        self.used_labels.clear();
+        for post in db.posts.iter() {
+            for label in post.labels.iter() {
+                if !self.used_labels.contains(label) {
+                    self.used_labels.insert(label.to_owned());
+                }
+            }
+        }
     }
 
     fn read_key(&mut self, ctx: &Context) {

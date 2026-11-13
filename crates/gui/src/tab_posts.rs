@@ -923,6 +923,15 @@ impl TabPosts {
         }
     }
 
+    pub fn for_each_keymap<F>(&self, mut callback: F)
+    where
+        F: FnMut(&KeyboardMapping),
+    {
+        callback(&self.fullscreen_keyboard_mapping);
+        callback(&self.main_keyboard_mapping);
+        callback(&self.selectors_keyboard_mapping);
+    }
+
     fn save_selected(&self) -> Option<SelectedState> {
         let id = self.selected?;
         let position = self.view.iter().position(|post_id| *post_id == id)?;

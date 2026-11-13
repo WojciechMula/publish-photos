@@ -187,9 +187,11 @@ impl Application {
         let keyboard_mapping = Self::create_mapping();
 
         let posts = TabPosts::new();
-        let mut labels = TabLabels::default();
+        let mut labels = TabLabels::new();
         labels.register_taken_shortcuts(&keyboard_mapping);
-        labels.register_taken_shortcuts(posts.get_keyboard_mapping());
+        posts.for_each_keymap(|keymap| {
+            labels.register_taken_shortcuts(keymap);
+        });
 
         Self {
             db,
