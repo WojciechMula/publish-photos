@@ -15,7 +15,6 @@ use db::Post;
 use db::PostId;
 use db::PublishedState;
 use db::Species;
-use db::TaxonomicRank;
 use egui::vec2;
 use egui::Align;
 use egui::Button;
@@ -232,65 +231,51 @@ pub fn render_text(post: &Post, db: &Database) -> String {
         f.writeln(format!("{EN_EMOJI} {}", post.en));
     }
 
-    if post.species_id.is_some() && !f.is_empty() {
-        f.newline();
+    let only_species = f.is_empty();
+    if post.species_id.is_some() {
+        if !only_species {
+            f.newline();
+        }
 
         let species_id = post.species_id.as_ref().unwrap();
         let species = db.species_by_id(species_id).unwrap();
 
-        let has_pl = !species.pl.is_empty();
-        let has_en = !species.en.is_empty();
+        let pl = format_pl_species(species);
+        let en = format_en_species(species);
+        let latin = format_latin_species(species);
 
-        f.writeln(match (has_pl, has_en) {
-            (false, false) => species_id.to_string(),
-            (true, false) => format!("{species_id} ({PL_EMOJI} {})", format_pl_species(species)),
-            (false, true) => format!("{species_id} ({EN_EMOJI} {})", format_en_species(species)),
-            (true, true) => format!(
-                "{species_id} ({PL_EMOJI} {} {EN_EMOJI} {})",
-                format_pl_species(species),
-                format_en_species(species)
-            ),
-        });
-    }
+        let has_pl = !pl.is_empty();
+        let has_en = !en.is_empty();
 
-    if post.species_id.is_some() && f.is_empty() {
-        let species_id = post.species_id.as_ref().unwrap();
-        let species = db.species_by_id(species_id).unwrap();
-
-        if !species.pl.is_empty() {
-            f.writeln(format!(
-                "{PL_EMOJI} {} ({})",
-                format_pl_species(species),
-                species_id
-            ));
-            if !species.en.is_empty() {
-                f.writeln(format!(
-                    "{EN_EMOJI} {} ({})",
-                    format_en_species(species),
-                    species_id
-                ));
+        if only_species {
+            if has_pl {
+                f.writeln(format!("{PL_EMOJI} {pl} ({latin})"));
             }
-        } else if !species.en.is_empty() {
-            f.writeln(format!(
-                "{EN_EMOJI} {} ({})",
-                format_en_species(species),
-                species_id
-            ));
+
+            if has_en {
+                f.writeln(format!("{EN_EMOJI} {en} ({latin})"));
+            }
+
+            if !has_pl && !has_en {
+                let tr = species.taxonomic_rank;
+                if tr.is_species() {
+                    f.writeln(species.latin.to_string());
+                } else {
+                    if tr.pl_name() != tr.latin_name() {
+                        f.writeln(format!("{PL_EMOJI} {} {}", tr.pl_name(), species.latin));
+                    }
+                    if tr.en_name() != tr.latin_name() {
+                        f.writeln(format!("{EN_EMOJI} {} {}", tr.en_name(), species.latin));
+                    }
+                }
+            }
         } else {
-            if species.taxonomic_rank == TaxonomicRank::Species {
-                f.writeln(species.latin.as_str().to_string());
-            } else {
-                f.writeln(format!(
-                    "{PL_EMOJI} {} {}",
-                    species.taxonomic_rank.pl_name(),
-                    species_id,
-                ));
-                f.writeln(format!(
-                    "{EN_EMOJI} {} {}",
-                    species.taxonomic_rank.en_name(),
-                    species_id,
-                ));
-            }
+            f.writeln(match (has_pl, has_en) {
+                (false, false) => latin,
+                (true, false) => format!("{latin} ({PL_EMOJI} {pl})"),
+                (false, true) => format!("{latin} ({EN_EMOJI} {en})"),
+                (true, true) => format!("{latin} ({PL_EMOJI} {pl} {EN_EMOJI} {en})"),
+            });
         }
     }
 
@@ -311,8 +296,20 @@ pub fn render_text(post: &Post, db: &Database) -> String {
     f.buf
 }
 
+fn format_latin_species(species: &Species) -> String {
+    if species.taxonomic_rank.is_species() {
+        species.latin.to_string()
+    } else {
+        format!("{} {}", species.taxonomic_rank.latin_name(), species.latin)
+    }
+}
+
 fn format_pl_species(species: &Species) -> String {
-    if species.taxonomic_rank == TaxonomicRank::Species {
+    if species.pl.is_empty() {
+        return String::new();
+    }
+
+    if species.taxonomic_rank.is_species() {
         species.pl.clone()
     } else {
         format!("{} {}", species.taxonomic_rank.pl_name(), species.pl)
@@ -320,7 +317,11 @@ fn format_pl_species(species: &Species) -> String {
 }
 
 fn format_en_species(species: &Species) -> String {
-    if species.taxonomic_rank == TaxonomicRank::Species {
+    if species.en.is_empty() {
+        return String::new();
+    }
+
+    if species.taxonomic_rank.is_species() {
         species.en.clone()
     } else {
         format!("{} {}", species.taxonomic_rank.en_name(), species.en)

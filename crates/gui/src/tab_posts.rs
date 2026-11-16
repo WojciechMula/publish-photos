@@ -1689,7 +1689,7 @@ impl TabPosts {
                     }
                 } else {
                     let color = ui.visuals().error_fg_color;
-                    ui.colored_label(color, format!("{species_id} does not exist"));
+                    ui.colored_label(color, format!("{species_id:?} does not exist"));
                 }
             } else {
                 if clipboard.available(ClipboardKind::Species) {

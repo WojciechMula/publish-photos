@@ -350,7 +350,7 @@ impl Database {
 
         for species in &self.species {
             let inserted = self.species2index.insert(species.id(), species.index);
-            assert!(inserted.is_none(), "species '{}' repeated", species.id());
+            assert!(inserted.is_none(), "species '{:?}' repeated", species.id());
         }
     }
 

@@ -213,12 +213,6 @@ impl From<&SpeciesId> for String {
     }
 }
 
-impl Display for SpeciesId {
-    fn fmt(&self, w: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(w, "{} {}", self.taxonomic_rank.latin_name(), self.latin)
-    }
-}
-
 impl TryFrom<String> for SpeciesId {
     type Error = &'static str;
 
