@@ -619,8 +619,7 @@ impl TabPosts {
                 self.inline_editors.remove(&(id, field));
             }
             Message::Select(id) => {
-                self.scroll_to_selected = self.selected != Some(id);
-                self.selected = Some(id);
+                self.set_selected(Some(id));
             }
             Message::Publish(id) => {
                 assert!(self.modal_window.is_none());
@@ -724,43 +723,35 @@ impl TabPosts {
             }
             Message::SelectNext => {
                 let id = move_selection(&self.view, self.selected, 1);
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::SelectPrev => {
                 let id = move_selection(&self.view, self.selected, -1);
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::SelectNextRow => {
                 let id = move_selection(&self.view, self.selected, self.grid_columns);
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::SelectPrevRow => {
                 let id = move_selection(&self.view, self.selected, -self.grid_columns);
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::SelectNextRowsMany => {
                 let id = move_selection(&self.view, self.selected, 5 * self.grid_columns);
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::SelectPrevRowsMany => {
                 let id = move_selection(&self.view, self.selected, -5 * self.grid_columns);
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::SelectFirst => {
                 let id = self.view.first().copied();
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::SelectLast => {
                 let id = self.view.last().copied();
-                self.scroll_to_selected = self.selected != id;
-                self.selected = id;
+                self.set_selected(id);
             }
             Message::FocusItem(id) => {
                 ctx.memory_mut(|mem| mem.request_focus(id));
@@ -900,18 +891,32 @@ impl TabPosts {
             Message::ExitFullScreen => {
                 if self.fullscreen.enabled {
                     self.fullscreen.enabled = false;
-                    self.scroll_to_selected = true;
+
+                    match self.fullscreen.selected {
+                        FullScreenSelectedState::None => {
+                            self.scroll_to_selected = true;
+                        }
+                        FullScreenSelectedState::SelectedNone => {
+                            self.selected = None;
+                        }
+                        FullScreenSelectedState::SelectedSome(id) => {
+                            self.selected = Some(id);
+                        }
+                    }
                 }
             }
             Message::EnterFullScreen => {
-                if !self.fullscreen.enabled {
-                    self.fullscreen.enabled = !self.view.is_empty();
-                    if self.fullscreen.enabled {
-                        if self.hovered.is_some() {
-                            self.selected = self.hovered.clone();
-                        } else if self.selected.is_none() {
-                            self.selected = self.view.first().cloned();
-                        }
+                if !self.fullscreen.enabled && !self.view.is_empty() {
+                    self.fullscreen.enabled = true;
+                    self.fullscreen.selected = match self.selected {
+                        Some(id) => FullScreenSelectedState::SelectedSome(id),
+                        None => FullScreenSelectedState::SelectedNone,
+                    };
+
+                    if self.hovered.is_some() {
+                        self.selected = self.hovered.clone();
+                    } else if self.selected.is_none() {
+                        self.selected = self.view.first().cloned();
                     }
                 }
             }
@@ -920,6 +925,16 @@ impl TabPosts {
                     self.fullscreen.show_filename = !self.fullscreen.show_filename;
                 }
             }
+        }
+    }
+
+    fn set_selected(&mut self, id: Option<PostId>) {
+        let changed = self.selected != id;
+        self.fullscreen.selected = FullScreenSelectedState::None;
+
+        if changed {
+            self.scroll_to_selected = !self.fullscreen.enabled;
+            self.selected = id;
         }
     }
 
@@ -1173,7 +1188,11 @@ impl TabPosts {
                         .unwrap_or_default()
                         + 1;
                     let n = self.view.len();
-                    let label = format!("[{k}/{n}] {}", post.file.rel_path.display());
+                    let label = format!(
+                        "[{k}/{n}] {} {:?}",
+                        post.file.rel_path.display(),
+                        self.fullscreen.selected
+                    );
 
                     add_overlay(
                         ui,
@@ -1867,6 +1886,7 @@ fn format_selector(selector: &Selector, count: usize) -> String {
 struct FullScreenView {
     enabled: bool,
     show_filename: bool,
+    selected: FullScreenSelectedState,
 }
 
 impl FullScreenView {
@@ -1874,8 +1894,16 @@ impl FullScreenView {
         Self {
             enabled: false,
             show_filename: true,
+            selected: FullScreenSelectedState::None,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+enum FullScreenSelectedState {
+    None,
+    SelectedNone,
+    SelectedSome(PostId),
 }
 
 struct SelectedState {
