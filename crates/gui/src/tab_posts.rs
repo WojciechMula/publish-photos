@@ -75,6 +75,7 @@ use egui::SidePanel;
 use egui::TextEdit;
 use egui::TopBottomPanel;
 use egui::Ui;
+use egui::Vec2;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -1143,6 +1144,29 @@ impl TabPosts {
         }
     }
 
+    fn handle_scroll_in_fullscreen(ui: &Ui, queue: &mut MessageQueue) {
+        let scroll_delta = ui.input_mut(|i| {
+            let val = i.smooth_scroll_delta;
+            i.smooth_scroll_delta = Vec2::ZERO;
+
+            val
+        });
+
+        let threshold = 10.0;
+
+        if scroll_delta.y > threshold {
+            queue.push_back(Message::SelectPrev);
+        } else if scroll_delta.y < -threshold {
+            queue.push_back(Message::SelectNext);
+        }
+
+        if scroll_delta.x > threshold {
+            queue.push_back(Message::SelectPrevRow);
+        } else if scroll_delta.x < -threshold {
+            queue.push_back(Message::SelectNextRow);
+        }
+    }
+
     fn draw_fullscreen(
         &self,
         ctx: &Context,
@@ -1160,6 +1184,8 @@ impl TabPosts {
         image_cache.request(post.file.uri.clone(), ctx);
 
         CentralPanel::default().show(ctx, |ui| {
+            Self::handle_scroll_in_fullscreen(ui, queue);
+
             ui.centered_and_justified(|ui| {
                 let resp = ui.add(
                     Image::from_uri(post.file.uri.clone())
@@ -1188,11 +1214,7 @@ impl TabPosts {
                         .unwrap_or_default()
                         + 1;
                     let n = self.view.len();
-                    let label = format!(
-                        "[{k}/{n}] {} {:?}",
-                        post.file.rel_path.display(),
-                        self.fullscreen.selected
-                    );
+                    let label = format!("[{k}/{n}] {}", post.file.rel_path.display(),);
 
                     add_overlay(
                         ui,
