@@ -68,12 +68,11 @@ use egui::KeyboardShortcut;
 use egui::Label;
 use egui::Layout;
 use egui::Modifiers;
+use egui::Panel;
 use egui::RichText;
 use egui::ScrollArea;
 use egui::Sense;
-use egui::SidePanel;
 use egui::TextEdit;
-use egui::TopBottomPanel;
 use egui::Ui;
 use egui::Vec2;
 use serde::Deserialize;
@@ -81,17 +80,17 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_BACKSPACE;
-use egui_material_icons::icons::ICON_CHECK;
-use egui_material_icons::icons::ICON_CLOSE;
-use egui_material_icons::icons::ICON_CONTENT_COPY;
-use egui_material_icons::icons::ICON_DIALOGS;
-use egui_material_icons::icons::ICON_EDIT;
-use egui_material_icons::icons::ICON_FULLSCREEN;
-use egui_material_icons::icons::ICON_GRID_ON;
-use egui_material_icons::icons::ICON_LIST;
-use egui_material_icons::icons::ICON_UNDO;
-use egui_material_icons::icons::ICON_VIEW_DAY;
+use crate::icons::ICON_BACKSPACE;
+use crate::icons::ICON_CHECK;
+use crate::icons::ICON_CLOSE;
+use crate::icons::ICON_CONTENT_COPY;
+use crate::icons::ICON_DIALOGS;
+use crate::icons::ICON_EDIT;
+use crate::icons::ICON_FULLSCREEN;
+use crate::icons::ICON_GRID_ON;
+use crate::icons::ICON_LIST;
+use crate::icons::ICON_UNDO;
+use crate::icons::ICON_VIEW_DAY;
 
 const ID_PREFIX: &str = "tab-posts";
 
@@ -453,15 +452,7 @@ impl TabPosts {
         eframe::set_value(storage, fmt!("{ID_PREFIX}-fullscreen"), &self.fullscreen);
     }
 
-    pub fn update(
-        &mut self,
-        ctx: &Context,
-        image_cache: &mut ImageCache,
-        style: &Style,
-        db: &mut Database,
-        main_queue: &mut MainMessageQueue,
-        clipboard: &Clipboard,
-    ) {
+    pub fn logic(&mut self, ctx: &Context, db: &mut Database, main_queue: &mut MainMessageQueue) {
         db.refresh_caches();
         if self.version != db.current_version.posts {
             self.queue.push_back(Message::RefreshView);
@@ -476,26 +467,34 @@ impl TabPosts {
             self.handle_message(ctx, db, msg, &mut queue, main_queue);
         }
 
-        if !queue.is_empty() {
-            self.queue = queue;
-            return;
-        }
+        self.queue = queue;
+    }
+
+    pub fn update(
+        &mut self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &mut Database,
+        clipboard: &Clipboard,
+    ) {
+        let mut queue = MessageQueue::new();
 
         match &mut self.modal_window {
             ModalWindow::None => {
-                self.draw(ctx, image_cache, style, db, &mut queue, clipboard);
+                self.draw(ui, image_cache, style, db, &mut queue, clipboard);
             }
             ModalWindow::ModalTags(window) => {
-                window.update(ctx, image_cache, style, db, &mut queue);
+                window.update(ui, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalSpecies(window) => {
-                window.update(ctx, image_cache, style, db, &mut queue);
+                window.update(ui, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalPublish(window) => {
-                window.update(ctx, image_cache, style, db, &mut queue);
+                window.update(ui, image_cache, style, db, &mut queue);
             }
             ModalWindow::ModalDescription(window) => {
-                window.update(ctx, image_cache, style, db, &mut queue);
+                window.update(ui, image_cache, style, db, &mut queue);
             }
         }
 
@@ -554,7 +553,7 @@ impl TabPosts {
             Message::InlineEditStart { id, field } => {
                 let post = db.post(&id);
                 let key = (post.id, field);
-                let id = Id::new(("inline-editor", id, field));
+                let id = Id::unique(("inline-editor", id, field));
 
                 let editor = InlineEditor {
                     id,
@@ -1130,7 +1129,7 @@ impl TabPosts {
 
     fn draw(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
@@ -1138,9 +1137,9 @@ impl TabPosts {
         clipboard: &Clipboard,
     ) {
         if self.fullscreen.enabled {
-            self.draw_fullscreen(ctx, image_cache, style, db, queue);
+            self.draw_fullscreen(ui, image_cache, style, db, queue);
         } else {
-            self.draw_multiple(ctx, image_cache, style, db, queue, clipboard);
+            self.draw_multiple(ui, image_cache, style, db, queue, clipboard);
         }
     }
 
@@ -1169,7 +1168,7 @@ impl TabPosts {
 
     fn draw_fullscreen(
         &self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
@@ -1181,9 +1180,9 @@ impl TabPosts {
 
         let post = db.post(&id);
 
-        image_cache.request(post.file.uri.clone(), ctx);
+        image_cache.request(post.file.uri.clone(), ui.ctx());
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             Self::handle_scroll_in_fullscreen(ui, queue);
 
             ui.centered_and_justified(|ui| {
@@ -1230,14 +1229,14 @@ impl TabPosts {
 
     fn draw_multiple(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         queue: &mut MessageQueue,
         clipboard: &Clipboard,
     ) {
-        TopBottomPanel::top(fmt!("{ID_PREFIX}-filter")).show(ctx, |ui| {
+        Panel::top(fmt!("{ID_PREFIX}-filter")).show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
                     self.filter.view(ui, db, queue);
@@ -1268,7 +1267,7 @@ impl TabPosts {
 
         let mut selectors_has_focus = false;
         if self.show_selectors {
-            let resp = SidePanel::left(fmt!("{ID_PREFIX}-list")).show(ctx, |ui| {
+            let resp = Panel::left(fmt!("{ID_PREFIX}-list")).show(ui, |ui| {
                 self.draw_selectors(ui, db, queue);
             });
             selectors_has_focus = resp.response.hovered();
@@ -1278,7 +1277,7 @@ impl TabPosts {
             queue.push_back(Message::SelectorListHasFocus(selectors_has_focus));
         }
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             match self.view_kind {
                 ViewKind::List => self.draw_main_list(ui, image_cache, style, db, queue, clipboard),
                 ViewKind::Grid => self.draw_grid(ui, image_cache, style, db, queue),

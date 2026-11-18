@@ -36,7 +36,7 @@ impl ModalSettings {
         Self {
             new: style.clone(),
             original: style.clone(),
-            live_preview_id: Id::new(fmt!("{ID_PREFIX}-live-preview")),
+            live_preview_id: Id::unique(fmt!("{ID_PREFIX}-live-preview")),
             keyboard_mapping,
         }
     }

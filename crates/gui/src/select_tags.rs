@@ -26,8 +26,8 @@ use egui::SetOpenCommand;
 use egui::TextEdit;
 use egui::Ui;
 
-use egui_material_icons::icons::ICON_ADD;
-use egui_material_icons::icons::ICON_BACKSPACE;
+use crate::icons::ICON_ADD;
+use crate::icons::ICON_BACKSPACE;
 
 pub struct SelectTags {
     new_tag: String,
@@ -69,7 +69,7 @@ impl From<Action> for SelectTagsAction {
 
 impl SelectTags {
     pub fn new(id: Id) -> Self {
-        let show_pl_translations = Id::new("show-pl-translations");
+        let show_pl_translations = Id::unique("show-pl-translations");
 
         Self {
             new_tag: String::new(),
@@ -82,7 +82,7 @@ impl SelectTags {
             dragged_tag: None,
             dragged_target: None,
             drag_start_tags: None,
-            text_edit_id: Id::new((id, "select-tag")),
+            text_edit_id: Id::unique((id, "select-tag")),
             show_pl_translations,
             first_run: true,
             show_popup: true,
@@ -292,7 +292,7 @@ impl SelectTags {
         };
 
         let pos = pointer_pos;
-        Area::new(Id::new((self.text_edit_id, "drag-preview")))
+        Area::new(Id::unique((self.text_edit_id, "drag-preview")))
             .order(Order::Foreground)
             .interactable(false)
             .fixed_pos(pos)

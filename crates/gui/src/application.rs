@@ -31,16 +31,16 @@ use egui::Id;
 use egui::Key;
 use egui::Layout;
 use egui::Modal;
+use egui::Panel;
 use egui::Sense;
-use egui::TopBottomPanel;
 use egui::ViewportCommand;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_HELP;
-use egui_material_icons::icons::ICON_SETTINGS;
-use egui_material_icons::icons::ICON_WARNING;
+use crate::icons::ICON_HELP;
+use crate::icons::ICON_SETTINGS;
+use crate::icons::ICON_WARNING;
 
 pub struct Application {
     db: Database,
@@ -416,7 +416,7 @@ impl Application {
 }
 
 impl eframe::App for Application {
-    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
         if !self.initialized {
             egui_extras::install_image_loaders(ctx);
             egui_material_icons::initialize(ctx);
@@ -425,9 +425,10 @@ impl eframe::App for Application {
             }
             self.initialized = true;
 
-            ctx.style_mut(|style| style.scroll_animation = ScrollAnimation::none());
+            ctx.global_style_mut(|style| style.scroll_animation = ScrollAnimation::none());
         }
 
+        self.image_cache.load_requested(ctx);
         self.db.refresh_caches();
 
         self.keyboard(ctx);
@@ -443,7 +444,19 @@ impl eframe::App for Application {
             }
         }
 
-        TopBottomPanel::top("main-window-controls").show(ctx, |ui| {
+        match self.active_tab {
+            Tab::Posts => self.posts.logic(ctx, &mut self.db, &mut self.queue),
+            Tab::Species => self
+                .species
+                .logic(ctx, &self.style, &mut self.db, &mut self.queue),
+            Tab::TagTranslations => self.tag_translations.logic(ctx, &mut self.db),
+            Tab::TagGroups => self.tag_groups.logic(&mut self.db, &mut self.queue),
+            Tab::Labels => self.labels.logic(ctx, &mut self.db),
+        }
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        Panel::top("main-window-controls").show(ui, |ui| {
             ui.columns_const::<2, ()>(|[col1, col2]| {
                 col1.horizontal(|ui| {
                     for tab in [
@@ -485,36 +498,29 @@ impl eframe::App for Application {
 
         match self.active_tab {
             Tab::Posts => self.posts.update(
-                ctx,
+                ui,
                 &mut self.image_cache,
                 &self.style,
                 &mut self.db,
-                &mut self.queue,
                 &self.clipboard,
             ),
-            Tab::Species => self.species.update(
-                ctx,
-                &mut self.image_cache,
-                &self.style,
-                &mut self.db,
-                &mut self.queue,
-            ),
-            Tab::TagTranslations => self.tag_translations.update(ctx, &mut self.db),
-            Tab::TagGroups => {
-                self.tag_groups
-                    .update(ctx, &self.style, &mut self.db, &mut self.queue)
+            Tab::Species => {
+                self.species
+                    .update(ui, &mut self.image_cache, &self.style, &mut self.db)
             }
-            Tab::Labels => self.labels.update(ctx, &mut self.db),
+            Tab::TagTranslations => self.tag_translations.update(ui, &mut self.db),
+            Tab::TagGroups => self.tag_groups.update(ui, &self.style, &mut self.db),
+            Tab::Labels => self.labels.update(ui, &mut self.db),
         }
 
         for (id, window) in self.modal_window.iter_mut().rev().enumerate() {
-            let id = Id::new(("modal-window", id));
+            let id = Id::unique(("modal-window", id));
             let mut modal = Modal::new(id);
             modal.area = modal
                 .area
-                .default_height(ctx.content_rect().height() * 0.75);
+                .default_height(ui.ctx().content_rect().height() * 0.75);
 
-            modal.show(ctx, |ui| {
+            modal.show(ui, |ui| {
                 window.update(
                     ui,
                     &mut self.image_cache,
@@ -524,8 +530,6 @@ impl eframe::App for Application {
                 );
             });
         }
-
-        self.image_cache.load_requested(ctx);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -541,7 +545,7 @@ impl eframe::App for Application {
 }
 
 fn keyboard_action(ctx: &Context, keyboard_mapping: &KeyboardMapping) -> Option<Message> {
-    if ctx.wants_keyboard_input() {
+    if ctx.egui_wants_keyboard_input() {
         ctx.input_mut(|input_mut| keyboard_mapping.lookup_only_combined(input_mut))
     } else {
         ctx.input_mut(|input_mut| keyboard_mapping.lookup(input_mut))

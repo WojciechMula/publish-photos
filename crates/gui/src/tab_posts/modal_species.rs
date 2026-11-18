@@ -30,16 +30,15 @@ use egui::Id;
 use egui::Key;
 use egui::Label;
 use egui::Layout;
+use egui::Panel;
 use egui::ScrollArea;
-use egui::SidePanel;
-use egui::TopBottomPanel;
 use egui::Ui;
 use species::RecentSpecies;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_MAGNIFICATION_LARGE;
-use egui_material_icons::icons::ICON_MAGNIFICATION_SMALL;
-use egui_material_icons::icons::ICON_WARNING;
+use crate::icons::ICON_MAGNIFICATION_LARGE;
+use crate::icons::ICON_MAGNIFICATION_SMALL;
+use crate::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "modal-post-species";
 
@@ -160,10 +159,9 @@ impl ModalSpecies {
         res
     }
 
-    pub fn update(
+    fn logic(
         &mut self,
         ctx: &Context,
-        image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
@@ -171,7 +169,7 @@ impl ModalSpecies {
         if self.first_run {
             self.search_box.restore(ctx);
             self.history = ctx.data_mut(|data| {
-                data.get_persisted(Id::new((ID_PREFIX, "history")))
+                data.get_persisted(Id::unique((ID_PREFIX, "history")))
                     .unwrap_or_default()
             });
         }
@@ -189,10 +187,20 @@ impl ModalSpecies {
         while let Some(message) = self.queue.pop_front() {
             self.handle_message(ctx, message, style, db, tab_queue);
         }
+    }
 
+    pub fn update(
+        &mut self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &mut Database,
+        tab_queue: &mut TabMessageQueue,
+    ) {
+        self.logic(ui.ctx(), style, db, tab_queue);
         let mut queue = MessageQueue::new();
 
-        self.draw(ctx, image_cache, style, db, tab_queue, &mut queue);
+        self.draw(ui, image_cache, style, db, tab_queue, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -327,26 +335,27 @@ impl ModalSpecies {
         }
 
         ctx.data_mut(|data| {
-            data.insert_persisted(Id::new((ID_PREFIX, "history")), self.history.clone())
+            let id = Id::unique((ID_PREFIX, "history"));
+            data.insert_persisted(id, self.history.clone())
         });
     }
 
     fn draw(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         tab_queue: &mut TabMessageQueue,
         queue: &mut MessageQueue,
     ) {
-        SidePanel::left(fmt!("{ID_PREFIX}-left"))
+        Panel::left(fmt!("{ID_PREFIX}-left"))
             .resizable(true)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 self.draw_header(ui, image_cache, style, db, tab_queue, queue);
             });
 
-        TopBottomPanel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ctx, |ui| {
+        Panel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
                 if button::save(ui, self.is_modified(), Some(style.button.save)) {
                     queue.push_back(Message::SaveAndExit);
@@ -357,7 +366,7 @@ impl ModalSpecies {
             });
         });
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.horizontal(|ui| {
                     if let Some(action) = self.search_box.show(ui) {

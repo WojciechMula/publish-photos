@@ -26,8 +26,7 @@ fn label_button_ui(ui: &mut Ui, text: &str, fg: Color32, bg: Color32, sense: Sen
 
     let size_padding = Vec2::new(size.x + 2.0 * padding.x, size.y + 2.0 * padding.y);
 
-    let (rect, mut response) = ui.allocate_exact_size(size_padding, sense);
-    response.intrinsic_size = Some(galley.intrinsic_size());
+    let (rect, response) = ui.allocate_exact_size(size_padding, sense);
 
     if ui.is_rect_visible(response.rect) {
         let pos = rect.translate(padding).left_top();

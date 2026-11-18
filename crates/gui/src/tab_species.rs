@@ -25,10 +25,10 @@ use egui::ScrollArea;
 use egui::Ui;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_ARROW_DOWNWARD;
-use egui_material_icons::icons::ICON_ARROW_UPWARD;
-use egui_material_icons::icons::ICON_FORMAT_LIST_NUMBERED;
-use egui_material_icons::icons::ICON_SORT_BY_ALPHA;
+use crate::icons::ICON_ARROW_DOWNWARD;
+use crate::icons::ICON_ARROW_UPWARD;
+use crate::icons::ICON_FORMAT_LIST_NUMBERED;
+use crate::icons::ICON_SORT_BY_ALPHA;
 
 const ID_PREFIX: &str = "tab-species";
 
@@ -113,10 +113,9 @@ impl Default for TabSpecies {
 }
 
 impl TabSpecies {
-    pub fn update(
+    pub fn logic(
         &mut self,
         ctx: &Context,
-        image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
         main_queue: &mut MainMessageQueue,
@@ -135,12 +134,20 @@ impl TabSpecies {
         while let Some(msg) = self.queue.pop_front() {
             self.handle_message(ctx, db, msg, main_queue);
         }
+    }
 
+    pub fn update(
+        &mut self,
+        ui: &mut Ui,
+        image_cache: &mut ImageCache,
+        style: &Style,
+        db: &mut Database,
+    ) {
         let mut queue = MessageQueue::new();
         if let Some(window) = self.modal_windows.last_mut() {
-            window.update(ctx, image_cache, style, db, &mut queue);
+            window.update(ui, image_cache, style, db, &mut queue);
         } else {
-            self.draw(ctx, image_cache, style, db, &mut queue);
+            self.draw(ui, image_cache, style, db, &mut queue);
         }
 
         while let Some(msg) = queue.pop_front() {
@@ -292,13 +299,13 @@ impl TabSpecies {
 
     pub fn draw(
         &self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         queue: &mut MessageQueue,
     ) {
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             self.draw_main(ui, image_cache, style, db, queue);
         });
     }

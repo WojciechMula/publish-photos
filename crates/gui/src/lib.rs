@@ -5,6 +5,7 @@ mod colors;
 mod confirm;
 mod gui;
 mod help;
+mod icons;
 mod image_cache;
 mod image_counter;
 mod keyboard;

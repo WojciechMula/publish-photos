@@ -21,20 +21,18 @@ use db::TaxonomicRank;
 use egui::Align;
 use egui::CentralPanel;
 use egui::ComboBox;
-use egui::Context;
 use egui::Grid;
 use egui::Key;
 use egui::Layout;
+use egui::Panel;
 use egui::ScrollArea;
-use egui::SidePanel;
-use egui::TopBottomPanel;
 use egui::Ui;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use url::Url;
 
-use egui_material_icons::icons::ICON_CONTENT_PASTE;
-use egui_material_icons::icons::ICON_WARNING;
+use crate::icons::ICON_CONTENT_PASTE;
+use crate::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "modal-edit-species";
 
@@ -132,7 +130,7 @@ impl ModalEdit {
 
     pub fn update(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
@@ -145,7 +143,7 @@ impl ModalEdit {
         }
 
         let mut queue = MessageQueue::new();
-        self.draw(ctx, image_cache, style, &mut queue);
+        self.draw(ui, image_cache, style, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -288,15 +286,15 @@ impl ModalEdit {
 
     fn draw(
         &self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         queue: &mut MessageQueue,
     ) {
-        SidePanel::left(fmt!("{ID_PREFIX}-left"))
+        Panel::left(fmt!("{ID_PREFIX}-left"))
             .resizable(false)
-            .min_width(style.image.preview_width)
-            .show(ctx, |ui| {
+            //.min_width(style.image.preview_width)
+            .show(ui, |ui| {
                 if let Some(species) = &self.original {
                     ScrollArea::vertical()
                         .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
@@ -316,7 +314,7 @@ impl ModalEdit {
                 }
             });
 
-        TopBottomPanel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ctx, |ui| {
+        Panel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                 if button::save(ui, self.is_modified(), Some(style.button.save)) {
                     queue.push_back(Message::SaveAndExit);
@@ -327,7 +325,7 @@ impl ModalEdit {
             });
         });
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             self.draw_details(ui, queue);
         });
     }

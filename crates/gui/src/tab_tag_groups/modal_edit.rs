@@ -21,11 +21,11 @@ use egui::Context;
 use egui::Id;
 use egui::Key;
 use egui::Layout;
-use egui::TopBottomPanel;
+use egui::Panel;
 use egui::Ui;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_WARNING;
+use crate::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "model-edit-tag-group";
 
@@ -96,7 +96,7 @@ impl Default for ModalEdit {
     fn default() -> Self {
         Self {
             title: String::new(),
-            select_tags: SelectTags::new(Id::new(ID_PREFIX)),
+            select_tags: SelectTags::new(Id::unique(ID_PREFIX)),
             name: String::new(),
             enabled: true,
             original: None,
@@ -119,7 +119,7 @@ impl ModalEdit {
     pub fn edit(group: &TagGroup) -> Self {
         Self {
             title: "Editing group".to_owned(),
-            select_tags: SelectTags::edit(Id::new(ID_PREFIX), &group.tags),
+            select_tags: SelectTags::edit(Id::unique(ID_PREFIX), &group.tags),
             name: group.name.clone(),
             enabled: group.enabled,
             original: Some(group.clone()),
@@ -140,11 +140,12 @@ impl ModalEdit {
 
     pub fn update(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         style: &Style,
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        let ctx = ui.ctx();
         self.select_tags.init(ctx);
 
         while let Some(msg) = self.queue.pop_front() {
@@ -164,7 +165,7 @@ impl ModalEdit {
         }
 
         let mut queue = MessageQueue::new();
-        self.draw(ctx, style, &mut queue);
+        self.draw(ui, style, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -280,8 +281,8 @@ impl ModalEdit {
         }
     }
 
-    fn draw(&mut self, ctx: &Context, style: &Style, queue: &mut MessageQueue) {
-        TopBottomPanel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ctx, |ui| {
+    fn draw(&mut self, ui: &mut Ui, style: &Style, queue: &mut MessageQueue) {
+        Panel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                 if self.label_width == 0.0 {
                     self.label_width = crate::gui::max_size(&["Tags:", "Name:"], ui);
@@ -297,7 +298,7 @@ impl ModalEdit {
             });
         });
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     ui.heading(&self.title);

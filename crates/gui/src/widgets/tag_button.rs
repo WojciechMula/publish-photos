@@ -59,8 +59,7 @@ fn tag_button_ui(
     } else {
         Sense::HOVER | Sense::CLICK
     };
-    let (rect, mut response) = ui.allocate_exact_size(size_padding, sense);
-    response.intrinsic_size = Some(galley.intrinsic_size());
+    let (rect, response) = ui.allocate_exact_size(size_padding, sense);
 
     if ui.is_rect_visible(response.rect) {
         let pos = rect.translate(padding).left_top();

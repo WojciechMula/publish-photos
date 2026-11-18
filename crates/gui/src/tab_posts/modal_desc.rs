@@ -23,13 +23,13 @@ use egui::Context;
 use egui::Id;
 use egui::Key;
 use egui::Layout;
+use egui::Panel;
 use egui::ScrollArea;
-use egui::SidePanel;
 use egui::TextEdit;
-use egui::TopBottomPanel;
+use egui::Ui;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_WARNING;
+use crate::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "post-description";
 
@@ -107,8 +107,8 @@ impl ModalDescription {
             original,
             queue,
             keyboard_mapping: Self::create_mapping(),
-            pl_text_edit_id: Id::new((ID_PREFIX, "pl_text_edit_id")),
-            en_text_edit_id: Id::new((ID_PREFIX, "en_text_edit_id")),
+            pl_text_edit_id: Id::unique((ID_PREFIX, "pl_text_edit_id")),
+            en_text_edit_id: Id::unique((ID_PREFIX, "en_text_edit_id")),
         }
     }
 
@@ -194,21 +194,22 @@ impl ModalDescription {
 
     pub fn update(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        let ctx = ui.ctx();
         while let Some(msg) = self.queue.pop_front() {
             self.handle_message(ctx, msg, style, tab_queue);
         }
 
         let post = db.post(&self.id);
 
-        SidePanel::left(fmt!("{ID_PREFIX}-left"))
+        Panel::left(fmt!("{ID_PREFIX}-left"))
             .resizable(false)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
@@ -222,7 +223,7 @@ impl ModalDescription {
                     });
             });
 
-        TopBottomPanel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ctx, |ui| {
+        Panel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                 if button::save(ui, self.is_modified(), Some(style.button.save)) {
                     self.queue.push_back(Message::SaveAndExit);
@@ -233,7 +234,7 @@ impl ModalDescription {
             });
         });
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.horizontal(|ui| {
                     icon_pl(ui);

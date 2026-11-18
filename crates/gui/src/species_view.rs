@@ -19,9 +19,9 @@ use egui::Ui;
 use egui::UiBuilder;
 use egui::Vec2;
 
-use egui_material_icons::icons::ICON_ARROW_BACK_2;
-use egui_material_icons::icons::ICON_CONTENT_COPY;
-use egui_material_icons::icons::ICON_PLAY_ARROW;
+use crate::icons::ICON_ARROW_BACK_2;
+use crate::icons::ICON_CONTENT_COPY;
+use crate::icons::ICON_PLAY_ARROW;
 
 #[derive(Default)]
 pub struct SpeciesList {

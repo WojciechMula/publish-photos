@@ -6,8 +6,8 @@ use egui::Id;
 use egui::Label;
 use egui::Ui;
 
-use egui_material_icons::icons::ICON_BACKSPACE;
-use egui_material_icons::icons::ICON_SEARCH;
+use crate::icons::ICON_BACKSPACE;
+use crate::icons::ICON_SEARCH;
 
 const ID_PREFIX: &str = "search-box-";
 
@@ -19,7 +19,7 @@ pub struct SearchBox {
 impl SearchBox {
     pub fn new(id: &str) -> Self {
         Self {
-            input: HistoryInput::new(Id::new(id)).with_hint("search..."),
+            input: HistoryInput::new(Id::unique(id)).with_hint("search..."),
             state_key: format!("{ID_PREFIX}-{id}"),
         }
     }

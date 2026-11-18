@@ -7,6 +7,7 @@ use egui::Modifiers;
 use egui::Pos2;
 use egui::Rect;
 use egui::Response;
+use egui::Role;
 use egui::Sense;
 use egui::Stroke;
 use egui::StrokeKind;
@@ -14,13 +15,12 @@ use egui::Ui;
 use egui::Vec2;
 use egui::Widget;
 use egui::WidgetInfo;
-use egui::WidgetType;
 use std::sync::Arc;
 
-use egui_material_icons::icons::ICON_ARROW_BACK;
-use egui_material_icons::icons::ICON_ARROW_DOWNWARD;
-use egui_material_icons::icons::ICON_ARROW_FORWARD;
-use egui_material_icons::icons::ICON_ARROW_UPWARD;
+use crate::icons::ICON_ARROW_BACK;
+use crate::icons::ICON_ARROW_DOWNWARD;
+use crate::icons::ICON_ARROW_FORWARD;
+use crate::icons::ICON_ARROW_UPWARD;
 
 pub struct Shortcut {
     modifiers: Modifiers,
@@ -119,7 +119,7 @@ impl Widget for Shortcut {
 
         response.widget_info(|| {
             WidgetInfo::labeled(
-                WidgetType::Label,
+                Role::Label,
                 ui.is_enabled(),
                 crate::keyboard::format_shortcut(&self.key, &self.modifiers),
             )

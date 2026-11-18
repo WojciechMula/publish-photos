@@ -42,7 +42,7 @@ impl HistoryInput {
     pub fn new(id: Id) -> Self {
         Self {
             id,
-            popup_id: Id::new((id, "popup")),
+            popup_id: Id::unique((id, "popup")),
             current: String::new(),
             history: VecDeque::new(),
             filtered: Vec::new(),

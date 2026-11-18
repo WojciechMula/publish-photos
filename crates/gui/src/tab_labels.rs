@@ -17,7 +17,7 @@ use egui::Ui;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
-use egui_material_icons::icons::ICON_DELETE;
+use crate::icons::ICON_DELETE;
 
 const ID_PREFIX: &str = "tab-labels";
 
@@ -53,12 +53,14 @@ impl TabLabels {
         }
     }
 
-    pub fn update(&mut self, ctx: &Context, db: &mut Database) {
+    pub fn logic(&mut self, ctx: &Context, db: &mut Database) {
         self.refresh_cache(db);
         self.refresh_used_labels(db);
         self.read_key(ctx);
+    }
 
-        CentralPanel::default().show(ctx, |ui| {
+    pub fn update(&mut self, ui: &mut Ui, db: &mut Database) {
+        CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(&mut self.new);
                 let new = self.new.trim();

@@ -19,16 +19,15 @@ use egui::vec2;
 use egui::Align;
 use egui::Button;
 use egui::CentralPanel;
-use egui::Context;
 use egui::Key;
 use egui::Layout;
+use egui::Panel;
 use egui::ScrollArea;
-use egui::SidePanel;
-use egui::TopBottomPanel;
+use egui::Ui;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_CONTENT_COPY;
-use egui_material_icons::icons::ICON_PUBLISH;
+use crate::icons::ICON_CONTENT_COPY;
+use crate::icons::ICON_PUBLISH;
 
 const ID_PREFIX: &str = "publish-image";
 
@@ -136,7 +135,7 @@ impl ModalPublish {
 
     pub fn update(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &mut Database,
@@ -148,9 +147,9 @@ impl ModalPublish {
 
         let post = db.post(&self.id);
 
-        SidePanel::left(fmt!("{ID_PREFIX}-left"))
+        Panel::left(fmt!("{ID_PREFIX}-left"))
             .resizable(false)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
@@ -164,7 +163,7 @@ impl ModalPublish {
                     });
             });
 
-        TopBottomPanel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ctx, |ui| {
+        Panel::bottom(fmt!("{ID_PREFIX}-buttons")).show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                 let button = Button::new(fmt!("{ICON_PUBLISH} Mark as published"))
                     .fill(style.button.publish);
@@ -179,7 +178,7 @@ impl ModalPublish {
             });
         });
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered_justified(|ui| {
                 let mut read_only: &str = &self.entries[0].text;
                 ui.text_edit_multiline(&mut read_only);

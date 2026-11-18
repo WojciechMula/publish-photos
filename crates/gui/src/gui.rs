@@ -22,11 +22,11 @@ use egui::UiBuilder;
 use egui::Vec2;
 use egui::Widget;
 
-use egui_material_icons::icons::ICON_CANCEL;
-use egui_material_icons::icons::ICON_CHECK;
-use egui_material_icons::icons::ICON_CONTENT_COPY;
-use egui_material_icons::icons::ICON_CONTENT_PASTE;
-use egui_material_icons::icons::ICON_EDIT;
+use crate::icons::ICON_CANCEL;
+use crate::icons::ICON_CHECK;
+use crate::icons::ICON_CONTENT_COPY;
+use crate::icons::ICON_CONTENT_PASTE;
+use crate::icons::ICON_EDIT;
 
 // --------------------------------------------------
 

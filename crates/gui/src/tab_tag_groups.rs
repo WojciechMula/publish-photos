@@ -11,7 +11,6 @@ use db::TagGroup;
 use db::TagGroupId;
 use egui::Button;
 use egui::CentralPanel;
-use egui::Context;
 use egui::Key;
 use egui::ScrollArea;
 use egui::Ui;
@@ -21,9 +20,9 @@ mod modal_edit;
 use modal_edit::Message as ModalEditMessage;
 use modal_edit::ModalEdit;
 
-use egui_material_icons::icons::ICON_ARROW_DOWNWARD;
-use egui_material_icons::icons::ICON_ARROW_UPWARD;
-use egui_material_icons::icons::ICON_EDIT;
+use crate::icons::ICON_ARROW_DOWNWARD;
+use crate::icons::ICON_ARROW_UPWARD;
+use crate::icons::ICON_EDIT;
 
 const ID_PREFIX: &str = "tab-tag-groups";
 
@@ -86,26 +85,22 @@ impl Default for TabTagGroups {
 }
 
 impl TabTagGroups {
-    pub fn update(
-        &mut self,
-        ctx: &Context,
-        style: &Style,
-        db: &mut Database,
-        main_queue: &mut MainMessageQueue,
-    ) {
+    pub fn logic(&mut self, db: &mut Database, main_queue: &mut MainMessageQueue) {
         while let Some(msg) = self.queue.pop_front() {
             self.handle_message(db, msg, main_queue);
         }
 
         db.refresh_caches();
+    }
 
+    pub fn update(&mut self, ui: &mut Ui, style: &Style, db: &mut Database) {
         let mut queue = MessageQueue::new();
         match &mut self.modal_window {
             ModalWindow::None => {
-                self.draw(ctx, style, db, &mut queue);
+                self.draw(ui, style, db, &mut queue);
             }
             ModalWindow::ModalEdit(window) => {
-                window.update(ctx, style, db, &mut queue);
+                window.update(ui, style, db, &mut queue);
             }
         }
 
@@ -176,8 +171,8 @@ impl TabTagGroups {
         }
     }
 
-    fn draw(&self, ctx: &Context, style: &Style, db: &Database, queue: &mut MessageQueue) {
-        CentralPanel::default().show(ctx, |ui| {
+    fn draw(&self, ui: &mut Ui, style: &Style, db: &Database, queue: &mut MessageQueue) {
+        CentralPanel::default().show(ui, |ui| {
             ui.vertical(|ui| {
                 self.draw_header(ui, queue);
 

@@ -63,13 +63,15 @@ impl Default for TabTagTranslations {
 }
 
 impl TabTagTranslations {
-    pub fn update(&mut self, ctx: &Context, db: &mut Database) {
+    pub fn logic(&mut self, ctx: &Context, db: &mut Database) {
         while let Some(msg) = self.queue.pop_front() {
             self.handle_message(ctx, db, msg);
         }
+    }
 
+    pub fn update(&mut self, ui: &mut Ui, db: &mut Database) {
         let mut queue = MessageQueue::new();
-        self.draw(ctx, db, &mut queue);
+        self.draw(ui, db, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -89,7 +91,7 @@ impl TabTagTranslations {
             Message::AddNew => {
                 let id = db.new_tag_translation();
                 self.scroll_to = Some(id);
-                ctx.memory_mut(|mem| mem.request_focus(Id::new(format!("en-{id}"))));
+                ctx.memory_mut(|mem| mem.request_focus(Id::unique(format!("en-{id}"))));
             }
             Message::ChangePolish { id, text } => {
                 db.tag_translations.0[id].pl = text;
@@ -108,8 +110,8 @@ impl TabTagTranslations {
         }
     }
 
-    fn draw(&self, ctx: &Context, db: &Database, queue: &mut MessageQueue) {
-        CentralPanel::default().show(ctx, |ui| {
+    fn draw(&self, ui: &mut Ui, db: &Database, queue: &mut MessageQueue) {
+        CentralPanel::default().show(ui, |ui| {
             self.draw_list(ui, db, queue);
         });
     }
@@ -163,7 +165,7 @@ impl TabTagTranslations {
             icon_en(ui);
 
             let mut en = trans.en.clone();
-            let edit = TextEdit::singleline(&mut en).id(Id::new(format!("en-{id}")));
+            let edit = TextEdit::singleline(&mut en).id(Id::unique(format!("en-{id}")));
             let resp = ui.add(edit);
             if resp.changed() {
                 queue.push_back(Message::ChangeEnglish { id, text: en });

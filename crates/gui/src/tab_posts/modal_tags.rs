@@ -28,15 +28,14 @@ use egui::Id;
 use egui::Key;
 use egui::Label;
 use egui::Layout;
+use egui::Panel;
 use egui::ScrollArea;
-use egui::SidePanel;
-use egui::TopBottomPanel;
 use egui::Ui;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_ADD;
-use egui_material_icons::icons::ICON_WARNING;
+use crate::icons::ICON_ADD;
+use crate::icons::ICON_WARNING;
 
 const ID_PREFIX: &str = "modal-post-tags";
 
@@ -107,7 +106,7 @@ impl ModalTags {
         let post = db.post(&id);
         let original = post.tags.clone();
 
-        let mut select_tags = SelectTags::edit(Id::new(ID_PREFIX), &post.tags);
+        let mut select_tags = SelectTags::edit(Id::unique(ID_PREFIX), &post.tags);
 
         let by_date = db.get_tags_view(&Selector::ByDate(post.date));
         let by_month = &db
@@ -144,12 +143,13 @@ impl ModalTags {
 
     pub fn update(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         tab_queue: &mut TabMessageQueue,
     ) {
+        let ctx = ui.ctx();
         self.select_tags.init(ctx);
 
         while let Some(message) = self.queue.pop_front() {
@@ -158,7 +158,7 @@ impl ModalTags {
 
         let mut queue = MessageQueue::new();
 
-        self.draw(ctx, image_cache, style, db, &mut queue);
+        self.draw(ui, image_cache, style, db, &mut queue);
 
         while let Some(msg) = queue.pop_front() {
             self.queue.push_back(msg);
@@ -247,16 +247,16 @@ impl ModalTags {
 
     fn draw(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         image_cache: &mut ImageCache,
         style: &Style,
         db: &Database,
         queue: &mut MessageQueue,
     ) {
-        SidePanel::left(fmt!("{ID_PREFIX}-left"))
+        Panel::left(fmt!("{ID_PREFIX}-left"))
             .resizable(false)
-            .min_width(style.image.preview_width)
-            .show(ctx, |ui| {
+            //.min_width(style.image.preview_width)
+            .show(ui, |ui| {
                 ScrollArea::vertical()
                     .id_salt(fmt!("{ID_PREFIX}-pictures-scroll"))
                     .show(ui, |ui| {
@@ -271,7 +271,7 @@ impl ModalTags {
                     });
             });
 
-        TopBottomPanel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ctx, |ui| {
+        Panel::bottom(fmt!("{ID_PREFIX}-bottom")).show(ui, |ui| {
             ui.with_layout(Layout::right_to_left(egui::Align::Min), |ui| {
                 if button::save(ui, self.is_modified(), Some(style.button.save)) {
                     queue.push_back(Message::SaveAndExit);
@@ -282,7 +282,7 @@ impl ModalTags {
             });
         });
 
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered_justified(|ui| {
                 self.view_selected_tags(ui, style, queue);
 

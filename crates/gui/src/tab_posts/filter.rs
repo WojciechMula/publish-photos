@@ -21,9 +21,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::VecDeque;
 
-use egui_material_icons::icons::ICON_CALENDAR_MONTH;
-use egui_material_icons::icons::ICON_FILTER_ALT;
-use egui_material_icons::icons::ICON_PUBLIC;
+use crate::icons::ICON_CALENDAR_MONTH;
+use crate::icons::ICON_FILTER_ALT;
+use crate::icons::ICON_PUBLIC;
 
 pub struct Filter {
     pub search_box: SearchBox,
