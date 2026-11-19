@@ -1381,6 +1381,7 @@ impl TabPosts {
 
         ScrollArea::vertical()
             .id_salt((ID_PREFIX, "selectors", selector_level))
+            .auto_shrink([false, true])
             .show(ui, |ui| {
                 let mut current = self.filter.get_current();
                 for selector in &db.picture_views.selectors {

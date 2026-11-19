@@ -425,7 +425,21 @@ impl eframe::App for Application {
             }
             self.initialized = true;
 
-            ctx.global_style_mut(|style| style.scroll_animation = ScrollAnimation::none());
+            ctx.global_style_mut(|style| {
+                style.scroll_animation = ScrollAnimation::none();
+                style.animation_time = 0.0;
+
+                style.visuals.popup_shadow = egui::Shadow::NONE;
+                style.spacing.scroll.fade.size = 0.0;
+                style.spacing.scroll.fade.strength = 0.0;
+
+                let corner_radius = egui::CornerRadius::same(3);
+                style.visuals.widgets.noninteractive.corner_radius = corner_radius;
+                style.visuals.widgets.inactive.corner_radius = corner_radius;
+                style.visuals.widgets.hovered.corner_radius = corner_radius;
+                style.visuals.widgets.active.corner_radius = corner_radius;
+                style.visuals.widgets.open.corner_radius = corner_radius;
+            });
         }
 
         self.image_cache.load_requested(ctx);
