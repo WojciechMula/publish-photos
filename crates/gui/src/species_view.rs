@@ -411,7 +411,7 @@ pub fn format_en(ui: &mut Ui, species: &Species) -> Option<ClipboardValue> {
         };
 
         let resp = ui.hyperlink_to(label, &species.wikipedia_en);
-        if species.en.is_empty() {
+        if !species.en.is_empty() {
             resp.context_menu(|ui| {
                 if ui.button("Copy to clipboard").clicked() {
                     result = Some(ClipboardValue::generic(species.pl.to_string()));
