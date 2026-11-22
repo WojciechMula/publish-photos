@@ -97,7 +97,8 @@ const ID_PREFIX: &str = "tab-posts";
 type GroupedView = Vec<(Selector, Vec<PostId>)>;
 
 pub struct TabPosts {
-    version: u64,
+    post_version: u64,
+    species_version: u64,
     view: Vec<PostId>,
     view_grouped: GroupedView,
     hovered: Option<PostId>,
@@ -401,7 +402,8 @@ impl TabPosts {
             selected: None,
             scroll_to_selected: false,
             grid_columns: 1,
-            version: u64::MAX,
+            post_version: u64::MAX,
+            species_version: u64::MAX,
             filter: Filter::default(),
             queue,
             inline_editors: BTreeMap::new(),
@@ -454,9 +456,12 @@ impl TabPosts {
 
     pub fn logic(&mut self, ctx: &Context, db: &mut Database, main_queue: &mut MainMessageQueue) {
         db.refresh_caches();
-        if self.version != db.current_version.posts {
+        if (self.post_version, self.species_version)
+            != (db.current_version.posts, db.current_version.species)
+        {
             self.queue.push_back(Message::RefreshView);
-            self.version = db.current_version.posts;
+            self.post_version = db.current_version.posts;
+            self.species_version = db.current_version.species;
         }
 
         self.update_labels(db);
