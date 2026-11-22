@@ -492,17 +492,23 @@ impl ModalSpecies {
                     }
                 });
 
-            if post.is_example {
-                if ui.button("🗙 Not a good example").clicked() {
-                    let msg = EditDetails::Example(self.id, false);
-                    tab_queue.push_back(msg.into());
+            ui.horizontal(|ui| {
+                if post.is_example {
+                    if ui.button("🗙 Not a good example").clicked() {
+                        let msg = EditDetails::Example(self.id, false);
+                        tab_queue.push_back(msg.into());
+                    }
+                } else {
+                    if ui.button("✔ Set as an example").clicked() {
+                        let msg = EditDetails::Example(self.id, true);
+                        tab_queue.push_back(msg.into());
+                    }
                 }
-            } else {
-                if ui.button("✔ Set as an example").clicked() {
-                    let msg = EditDetails::Example(self.id, true);
-                    tab_queue.push_back(msg.into());
+
+                if ui.button("Edit species").clicked() {
+                    tab_queue.push_back(TabMessage::EditSpeciesDetails(species.index));
                 }
-            }
+            });
         }
     }
 
