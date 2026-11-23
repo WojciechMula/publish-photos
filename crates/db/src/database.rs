@@ -220,6 +220,12 @@ impl Database {
         self.species.get(index.0)
     }
 
+    pub fn species_by_maybe_id(&self, key: &Option<SpeciesId>) -> Option<&Species> {
+        let key = key.as_ref()?;
+        let index = self.species2index.get(key)?;
+        self.species.get(index.0)
+    }
+
     pub fn species_mut_by_id(&mut self, key: &SpeciesId) -> Option<&mut Species> {
         let index = self.species2index.get(key)?;
         self.species.get_mut(index.0)

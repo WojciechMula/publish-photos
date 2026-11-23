@@ -15,15 +15,16 @@ use crate::species_view::SpeciesViewAction;
 use crate::style::Style;
 use crate::tab_posts::Message as TabMessage;
 use crate::tab_posts::MessageQueue as TabMessageQueue;
-use crate::tab_posts::Post;
 use crate::widgets::HistoryInputAction;
 use const_format::formatcp as fmt;
 use db::edit_details::EditDetails;
 use db::Database;
 use db::PostId;
+use db::Species;
 use db::SpeciesId;
 use db::SpeciesIndex;
 use egui::CentralPanel;
+use egui::Checkbox;
 use egui::Context;
 use egui::Frame;
 use egui::Id;
@@ -44,8 +45,8 @@ const ID_PREFIX: &str = "modal-post-species";
 
 pub struct ModalSpecies {
     id: PostId,
-    new: Option<SpeciesId>,
-    original: Option<SpeciesId>,
+    new: State,
+    original: State,
     recent_species: RecentSpecies,
     recent_species_version: u64,
     search_box: SearchBox,
@@ -58,6 +59,12 @@ pub struct ModalSpecies {
 
     pub queue: MessageQueue,
     pub keyboard_mapping: KeyboardMapping,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct State {
+    id: Option<SpeciesId>,
+    example: bool,
 }
 
 #[derive(Default, PartialEq, Eq, Clone, Copy, Debug)]
@@ -91,6 +98,8 @@ pub enum Message {
     SpeciesHovered(Option<SpeciesIndex>),
     SpeciesViewAction(SpeciesViewAction, SpeciesIndex),
     SetSpecies(SpeciesIndex),
+    RevertSpecies,
+    SetExample(bool),
     FilterByName(String),
     UnsetSpecies,
     SoftClose,
@@ -108,6 +117,8 @@ impl Message {
             Self::SpeciesHovered(_) => unreachable!(),
             Self::SpeciesViewAction { .. } => unreachable!(),
             Self::SetSpecies(_) => unreachable!(),
+            Self::RevertSpecies => unreachable!(),
+            Self::SetExample(_) => unreachable!(),
             Self::FilterByName(_) => unreachable!(),
             Self::UnsetSpecies => unreachable!(),
             Self::SoftClose => help::SOFT_CLOSE,
@@ -135,7 +146,11 @@ impl From<HistoryInputAction> for Message {
 impl ModalSpecies {
     pub fn new(id: PostId, db: &Database) -> Self {
         let post = db.post(&id);
-        let original = post.species_id.clone();
+        let original = State {
+            id: post.species_id.clone(),
+            example: post.is_example,
+        };
+
         let new = original.clone();
 
         let mut res = Self {
@@ -254,11 +269,18 @@ impl ModalSpecies {
             }
             Message::SetSpecies(index) => {
                 if let Some(species) = db.species_by_index(&index) {
-                    self.new = Some(species.id());
+                    self.new.id = Some(species.id());
+                    self.new.example = false;
                 }
             }
+            Message::SetExample(flag) => {
+                self.new.example = flag;
+            }
+            Message::RevertSpecies => {
+                self.new = self.original.clone();
+            }
             Message::UnsetSpecies => {
-                self.new = None;
+                self.new.reset();
             }
             Message::SoftClose => {
                 if self.is_modified() {
@@ -291,7 +313,11 @@ impl ModalSpecies {
                 tab_queue.push_back(TabMessage::CloseModal);
                 if self.is_modified() {
                     self.persist_history(ctx);
-                    let msg = EditDetails::SetSpecies(self.id, self.new.clone());
+
+                    let msg = EditDetails::SetSpecies(self.id, self.new.id.clone());
+                    tab_queue.push_back(msg.into());
+
+                    let msg = EditDetails::Example(self.id, self.new.example);
                     tab_queue.push_back(msg.into());
                 }
             }
@@ -323,7 +349,7 @@ impl ModalSpecies {
     }
 
     fn persist_history(&mut self, ctx: &Context) {
-        let Some(id) = self.new.as_ref() else {
+        let Some(id) = self.new.id.as_ref() else {
             return;
         };
 
@@ -410,7 +436,7 @@ impl ModalSpecies {
     ) {
         let post = db.post(&self.id);
 
-        self.view_species(ui, post, db, tab_queue, queue);
+        self.view_species(ui, db, tab_queue, queue);
 
         ui.separator();
 
@@ -450,66 +476,86 @@ impl ModalSpecies {
     fn view_species(
         &self,
         ui: &mut Ui,
-        post: &Post,
         db: &Database,
         tab_queue: &mut TabMessageQueue,
         queue: &mut MessageQueue,
     ) {
-        let Some(selected_species) = &self.new else {
-            ui.label("no species selected");
-            return;
-        };
-
-        if let Some(species) = db.species_by_id(selected_species) {
+        if let Some(species) = db.species_by_maybe_id(&self.new.id) {
             ui.horizontal(|ui| {
-                if ui.button("🗙 Clear").clicked() {
-                    queue.push_back(Message::UnsetSpecies);
-                }
-
-                ui.heading("Selected species")
-            });
-
-            Frame::new()
-                .inner_margin(5.0)
-                .outer_margin(5.0)
-                .fill(ui.visuals().faint_bg_color)
-                .show(ui, |ui| {
-                    ui.set_min_width(ui.available_width());
-                    ui.horizontal(|ui| {
-                        crate::species_view::format_latin(ui, species);
-                    });
-
-                    if !species.pl.is_empty() {
-                        ui.horizontal(|ui| {
-                            crate::species_view::format_pl(ui, species);
-                        });
-                    }
-
-                    if !species.en.is_empty() {
-                        ui.horizontal(|ui| {
-                            crate::species_view::format_en(ui, species);
-                        });
-                    }
-                });
-
-            ui.horizontal(|ui| {
-                if post.is_example {
-                    if ui.button("🗙 Not a good example").clicked() {
-                        let msg = EditDetails::Example(self.id, false);
-                        tab_queue.push_back(msg.into());
-                    }
-                } else {
-                    if ui.button("✔ Set as an example").clicked() {
-                        let msg = EditDetails::Example(self.id, true);
-                        tab_queue.push_back(msg.into());
-                    }
-                }
-
-                if ui.button("Edit species").clicked() {
+                ui.heading("Selected species");
+                if ui.button("Edit").clicked() {
                     tab_queue.push_back(TabMessage::EditSpeciesDetails(species.index));
                 }
             });
+
+            if ui.button("🗙 Clear").clicked() {
+                queue.push_back(Message::UnsetSpecies);
+            }
+
+            self.draw_species_details(ui, species);
+
+            let mut flag = self.new.example;
+
+            let unchanged_species = self.original.id == self.new.id;
+            let changed_is_example = self.original.example != self.new.example;
+            let label = if unchanged_species && changed_is_example {
+                "is example (modified)"
+            } else {
+                "is example"
+            };
+
+            if ui.checkbox(&mut flag, label).changed() {
+                queue.push_back(Message::SetExample(flag));
+            }
+        } else {
+            ui.heading("Selected species");
+
+            ui.label("no species selected");
         }
+
+        if self.original.id.is_some() && self.original.id != self.new.id {
+            ui.separator();
+
+            ui.heading("Previous species");
+            if let Some(species) = db.species_by_maybe_id(&self.original.id) {
+                if ui.button("🗙 Revert").clicked() {
+                    queue.push_back(Message::RevertSpecies);
+                }
+
+                self.draw_species_details(ui, species);
+            } else {
+                ui.label("no species found");
+            }
+
+            let mut flag = self.original.example;
+            let cb = Checkbox::new(&mut flag, "is example");
+            ui.add_enabled(false, cb);
+        }
+    }
+
+    fn draw_species_details(&self, ui: &mut Ui, species: &Species) {
+        Frame::new()
+            .inner_margin(5.0)
+            .outer_margin(5.0)
+            .fill(ui.visuals().faint_bg_color)
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    crate::species_view::format_latin(ui, species);
+                });
+
+                if !species.pl.is_empty() {
+                    ui.horizontal(|ui| {
+                        crate::species_view::format_pl(ui, species);
+                    });
+                }
+
+                if !species.en.is_empty() {
+                    ui.horizontal(|ui| {
+                        crate::species_view::format_en(ui, species);
+                    });
+                }
+            });
     }
 
     fn draw_species(
@@ -579,5 +625,12 @@ impl ModalSpecies {
 
     pub fn try_close(&mut self) {
         self.queue.push_back(Message::SoftClose);
+    }
+}
+
+impl State {
+    fn reset(&mut self) {
+        self.id = None;
+        self.example = false;
     }
 }
