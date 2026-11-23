@@ -5,9 +5,7 @@ members = [
     "crates/db",
     "crates/check",
     "crates/query",
-    "tools/copylabelled",
-    "tools/mkpost",
-    "tools/droplabel",
+    "tools/*",
 ]
 
 default-members = ["crates/gui"]
