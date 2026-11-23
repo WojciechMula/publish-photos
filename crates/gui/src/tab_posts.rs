@@ -95,6 +95,7 @@ use crate::icons::ICON_VIEW_DAY;
 const ID_PREFIX: &str = "tab-posts";
 
 type GroupedView = Vec<(Selector, Vec<PostId>)>;
+type LabelsMap = BTreeMap<String, LabelEntry>;
 
 pub struct TabPosts {
     post_version: u64,
@@ -121,7 +122,7 @@ pub struct TabPosts {
     selectors_keyboard_mapping: KeyboardMapping,
     labels_version: u64,
     enabled_labels_count: usize,
-    labels: BTreeMap<String, LabelEntry>,
+    labels: LabelsMap,
 
     pub queue: MessageQueue,
 }
@@ -420,7 +421,7 @@ impl TabPosts {
             selectors_keyboard_mapping: Self::create_selectors_mapping(),
             fullscreen_keyboard_mapping: Self::create_fullscreen_mapping(),
             labels_version: u64::MAX,
-            labels: BTreeMap::new(),
+            labels: LabelsMap::new(),
             enabled_labels_count: 0,
         }
     }
@@ -1481,7 +1482,8 @@ impl TabPosts {
 
         if self.enabled_labels_count > 0 {
             ui.separator();
-            ui.menu_button("Label...", |ui| {
+
+            let mut display_labels = |ui: &mut Ui| {
                 for entry in self.labels.values().filter(|entry| entry.enabled) {
                     ui.horizontal(|ui| {
                         let mut checked = post.labels.contains(&entry.label);
@@ -1506,7 +1508,15 @@ impl TabPosts {
                         }
                     });
                 }
-            });
+            };
+
+            const INLINE_LABELS_COUNT: usize = 10;
+            if self.enabled_labels_count < INLINE_LABELS_COUNT {
+                ui.label(egui::RichText::new("Labels").italics());
+                display_labels(ui);
+            } else {
+                ui.menu_button("Label...", |ui| display_labels(ui));
+            }
         }
     }
 
