@@ -43,14 +43,11 @@ fn main() -> Result<(), Error> {
     let db = Database::from_file(&path)?;
 
     let dst_dir = Path::new("/dev/shm/post");
-    assert!(dst_dir.exists());
-    assert!(dst_dir.is_dir());
-
-    for entry in dst_dir.read_dir()? {
-        let entry = entry?;
-        let path = entry.path();
-        println!("removing {}", path.display());
-        std::fs::remove_file(path)?;
+    if !dst_dir.exists() {
+        println!("creating {}", dst_dir.display());
+        std::fs::create_dir_all(dst_dir)?;
+    } else {
+        clean_directory(dst_dir)?;
     }
 
     let prefix = format!("{:02}-{}", month.as_u8(), category.part());
@@ -127,8 +124,7 @@ fn main() -> Result<(), Error> {
         let dst = dst_dir.join(format!("{n}.jpg"));
 
         println!("copying {} to {}", src.display(), dst.display());
-        let buf = std::fs::read(src)?;
-        std::fs::write(dst, buf)?;
+        std::fs::copy(src, dst)?;
     }
 
     println!();
@@ -212,4 +208,15 @@ fn pl_name(m: &Month) -> &'static str {
         12 => "Grudzień",
         _ => unreachable!(),
     }
+}
+
+fn clean_directory(dst_dir: &Path) -> Result<(), Error> {
+    for entry in dst_dir.read_dir()? {
+        let entry = entry?;
+        let path = entry.path();
+        println!("removing {}", path.display());
+        std::fs::remove_file(path)?;
+    }
+
+    Ok(())
 }
