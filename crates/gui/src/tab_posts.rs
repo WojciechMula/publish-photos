@@ -1799,6 +1799,10 @@ impl TabPosts {
         grid_columns: isize,
         mut iter: impl Iterator<Item = &'a PostId>,
     ) -> bool {
+        if grid_columns == 0 {
+            return true;
+        }
+
         let mut empty = false;
         ui.horizontal(|ui| {
             for _ in 0..grid_columns {
